@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { FlaskConical, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
+import Image from 'next/image'
 
 export default function HomePage() {
   const router = useRouter()
@@ -38,7 +39,16 @@ export default function HomePage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="text-center space-y-4">
-        <FlaskConical className="h-16 w-16 text-indigo-600 mx-auto animate-pulse" />
+        <Image
+          src={
+            'https://mknzstzwhbfoyxzfudfw.supabase.co/storage/v1/object/public/images/ORG_logo_NEMACHILE_(R)_01.08.23.ai.png'
+          }
+          alt="Logo"
+          width={96}
+          height={96}
+          className="mx-auto"
+          priority
+        />
         <h1 className="text-2xl font-bold text-gray-900">LIMS</h1>
         <p className="text-gray-600">Sistema de Gestión de Laboratorio</p>
         <Loader2 className="h-6 w-6 animate-spin mx-auto text-indigo-600" />

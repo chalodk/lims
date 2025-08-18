@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { 
-  FlaskConical, 
   Home,
   TestTube,
   Users,
@@ -18,6 +17,7 @@ import {
   Bell,
   Loader2
 } from 'lucide-react'
+import Image from 'next/image'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -72,7 +72,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {/* Logo */}
           <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
             <div className="flex items-center space-x-3">
-              <FlaskConical className="h-8 w-8 text-indigo-600" />
+              <Image
+                src={
+                  'https://mknzstzwhbfoyxzfudfw.supabase.co/storage/v1/object/public/images/ORG_logo_NEMACHILE_(R)_01.08.23.ai.png'
+                }
+                alt="Logo"
+                width={32}
+                height={32}
+                className="rounded"
+              />
               <div>
                 <h1 className="text-lg font-bold text-gray-900">LIMS</h1>
                 <p className="text-xs text-gray-500">Laboratorio</p>

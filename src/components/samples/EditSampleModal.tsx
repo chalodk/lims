@@ -90,20 +90,6 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
     }
   }, [isOpen, fetchClients])
 
-  const fetchClients = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .order('name', { ascending: true })
-
-      if (error) throw error
-      setClients(data || [])
-    } catch (error) {
-      console.error('Error fetching clients:', error)
-    }
-  }
-
   const handleAnalysisTypeChange = (type: string, checked: boolean) => {
     setFormData(prev => ({
       ...prev,
@@ -369,7 +355,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     <option value="Desconocido">Desconocido</option>
                     {SPECIES_CATEGORIES.map(category => (
                       <optgroup key={category.label} label={category.label}>
-                        {category.options.map(species => (
+                        {category.options.map((species: string) => (
                           <option key={species} value={species}>{species}</option>
                         ))}
                       </optgroup>
@@ -422,7 +408,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     <option value="Desconocido">Desconocido</option>
                     {SPECIES_CATEGORIES.map(category => (
                       <optgroup key={`prev-${category.label}`} label={category.label}>
-                        {category.options.map(species => (
+                        {category.options.map((species: string) => (
                           <option key={`prev-${species}`} value={species}>{species}</option>
                         ))}
                       </optgroup>
@@ -445,7 +431,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     <option value="Desconocido">Desconocido</option>
                     {SPECIES_CATEGORIES.map(category => (
                       <optgroup key={`next-${category.label}`} label={category.label}>
-                        {category.options.map(species => (
+                        {category.options.map((species: string) => (
                           <option key={`next-${species}`} value={species}>{species}</option>
                         ))}
                       </optgroup>
