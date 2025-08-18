@@ -77,9 +77,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   'https://mknzstzwhbfoyxzfudfw.supabase.co/storage/v1/object/public/images/ORG_logo_NEMACHILE_(R)_01.08.23.ai.png'
                 }
                 alt="Logo"
-                width={32}
-                height={32}
-                className="rounded"
+                width={48}
+                height={48}
+                className="rounded w-12 h-12"
               />
               <div>
                 <h1 className="text-lg font-bold text-gray-900">LIMS</h1>

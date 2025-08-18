@@ -44,9 +44,9 @@ export default function HomePage() {
             'https://mknzstzwhbfoyxzfudfw.supabase.co/storage/v1/object/public/images/ORG_logo_NEMACHILE_(R)_01.08.23.ai.png'
           }
           alt="Logo"
-          width={96}
-          height={96}
-          className="mx-auto"
+          width={160}
+          height={160}
+          className="mx-auto w-40 h-40"
           priority
         />
         <h1 className="text-2xl font-bold text-gray-900">LIMS</h1>
