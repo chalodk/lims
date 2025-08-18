@@ -44,12 +44,12 @@ export default function HomePage() {
             'https://mknzstzwhbfoyxzfudfw.supabase.co/storage/v1/object/public/images/ORG_logo_NEMACHILE_(R)_01.08.23.ai.png'
           }
           alt="Logo"
-          width={160}
-          height={160}
-          className="mx-auto w-40 h-40"
+          width={300}
+          height={90}
+          className="mx-auto w-[300px] h-auto"
           priority
         />
-        <h1 className="text-2xl font-bold text-gray-900">LIMS</h1>
+        {/* Removed title to prioritize logo */}
         <p className="text-gray-600">Sistema de Gestión de Laboratorio</p>
         <Loader2 className="h-6 w-6 animate-spin mx-auto text-indigo-600" />
         <p className="text-sm text-gray-500">Cargando...</p>

@@ -77,14 +77,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   'https://mknzstzwhbfoyxzfudfw.supabase.co/storage/v1/object/public/images/ORG_logo_NEMACHILE_(R)_01.08.23.ai.png'
                 }
                 alt="Logo"
-                width={48}
-                height={48}
-                className="rounded w-12 h-12"
+                width={140}
+                height={42}
+                className="w-[140px] h-auto"
+                priority
               />
-              <div>
-                <h1 className="text-lg font-bold text-gray-900">LIMS</h1>
-                <p className="text-xs text-gray-500">Laboratorio</p>
-              </div>
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
