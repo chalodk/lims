@@ -334,7 +334,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
                     <option value="Desconocido">Desconocido</option>
                     {SPECIES_CATEGORIES.map(category => (
                       <optgroup key={category.label} label={category.label}>
-                        {category.options.map(species => (
+                        {category.options.map((species: string) => (
                           <option key={species} value={species}>{species}</option>
                         ))}
                       </optgroup>
@@ -388,7 +388,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
                     <option value="Desconocido">Desconocido</option>
                     {SPECIES_CATEGORIES.map(category => (
                       <optgroup key={`prev-${category.label}`} label={category.label}>
-                        {category.options.map(species => (
+                        {category.options.map((species: string) => (
                           <option key={`prev-${species}`} value={species}>{species}</option>
                         ))}
                       </optgroup>
@@ -411,7 +411,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
                     <option value="Desconocido">Desconocido</option>
                     {SPECIES_CATEGORIES.map(category => (
                       <optgroup key={`next-${category.label}`} label={category.label}>
-                        {category.options.map(species => (
+                        {category.options.map((species: string) => (
                           <option key={`next-${species}`} value={species}>{species}</option>
                         ))}
                       </optgroup>
