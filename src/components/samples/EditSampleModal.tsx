@@ -219,8 +219,8 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
             <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
-                  <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100">
-                    <TestTube className="h-6 w-6 text-indigo-600" />
+                          <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+          <TestTube className="h-6 w-6 text-green-600" />
                   </div>
                   <div className="ml-4">
                     <h3 className="text-lg leading-6 font-medium text-gray-900">
@@ -524,7 +524,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

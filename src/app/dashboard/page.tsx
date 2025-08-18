@@ -21,7 +21,7 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-green-600" />
       </div>
     )
   }
@@ -47,8 +47,8 @@ export default function DashboardPage() {
                 <p className="text-sm font-medium text-gray-600">Muestras Activas</p>
                 <p className="text-3xl font-bold text-gray-900">-</p>
               </div>
-              <div className="p-3 bg-blue-100 rounded-full">
-                <FlaskConical className="h-6 w-6 text-blue-600" />
+                        <div className="p-3 bg-green-100 rounded-full">
+            <FlaskConical className="h-6 w-6 text-green-600" />
               </div>
             </div>
             <div className="mt-4">
@@ -132,7 +132,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="mt-6">
-                <button className="w-full text-center text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                <button className="w-full text-center text-sm font-medium text-green-600 hover:text-green-500">
                   Ver todas las muestras →
                 </button>
               </div>
@@ -146,9 +146,9 @@ export default function DashboardPage() {
             </div>
             <div className="p-6">
               <div className="grid grid-cols-2 gap-4">
-                <button className="flex flex-col items-center p-4 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors">
-                  <FlaskConical className="h-8 w-8 text-indigo-600 mb-2" />
-                  <span className="text-sm font-medium text-indigo-900">Nueva Muestra</span>
+                            <button className="flex flex-col items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
+              <FlaskConical className="h-8 w-8 text-green-600 mb-2" />
+              <span className="text-sm font-medium text-green-900">Nueva Muestra</span>
                 </button>
                 
                 <button className="flex flex-col items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">

@@ -73,8 +73,8 @@ export default function ViewSampleModal({ isOpen, onClose, sample }: ViewSampleM
           <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
-                <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100">
-                  <TestTube className="h-6 w-6 text-indigo-600" />
+                        <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+          <TestTube className="h-6 w-6 text-green-600" />
                 </div>
                 <div className="ml-4">
                   <h3 className="text-lg leading-6 font-medium text-gray-900">
@@ -190,7 +190,7 @@ export default function ViewSampleModal({ isOpen, onClose, sample }: ViewSampleM
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de análisis</label>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {parsedTests.analysisTypes.length > 0 ? parsedTests.analysisTypes.map(type => (
-                    <span key={type} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                    <span key={type} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                       {type}
                     </span>
                   )) : (
@@ -248,7 +248,7 @@ export default function ViewSampleModal({ isOpen, onClose, sample }: ViewSampleM
             <button
               type="button"
               onClick={onClose}
-              className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:w-auto sm:text-sm"
+              className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:w-auto sm:text-sm"
             >
               Cerrar
             </button>

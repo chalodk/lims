@@ -129,7 +129,7 @@ export default function ClientsPage() {
       <DashboardLayout>
         <div className="p-6">
           <div className="flex items-center justify-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+            <Loader2 className="h-8 w-8 animate-spin text-green-600" />
           </div>
         </div>
       </DashboardLayout>
@@ -148,7 +148,7 @@ export default function ClientsPage() {
             </div>
             <button 
               onClick={() => setShowAddModal(true)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
             >
               <Plus className="h-4 w-4" />
               <span>Nuevo cliente</span>
@@ -165,7 +165,7 @@ export default function ClientsPage() {
               placeholder="Buscar por nombre, RUT o email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
             />
           </div>
         </div>
@@ -178,7 +178,7 @@ export default function ClientsPage() {
             <p className="text-gray-500 mb-4">Comienza agregando tu primer cliente</p>
             <button 
               onClick={() => setShowAddModal(true)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg inline-flex items-center space-x-2"
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg inline-flex items-center space-x-2"
             >
               <Plus className="h-4 w-4" />
               <span>Agregar cliente</span>
@@ -199,7 +199,7 @@ export default function ClientsPage() {
                     </span>
                   </div>
                   <div className="flex space-x-1">
-                    <button className="p-1 text-gray-400 hover:text-indigo-600 transition-colors">
+                    <button className="p-1 text-gray-400 hover:text-green-600 transition-colors">
                       <Edit className="h-4 w-4" />
                     </button>
                     <button className="p-1 text-gray-400 hover:text-red-600 transition-colors">
@@ -254,8 +254,8 @@ export default function ClientsPage() {
                 <form onSubmit={handleSubmit}>
                   <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                     <div className="sm:flex sm:items-start mb-4">
-                      <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100 sm:mx-0 sm:h-10 sm:w-10">
-                        <Users className="h-6 w-6 text-indigo-600" />
+                                <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100 sm:mx-0 sm:h-10 sm:w-10">
+            <Users className="h-6 w-6 text-green-600" />
                       </div>
                       <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
                         <h3 className="text-lg leading-6 font-medium text-gray-900">
@@ -281,7 +281,7 @@ export default function ClientsPage() {
                           required
                           value={formData.name}
                           onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                           placeholder="Nombre del cliente"
                         />
                       </div>
@@ -296,7 +296,7 @@ export default function ClientsPage() {
                           id="rut"
                           value={formData.rut}
                           onChange={(e) => setFormData(prev => ({ ...prev, rut: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                           placeholder="12.345.678-9"
                         />
                       </div>
@@ -310,7 +310,7 @@ export default function ClientsPage() {
                           id="client_type"
                           value={formData.client_type}
                           onChange={(e) => setFormData(prev => ({ ...prev, client_type: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                         >
                           <option value="farmer">Agricultor</option>
                           <option value="agricultural_company">Empresa Agrícola</option>
@@ -330,7 +330,7 @@ export default function ClientsPage() {
                           id="contact_email"
                           value={formData.contact_email}
                           onChange={(e) => setFormData(prev => ({ ...prev, contact_email: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                           placeholder="cliente@ejemplo.com"
                         />
                       </div>
@@ -345,7 +345,7 @@ export default function ClientsPage() {
                           id="phone"
                           value={formData.phone}
                           onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                           placeholder="+56 9 1234 5678"
                         />
                       </div>
@@ -360,7 +360,7 @@ export default function ClientsPage() {
                           rows={2}
                           value={formData.address}
                           onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                           placeholder="Dirección completa del cliente"
                         />
                       </div>
@@ -371,7 +371,7 @@ export default function ClientsPage() {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
                     >
                       {isSubmitting ? (
                         <Loader2 className="h-4 w-4 animate-spin" />

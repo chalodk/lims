@@ -101,7 +101,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   href={item.href}
                   className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                     isActive
-                      ? 'bg-indigo-100 text-indigo-700'
+                      ? 'bg-green-100 text-green-700'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   }`}
                 >
@@ -115,8 +115,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {/* User info */}
           <div className="p-4 border-t border-gray-200">
             <div className="flex items-center space-x-3 mb-3">
-              <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
-                <span className="text-indigo-600 font-medium text-sm">
+              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                <span className="text-green-600 font-medium text-sm">
                   {user?.name?.charAt(0) || authUser?.email?.charAt(0) || 'U'}
                 </span>
               </div>
