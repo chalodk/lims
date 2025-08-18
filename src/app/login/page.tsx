@@ -61,12 +61,12 @@ export default function LoginPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="p-3 bg-indigo-600 rounded-full">
-              <FlaskConical className="h-8 w-8 text-white" />
-            </div>
+            <img
+              src="https://mknzstzwhbfoyxzfudfw.supabase.co/storage/v1/object/public/images/ORG_logo_NEMACHILE_(R)_01.08.23.ai.png"
+              alt="Logo del Laboratorio"
+              className="w-[250px] h-auto"
+            />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">LIMS</h1>
-          <p className="text-gray-600">Sistema de Gestión de Laboratorio</p>
         </div>
 
         {/* Login Form */}
