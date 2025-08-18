@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { Client } from '@/types/database'
@@ -46,14 +46,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
   
   const supabase = createClient()
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchClients()
-      generateSampleCode()
-    }
-  }, [isOpen])
-
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('clients')
@@ -65,13 +58,20 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
     } catch (error) {
       console.error('Error fetching clients:', error)
     }
-  }
+  }, [supabase])
 
-  const generateSampleCode = () => {
+  const generateSampleCode = useCallback(() => {
     const year = new Date().getFullYear()
     const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
     setFormData(prev => ({ ...prev, code: `LIM-${year}-${randomNum}` }))
-  }
+  }, [])
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchClients()
+      generateSampleCode()
+    }
+  }, [isOpen, fetchClients, generateSampleCode])
 
   const handleAnalysisTypeChange = (type: string, checked: boolean) => {
     setFormData(prev => ({

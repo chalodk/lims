@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 
 export default function DashboardPage() {
-  const { user, authUser, userRole, signOut, isLoading, isAuthenticated } = useAuth()
+  const { isLoading } = useAuth()
 
   // Simple loading check
   if (isLoading) {

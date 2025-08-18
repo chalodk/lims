@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
 import DashboardLayout from '@/components/layout/DashboardLayout'
@@ -36,30 +36,7 @@ export default function SamplesPage() {
   
   const supabase = createClient()
 
-  useEffect(() => {
-    fetchSamples()
-    checkActualSchema()
-  }, [])
-
-  const checkActualSchema = async () => {
-    try {
-      // Try a simple select to see what columns actually exist
-      const { data, error } = await supabase
-        .from('samples')
-        .select('*')
-        .limit(1)
-        
-      if (data && data.length > 0) {
-        console.log('Actual sample columns:', Object.keys(data[0]))
-      } else if (!error) {
-        console.log('No samples exist yet - will see columns after creating first sample')
-      }
-    } catch (error) {
-      console.log('Schema check failed:', error)
-    }
-  }
-
-  const fetchSamples = async () => {
+  const fetchSamples = useCallback(async () => {
     try {
       let query = supabase
         .from('samples')
@@ -92,7 +69,29 @@ export default function SamplesPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [statusFilter, supabase])
+
+  const checkActualSchema = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('samples')
+        .select('*')
+        .limit(1)
+        
+      if (data && data.length > 0) {
+        console.log('Actual sample columns:', Object.keys(data[0]))
+      } else if (!error) {
+        console.log('No samples exist yet - will see columns after creating first sample')
+      }
+    } catch (error) {
+      console.log('Schema check failed:', error)
+    }
+  }, [supabase])
+
+  useEffect(() => {
+    fetchSamples()
+    checkActualSchema()
+  }, [fetchSamples, checkActualSchema])
 
   const filteredSamples = samples.filter(sample =>
     sample.code.toLowerCase().includes(searchTerm.toLowerCase()) ||

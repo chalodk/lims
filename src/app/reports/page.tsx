@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
 import DashboardLayout from '@/components/layout/DashboardLayout'
@@ -26,11 +26,7 @@ export default function ReportsPage() {
   
   const supabase = createClient()
 
-  useEffect(() => {
-    fetchReports()
-  }, [])
-
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     try {
       let query = supabase
         .from('reports')
@@ -56,7 +52,12 @@ export default function ReportsPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [statusFilter, supabase])
+
+  useEffect(() => {
+    fetchReports()
+  }, [fetchReports])
+
 
   const filteredReports = reports.filter(report => {
     // Simple filtering since we don't have joins - can be improved later

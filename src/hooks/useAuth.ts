@@ -148,7 +148,7 @@ export function useAuth() {
       subscription.unsubscribe()
       clearInterval(sessionCheckInterval)
     }
-  }, [])
+  }, [supabase.auth])
 
   const signOut = async () => {
     try {

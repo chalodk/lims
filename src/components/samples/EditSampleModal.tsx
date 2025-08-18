@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { SampleWithClient, Client } from '@/types/database'
@@ -70,11 +70,25 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
   
   const supabase = createClient()
 
+  const fetchClients = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .order('name', { ascending: true })
+
+      if (error) throw error
+      setClients(data || [])
+    } catch (error) {
+      console.error('Error fetching clients:', error)
+    }
+  }, [supabase])
+
   useEffect(() => {
     if (isOpen) {
       fetchClients()
     }
-  }, [isOpen])
+  }, [isOpen, fetchClients])
 
   const fetchClients = async () => {
     try {
@@ -285,7 +299,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                   </label>
                   <select
                     value={formData.status}
-                    onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as any }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as typeof formData.status }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   >
                     {statusOptions.map(option => (
@@ -315,7 +329,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                   </label>
                   <select
                     value={formData.priority}
-                    onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value as any }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value as typeof formData.priority }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   >
                     <option value="normal">Normal</option>

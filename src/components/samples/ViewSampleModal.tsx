@@ -1,7 +1,7 @@
 'use client'
 
 import { SampleWithClient } from '@/types/database'
-import { X, TestTube, Calendar, User, FileText } from 'lucide-react'
+import { X, TestTube } from 'lucide-react'
 
 interface ViewSampleModalProps {
   isOpen: boolean
