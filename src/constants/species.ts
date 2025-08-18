@@ -243,19 +243,19 @@ export const CROP_SPECIES = {
 // Lista completa combinada para fácil uso
 export const ALL_SPECIES = [
   'Desconocido', // Opción por defecto
-  ...CROP_SPECIES.VEGETABLES_AND_CROPS.sort(),
-  ...CROP_SPECIES.FRUITS_AND_TREES.sort()
+  ...Array.from(CROP_SPECIES.VEGETABLES_AND_CROPS).sort(),
+  ...Array.from(CROP_SPECIES.FRUITS_AND_TREES).sort()
 ].sort()
 
 // Categorías para organización en el dropdown
 export const SPECIES_CATEGORIES = [
   {
     label: 'Cultivos y Hortalizas',
-    options: CROP_SPECIES.VEGETABLES_AND_CROPS.sort()
+    options: Array.from(CROP_SPECIES.VEGETABLES_AND_CROPS).sort()
   },
   {
     label: 'Frutales y Árboles',
-    options: CROP_SPECIES.FRUITS_AND_TREES.sort()
+    options: Array.from(CROP_SPECIES.FRUITS_AND_TREES).sort()
   }
 ] as const
 
