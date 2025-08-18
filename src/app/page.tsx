@@ -1,0 +1,49 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { FlaskConical, Loader2 } from 'lucide-react'
+
+export default function HomePage() {
+  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(true)
+  const supabase = createClient()
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (user) {
+          router.push('/dashboard')
+        } else {
+          router.push('/login')
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error)
+        router.push('/login')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    checkAuth()
+  }, [router, supabase.auth])
+
+  if (!isLoading) {
+    return null // Will redirect, so don't show anything
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="text-center space-y-4">
+        <FlaskConical className="h-16 w-16 text-indigo-600 mx-auto animate-pulse" />
+        <h1 className="text-2xl font-bold text-gray-900">LIMS</h1>
+        <p className="text-gray-600">Sistema de Gestión de Laboratorio</p>
+        <Loader2 className="h-6 w-6 animate-spin mx-auto text-indigo-600" />
+        <p className="text-sm text-gray-500">Cargando...</p>
+      </div>
+    </div>
+  )
+}
