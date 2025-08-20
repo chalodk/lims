@@ -46,6 +46,20 @@ export default function SamplesPage() {
             id,
             name,
             contact_email
+          ),
+          sample_tests (
+            id,
+            test_catalog (
+              id,
+              code,
+              name,
+              area
+            ),
+            methods (
+              id,
+              code,
+              name
+            )
           )
         `)
         .order('created_at', { ascending: false })
@@ -180,24 +194,22 @@ export default function SamplesPage() {
     )
   }
 
-  const getPriorityBadge = (priority: string) => {
-    const priorityConfig = {
+  const getSlaTypeBadge = (slaType: string) => {
+    const slaTypeConfig = {
       normal: 'bg-gray-100 text-gray-800',
-      express: 'bg-orange-100 text-orange-800',
-      urgent: 'bg-red-100 text-red-800'
+      express: 'bg-orange-100 text-orange-800'
     }
 
-    const priorityLabels = {
+    const slaTypeLabels = {
       normal: 'Normal',
-      express: 'Express',
-      urgent: 'Urgente'
+      express: 'Express'
     }
 
     return (
       <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-        priorityConfig[priority as keyof typeof priorityConfig] || 'bg-gray-100 text-gray-800'
+        slaTypeConfig[slaType as keyof typeof slaTypeConfig] || 'bg-gray-100 text-gray-800'
       }`}>
-        {priorityLabels[priority as keyof typeof priorityLabels] || priority}
+        {slaTypeLabels[slaType as keyof typeof slaTypeLabels] || slaType}
       </span>
     )
   }
@@ -346,7 +358,7 @@ export default function SamplesPage() {
                         {getStatusBadge(sample.status)}
                       </td>
                       <td className="px-6 py-4">
-                        {getPriorityBadge(sample.priority)}
+                        {getSlaTypeBadge(sample.sla_type)}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {new Date(sample.received_date).toLocaleDateString('es-ES')}

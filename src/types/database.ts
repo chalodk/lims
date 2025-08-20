@@ -123,8 +123,6 @@ export interface Database {
           code: string
           received_date: string
           registered_date: string
-          priority: 'normal' | 'express'
-          project: 'Externa' | 'Syngenta (Circulo Syngenta)' | 'Syngenta (Ensayos)' | 'FMC' | 'Copeval' | 'Bayer' | 'Basf' | 'Corteva' | 'Anasac' | 'UPL' | 'Trical' | 'Agrospec' | null
           species: string
           variety: string | null
           planting_year: number | null
@@ -136,10 +134,18 @@ export interface Database {
           taken_by: 'client' | 'lab' | null
           delivery_method: string | null
           suspected_pathogen: string | null
-          requested_tests: string[]
           status: 'received' | 'processing' | 'microscopy' | 'isolation' | 'identification' | 'molecular_analysis' | 'validation' | 'completed'
           created_at: string
           updated_at: string
+          received_at: string | null
+          sla_type: 'normal' | 'express'
+          due_date: string | null
+          sla_status: 'on_time' | 'at_risk' | 'breached'
+          region: string | null
+          locality: string | null
+          sampling_observations: string | null
+          reception_observations: string | null
+          project_id: string | null
         }
         Insert: {
           id?: string
@@ -148,8 +154,6 @@ export interface Database {
           code: string
           received_date: string
           registered_date?: string
-          priority?: 'normal' | 'express'
-          project?: 'Externa' | 'Syngenta (Circulo Syngenta)' | 'Syngenta (Ensayos)' | 'FMC' | 'Copeval' | 'Bayer' | 'Basf' | 'Corteva' | 'Anasac' | 'UPL' | 'Trical' | 'Agrospec' | null
           species: string
           variety?: string | null
           planting_year?: number | null
@@ -161,10 +165,18 @@ export interface Database {
           taken_by?: 'client' | 'lab' | null
           delivery_method?: string | null
           suspected_pathogen?: string | null
-          requested_tests: string[]
           status?: 'received' | 'processing' | 'microscopy' | 'isolation' | 'identification' | 'molecular_analysis' | 'validation' | 'completed'
           created_at?: string
           updated_at?: string
+          received_at?: string | null
+          sla_type?: 'normal' | 'express'
+          due_date?: string | null
+          sla_status?: 'on_time' | 'at_risk' | 'breached'
+          region?: string | null
+          locality?: string | null
+          sampling_observations?: string | null
+          reception_observations?: string | null
+          project_id?: string | null
         }
         Update: {
           id?: string
@@ -173,8 +185,6 @@ export interface Database {
           code?: string
           received_date?: string
           registered_date?: string
-          priority?: 'normal' | 'express'
-          project?: 'Externa' | 'Syngenta (Circulo Syngenta)' | 'Syngenta (Ensayos)' | 'FMC' | 'Copeval' | 'Bayer' | 'Basf' | 'Corteva' | 'Anasac' | 'UPL' | 'Trical' | 'Agrospec' | null
           species?: string
           variety?: string | null
           planting_year?: number | null
@@ -186,18 +196,27 @@ export interface Database {
           taken_by?: 'client' | 'lab' | null
           delivery_method?: string | null
           suspected_pathogen?: string | null
-          requested_tests?: string[]
           status?: 'received' | 'processing' | 'microscopy' | 'isolation' | 'identification' | 'molecular_analysis' | 'validation' | 'completed'
           created_at?: string
           updated_at?: string
+          received_at?: string | null
+          sla_type?: 'normal' | 'express'
+          due_date?: string | null
+          sla_status?: 'on_time' | 'at_risk' | 'breached'
+          region?: string | null
+          locality?: string | null
+          sampling_observations?: string | null
+          reception_observations?: string | null
+          project_id?: string | null
         }
       }
       results: {
         Row: {
           id: string
           sample_id: string | null
-          test_type: 'Visual Inspection' | 'Cultural Isolation' | 'Molecular PCR' | 'Pathogenicity Test' | 'ELISA' | 'Microscopy' | 'Biochemical Tests' | 'Sequencing' | 'Serology' | 'Immunofluorescence' | null
-          methodology: string
+          sample_test_id: string | null
+          test_area: string | null
+          methodology: string | null
           findings: Record<string, unknown> | null
           conclusion: string | null
           diagnosis: string | null
@@ -205,14 +224,8 @@ export interface Database {
           pathogen_type: 'fungus' | 'bacteria' | 'virus' | 'nematode' | 'insect' | 'abiotic' | 'unknown' | null
           severity: 'low' | 'moderate' | 'high' | 'severe' | null
           confidence: 'low' | 'medium' | 'high' | null
-          result_type: 'positive' | 'negative' | null
-          is_pathogen_present: boolean | null
-          microscopic_observations: string | null
-          cultural_characteristics: string | null
-          molecular_results: string | null
+          result_type: 'positive' | 'negative' | 'inconclusive' | null
           recommendations: string | null
-          images: string[] | null
-          comments: string | null
           performed_by: string | null
           performed_at: string
           validated_by: string | null
@@ -224,8 +237,9 @@ export interface Database {
         Insert: {
           id?: string
           sample_id?: string | null
-          test_type?: 'Visual Inspection' | 'Cultural Isolation' | 'Molecular PCR' | 'Pathogenicity Test' | 'ELISA' | 'Microscopy' | 'Biochemical Tests' | 'Sequencing' | 'Serology' | 'Immunofluorescence' | null
-          methodology: string
+          sample_test_id?: string | null
+          test_area?: string | null
+          methodology?: string | null
           findings?: Record<string, unknown> | null
           conclusion?: string | null
           diagnosis?: string | null
@@ -233,14 +247,8 @@ export interface Database {
           pathogen_type?: 'fungus' | 'bacteria' | 'virus' | 'nematode' | 'insect' | 'abiotic' | 'unknown' | null
           severity?: 'low' | 'moderate' | 'high' | 'severe' | null
           confidence?: 'low' | 'medium' | 'high' | null
-          result_type?: 'positive' | 'negative' | null
-          is_pathogen_present?: boolean | null
-          microscopic_observations?: string | null
-          cultural_characteristics?: string | null
-          molecular_results?: string | null
+          result_type?: 'positive' | 'negative' | 'inconclusive' | null
           recommendations?: string | null
-          images?: string[] | null
-          comments?: string | null
           performed_by?: string | null
           performed_at?: string
           validated_by?: string | null
@@ -252,8 +260,9 @@ export interface Database {
         Update: {
           id?: string
           sample_id?: string | null
-          test_type?: 'Visual Inspection' | 'Cultural Isolation' | 'Molecular PCR' | 'Pathogenicity Test' | 'ELISA' | 'Microscopy' | 'Biochemical Tests' | 'Sequencing' | 'Serology' | 'Immunofluorescence' | null
-          methodology?: string
+          sample_test_id?: string | null
+          test_area?: string | null
+          methodology?: string | null
           findings?: Record<string, unknown> | null
           conclusion?: string | null
           diagnosis?: string | null
@@ -261,14 +270,8 @@ export interface Database {
           pathogen_type?: 'fungus' | 'bacteria' | 'virus' | 'nematode' | 'insect' | 'abiotic' | 'unknown' | null
           severity?: 'low' | 'moderate' | 'high' | 'severe' | null
           confidence?: 'low' | 'medium' | 'high' | null
-          result_type?: 'positive' | 'negative' | null
-          is_pathogen_present?: boolean | null
-          microscopic_observations?: string | null
-          cultural_characteristics?: string | null
-          molecular_results?: string | null
+          result_type?: 'positive' | 'negative' | 'inconclusive' | null
           recommendations?: string | null
-          images?: string[] | null
-          comments?: string | null
           performed_by?: string | null
           performed_at?: string
           validated_by?: string | null
@@ -293,6 +296,7 @@ export interface Database {
           include_recommendations: boolean
           include_images: boolean
           download_url: string | null
+          test_areas: string[] | null
           created_at: string
           updated_at: string
         }
@@ -310,6 +314,7 @@ export interface Database {
           include_recommendations?: boolean
           include_images?: boolean
           download_url?: string | null
+          test_areas?: string[] | null
           created_at?: string
           updated_at?: string
         }
@@ -327,8 +332,84 @@ export interface Database {
           include_recommendations?: boolean
           include_images?: boolean
           download_url?: string | null
+          test_areas?: string[] | null
           created_at?: string
           updated_at?: string
+        }
+      }
+      sample_tests: {
+        Row: {
+          id: string
+          sample_id: string
+          test_id: number
+          method_id: number | null
+        }
+        Insert: {
+          id?: string
+          sample_id: string
+          test_id: number
+          method_id?: number | null
+        }
+        Update: {
+          id?: string
+          sample_id?: string
+          test_id?: number
+          method_id?: number | null
+        }
+      }
+      test_catalog: {
+        Row: {
+          id: number
+          code: string
+          name: string
+          area: 'nematologia' | 'fitopatologia' | 'virologia' | 'deteccion_precoz'
+          default_method_id: number | null
+          active: boolean
+        }
+        Insert: {
+          id?: number
+          code: string
+          name: string
+          area: 'nematologia' | 'fitopatologia' | 'virologia' | 'deteccion_precoz'
+          default_method_id?: number | null
+          active?: boolean
+        }
+        Update: {
+          id?: number
+          code?: string
+          name?: string
+          area?: 'nematologia' | 'fitopatologia' | 'virologia' | 'deteccion_precoz'
+          default_method_id?: number | null
+          active?: boolean
+        }
+      }
+      methods: {
+        Row: {
+          id: number
+          code: string
+          name: string
+          description: string | null
+          sop_url: string | null
+          matrix: 'suelo' | 'hoja' | 'raiz' | 'semilla' | 'racimo'
+          units_profile_id: number | null
+        }
+        Insert: {
+          id?: number
+          code: string
+          name: string
+          description?: string | null
+          sop_url?: string | null
+          matrix: 'suelo' | 'hoja' | 'raiz' | 'semilla' | 'racimo'
+          units_profile_id?: number | null
+        }
+        Update: {
+          id?: number
+          code?: string
+          name?: string
+          description?: string | null
+          sop_url?: string | null
+          matrix?: 'suelo' | 'hoja' | 'raiz' | 'semilla' | 'racimo'
+          units_profile_id?: number | null
         }
       }
     }
@@ -343,10 +424,27 @@ export type Client = Database['public']['Tables']['clients']['Row']
 export type Sample = Database['public']['Tables']['samples']['Row']
 export type Result = Database['public']['Tables']['results']['Row']
 export type Report = Database['public']['Tables']['reports']['Row']
+export type SampleTest = Database['public']['Tables']['sample_tests']['Row']
+export type TestCatalog = Database['public']['Tables']['test_catalog']['Row']
+export type Method = Database['public']['Tables']['methods']['Row']
 
 // Extended types with relations
 export type SampleWithClient = Sample & {
   clients?: Client | null
+  sample_tests?: (SampleTest & {
+    test_catalog?: TestCatalog | null
+    methods?: Method | null
+  })[]
+}
+
+export type ResultWithRelations = Result & {
+  sample_tests?: (SampleTest & {
+    test_catalog?: TestCatalog | null
+    methods?: Method | null
+  }) | null
+  samples?: SampleWithClient | null
+  performed_by_user?: User | null
+  validated_by_user?: User | null
 }
 
 // Role-based permissions

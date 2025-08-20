@@ -24,33 +24,15 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
   const [clients, setClients] = useState<Client[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   
-  // Parse existing requested_tests back to the three categories
-  const parseRequestedTests = (tests: string[]) => {
-    const analysisTypes: string[] = []
-    const methodologies: string[] = []
-    const identificationTechniques: string[] = []
-    
-    tests.forEach(test => {
-      if (test.startsWith('Tipo: ')) {
-        analysisTypes.push(test.replace('Tipo: ', ''))
-      } else if (test.startsWith('Metodología: ')) {
-        methodologies.push(test.replace('Metodología: ', ''))
-      } else if (test.startsWith('Identificación: ')) {
-        identificationTechniques.push(test.replace('Identificación: ', ''))
-      }
-    })
-    
-    return { analysisTypes, methodologies, identificationTechniques }
-  }
-  
-  const parsedTests = parseRequestedTests(sample.requested_tests || [])
+  // TODO: Implement proper test editing using sample_tests relation
+  const parsedTests = { analysisTypes: [], methodologies: [], identificationTechniques: [] }
   
   const [formData, setFormData] = useState({
     client_id: sample.client_id || '',
     code: sample.code,
     received_date: sample.received_date,
-    priority: sample.priority,
-    project: sample.project || '',
+    sla_type: sample.sla_type,
+    project: '', // TODO: Load from projects table using project_id
     species: sample.species,
     variety: sample.variety || '',
     planting_year: sample.planting_year?.toString() || '',
@@ -62,9 +44,10 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
     taken_by: sample.taken_by || 'client',
     delivery_method: sample.delivery_method || '',
     suspected_pathogen: sample.suspected_pathogen || '',
-    analysis_types: parsedTests.analysisTypes,
-    methodologies: parsedTests.methodologies,
-    identification_techniques: parsedTests.identificationTechniques,
+    // TODO: Restore analysis selections functionality with new schema
+    // analysis_types: [],
+    // methodologies: [],
+    // identification_techniques: [],
     status: sample.status
   })
   
@@ -72,9 +55,16 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
 
   const fetchClients = useCallback(async () => {
     try {
+      // Don't fetch if user data is not loaded yet
+      if (!user?.company_id) {
+        console.log('No user company_id available yet, skipping clients fetch')
+        return
+      }
+
       const { data, error } = await supabase
         .from('clients')
         .select('*')
+        .eq('company_id', user.company_id)
         .order('name', { ascending: true })
 
       if (error) throw error
@@ -82,7 +72,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
     } catch (error) {
       console.error('Error fetching clients:', error)
     }
-  }, [supabase])
+  }, [supabase, user?.company_id])
 
   useEffect(() => {
     if (isOpen) {
@@ -90,58 +80,27 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
     }
   }, [isOpen, fetchClients])
 
-  const handleAnalysisTypeChange = (type: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      analysis_types: checked 
-        ? [...prev.analysis_types, type]
-        : prev.analysis_types.filter(t => t !== type)
-    }))
-  }
-
-  const handleMethodologyChange = (methodology: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      methodologies: checked 
-        ? [...prev.methodologies, methodology]
-        : prev.methodologies.filter(m => m !== methodology)
-    }))
-  }
-
-  const handleIdentificationTechniqueChange = (technique: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      identification_techniques: checked 
-        ? [...prev.identification_techniques, technique]
-        : prev.identification_techniques.filter(t => t !== technique)
-    }))
-  }
+  // TODO: Restore analysis selection handlers for new schema
+  // const handleAnalysisTypeChange = (type: string, checked: boolean) => { ... }
+  // const handleMethodologyChange = (methodology: string, checked: boolean) => { ... }
+  // const handleIdentificationTechniqueChange = (technique: string, checked: boolean) => { ... }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
-      if (formData.analysis_types.length === 0 || formData.methodologies.length === 0 || formData.identification_techniques.length === 0) {
-        alert('Debe seleccionar al menos una opción de cada sección: Tipo de análisis, Metodología y Técnica de identificación')
-        return
-      }
-
-      // Combine all analysis selections into the requested_tests field
-      const combinedTests = [
-        ...formData.analysis_types.map(type => `Tipo: ${type}`),
-        ...formData.methodologies.map(method => `Metodología: ${method}`),
-        ...formData.identification_techniques.map(tech => `Identificación: ${tech}`)
-      ]
-
-      const { error } = await supabase
-        .from('samples')
-        .update({
+      const response = await fetch(`/api/samples/${sample.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           client_id: formData.client_id,
           code: formData.code,
           received_date: formData.received_date,
-          priority: formData.priority,
-          project: formData.project || null,
+          sla_type: formData.sla_type,
+          // project_id: formData.project || null, // TODO: Implement project lookup - temporarily disabled to avoid UUID error
           species: formData.species,
           variety: formData.variety || null,
           planting_year: formData.planting_year ? parseInt(formData.planting_year) : null,
@@ -153,13 +112,14 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
           taken_by: formData.taken_by,
           delivery_method: formData.delivery_method || null,
           suspected_pathogen: formData.suspected_pathogen || null,
-          requested_tests: combinedTests,
-          status: formData.status,
-          updated_at: new Date().toISOString()
+          status: formData.status
         })
-        .eq('id', sample.id)
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to update sample')
+      }
 
       onSuccess()
       onClose()
@@ -314,8 +274,8 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     Prioridad
                   </label>
                   <select
-                    value={formData.priority}
-                    onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value as typeof formData.priority }))}
+                    value={formData.sla_type}
+                    onChange={(e) => setFormData(prev => ({ ...prev, sla_type: e.target.value as typeof formData.sla_type }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   >
                     <option value="normal">Normal</option>
@@ -439,7 +399,8 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                   </select>
                 </div>
 
-                {/* Analysis Types */}
+                {/* Analysis Types - TODO: Implement with new sample_tests schema */}
+                {/*
                 <div className="sm:col-span-2 lg:col-span-3">
                   <label className="block text-sm font-medium text-gray-700 mb-3">
                     Tipo de análisis *
@@ -458,8 +419,10 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     ))}
                   </div>
                 </div>
+                */}
 
-                {/* Methodologies */}
+                {/* Methodologies - TODO: Implement with new sample_tests schema */}
+                {/*
                 <div className="sm:col-span-2 lg:col-span-3">
                   <label className="block text-sm font-medium text-gray-700 mb-3">
                     Metodología *
@@ -478,8 +441,10 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     ))}
                   </div>
                 </div>
+                */}
 
-                {/* Identification Techniques */}
+                {/* Identification Techniques - TODO: Implement with new sample_tests schema */}
+                {/*
                 <div className="sm:col-span-2 lg:col-span-3">
                   <label className="block text-sm font-medium text-gray-700 mb-3">
                     Técnica de identificación *
@@ -498,6 +463,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     ))}
                   </div>
                 </div>
+                */}
 
                 {/* Notes Section */}
                 <div className="sm:col-span-2 lg:col-span-3">

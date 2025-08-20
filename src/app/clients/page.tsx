@@ -37,9 +37,16 @@ export default function ClientsPage() {
 
   const fetchClients = useCallback(async () => {
     try {
+      // Don't fetch if user data is not loaded yet
+      if (!user?.company_id) {
+        console.log('No user company_id available yet, skipping fetch')
+        return
+      }
+
       const { data, error } = await supabase
         .from('clients')
         .select('*')
+        .eq('company_id', user.company_id)
         .order('name', { ascending: true })
 
       if (error) throw error
@@ -49,7 +56,7 @@ export default function ClientsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [supabase])
+  }, [supabase, user?.company_id])
 
   useEffect(() => {
     fetchClients()

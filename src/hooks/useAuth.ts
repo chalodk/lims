@@ -44,15 +44,49 @@ export function useAuth() {
         return
       }
 
-      console.log('Valid session found, updating auth state')
-      setState({
-        user: null,
-        authUser: session.user,
-        role: null,
-        userRole: 'admin', // Default role for now
-        isLoading: false,
-        isAuthenticated: true,
-      })
+      console.log('Valid session found, fetching user data')
+      
+      try {
+        // Fetch user data from the users table
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single()
+
+        if (userError) {
+          console.error('Error fetching user data:', userError)
+          setState({
+            user: null,
+            authUser: session.user,
+            role: null,
+            userRole: null,
+            isLoading: false,
+            isAuthenticated: true,
+          })
+          return
+        }
+
+        console.log('User data fetched:', userData)
+        setState({
+          user: userData,
+          authUser: session.user,
+          role: null,
+          userRole: 'admin', // Default role for now
+          isLoading: false,
+          isAuthenticated: true,
+        })
+      } catch (error) {
+        console.error('Error in updateAuthState:', error)
+        setState({
+          user: null,
+          authUser: session.user,
+          role: null,
+          userRole: null,
+          isLoading: false,
+          isAuthenticated: true,
+        })
+      }
     }
 
     const initializeAuth = async () => {
@@ -106,7 +140,7 @@ export function useAuth() {
       }
     })
 
-    // Periodic session validation (every 30 seconds)
+    // Periodic session validation (every 2 minutes)
     const sessionCheckInterval = setInterval(async () => {
       if (!mounted) return
       
@@ -115,7 +149,10 @@ export function useAuth() {
         
         if (error) {
           console.warn('Session check error:', error)
-          await updateAuthState(null)
+          // Only clear auth state if it's a real auth error, not a network issue
+          if (error.message?.includes('invalid') || error.message?.includes('expired')) {
+            await updateAuthState(null)
+          }
           return
         }
 
@@ -124,24 +161,31 @@ export function useAuth() {
           const expiresAt = new Date(session.expires_at * 1000)
           const now = new Date()
           
-          // If session expires in less than 5 minutes, try to refresh
-          if (expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
+          // If session expires in less than 10 minutes, try to refresh
+          if (expiresAt.getTime() - now.getTime() < 10 * 60 * 1000) {
             console.log('Session expiring soon, attempting refresh...')
             const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
             
             if (refreshError) {
               console.error('Session refresh failed:', refreshError)
-              await updateAuthState(null)
-            } else {
+              // Only sign out if refresh truly failed, not on network errors
+              if (refreshError.message?.includes('invalid') || refreshError.message?.includes('expired')) {
+                await updateAuthState(null)
+              }
+            } else if (refreshData.session) {
               console.log('Session refreshed successfully')
               await updateAuthState(refreshData.session)
             }
           }
+        } else if (!session) {
+          // No session found, clear auth state
+          await updateAuthState(null)
         }
       } catch (error) {
         console.error('Session check failed:', error)
+        // Don't clear auth state on network errors, only on auth errors
       }
-    }, 30000) // Check every 30 seconds
+    }, 120000) // Check every 2 minutes
 
     return () => {
       mounted = false

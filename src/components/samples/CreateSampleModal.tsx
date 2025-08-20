@@ -26,7 +26,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
     client_id: '',
     code: '',
     received_date: new Date().toISOString().split('T')[0],
-    priority: 'normal',
+    sla_type: 'normal',
     project: '',
     species: '',
     variety: '',
@@ -48,9 +48,16 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
 
   const fetchClients = useCallback(async () => {
     try {
+      // Don't fetch if user data is not loaded yet
+      if (!user?.company_id) {
+        console.log('No user company_id available yet, skipping clients fetch')
+        return
+      }
+
       const { data, error } = await supabase
         .from('clients')
         .select('*')
+        .eq('company_id', user.company_id)
         .order('name', { ascending: true })
 
       if (error) throw error
@@ -58,7 +65,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
     } catch (error) {
       console.error('Error fetching clients:', error)
     }
-  }, [supabase])
+  }, [supabase, user?.company_id])
 
   const generateSampleCode = useCallback(() => {
     const year = new Date().getFullYear()
@@ -117,32 +124,40 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
         ...formData.identification_techniques.map(tech => `Identificación: ${tech}`)
       ]
 
-      const { error } = await supabase
-        .from('samples')
-        .insert([
-          {
-            client_id: formData.client_id,
-            code: formData.code,
-            received_date: formData.received_date,
-            priority: formData.priority,
-            project: formData.project || null,
-            species: formData.species,
-            variety: formData.variety || null,
-            planting_year: formData.planting_year ? parseInt(formData.planting_year) : null,
-            previous_crop: formData.previous_crop || null,
-            next_crop: formData.next_crop || null,
-            fallow: formData.fallow,
-            client_notes: formData.client_notes || null,
-            reception_notes: formData.reception_notes || null,
-            taken_by: formData.taken_by,
-            delivery_method: formData.delivery_method || null,
-            suspected_pathogen: formData.suspected_pathogen || null,
-            requested_tests: combinedTests,
-            company_id: user?.company_id,
-          }
-        ])
+      const response = await fetch('/api/samples', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          client_id: formData.client_id,
+          code: formData.code,
+          received_date: formData.received_date,
+          sla_type: formData.sla_type,
+          // project_id: formData.project || null, // TODO: Implement project lookup
+          species: formData.species,
+          variety: formData.variety || null,
+          planting_year: formData.planting_year ? parseInt(formData.planting_year) : null,
+          previous_crop: formData.previous_crop || null,
+          next_crop: formData.next_crop || null,
+          fallow: formData.fallow,
+          client_notes: formData.client_notes || null,
+          reception_notes: formData.reception_notes || null,
+          taken_by: formData.taken_by,
+          delivery_method: formData.delivery_method || null,
+          suspected_pathogen: formData.suspected_pathogen || null,
+          analysis_selections: {
+            analysis_types: formData.analysis_types,
+            methodologies: formData.methodologies,
+            identification_techniques: formData.identification_techniques
+          },
+        })
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create sample')
+      }
 
       onSuccess()
       onClose()
@@ -152,7 +167,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
         client_id: '',
         code: '',
         received_date: new Date().toISOString().split('T')[0],
-        priority: 'normal',
+        sla_type: 'normal',
         project: '',
         species: '',
         variety: '',
@@ -287,14 +302,14 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
                   />
                 </div>
 
-                {/* Priority */}
+                {/* SLA Type */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Prioridad
+                    Tipo SLA
                   </label>
                   <select
-                    value={formData.priority}
-                    onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value }))}
+                    value={formData.sla_type}
+                    onChange={(e) => setFormData(prev => ({ ...prev, sla_type: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   >
                     <option value="normal">Normal</option>

@@ -15,7 +15,8 @@ import {
   Menu,
   X,
   Bell,
-  Loader2
+  Loader2,
+  FlaskConical
 } from 'lucide-react'
 import Image from 'next/image'
 
@@ -44,6 +45,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: 'Dashboard', href: '/dashboard', icon: Home, roles: ['admin', 'validador', 'comun', 'consumidor'] },
     { name: 'Muestras', href: '/samples', icon: TestTube, roles: ['admin', 'validador', 'comun'] },
     { name: 'Mis Muestras', href: '/my-samples', icon: TestTube, roles: ['consumidor'] },
+    { name: 'Resultados', href: '/results', icon: FlaskConical, roles: ['admin', 'validador', 'comun'] },
     { name: 'Clientes', href: '/clients', icon: Users, roles: ['admin', 'validador', 'comun'] },
     { name: 'Informes', href: '/reports', icon: FileText, roles: ['admin', 'validador', 'comun', 'consumidor'] },
     { name: 'Estadísticas', href: '/analytics', icon: BarChart3, roles: ['admin', 'validador'] },

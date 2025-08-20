@@ -1,7 +1,22 @@
 'use client'
 
-import { SampleWithClient } from '@/types/database'
-import { X, TestTube } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { useAuth } from '@/hooks/useAuth'
+import { createClient } from '@/lib/supabase/client'
+import { SampleWithClient, ResultWithRelations } from '@/types/database'
+import ViewResultModal from '@/components/results/ViewResultModal'
+import AddResultModal from '@/components/results/AddResultModal'
+import { 
+  X, 
+  TestTube, 
+  FlaskConical, 
+  Plus, 
+  Eye, 
+  CheckCircle, 
+  Clock, 
+  AlertCircle,
+  Loader2
+} from 'lucide-react'
 
 interface ViewSampleModalProps {
   isOpen: boolean
@@ -10,7 +25,41 @@ interface ViewSampleModalProps {
 }
 
 export default function ViewSampleModal({ isOpen, onClose, sample }: ViewSampleModalProps) {
+  const { userRole } = useAuth()
+  const [results, setResults] = useState<ResultWithRelations[]>([])
+  const [loadingResults, setLoadingResults] = useState(false)
+  const [showAddResultModal, setShowAddResultModal] = useState(false)
+  const [showViewResultModal, setShowViewResultModal] = useState(false)
+  const [selectedResultId, setSelectedResultId] = useState<string | null>(null)
+  
+  const supabase = createClient()
+
+  const fetchResults = useCallback(async () => {
+    if (!isOpen || !sample.id) return
+
+    try {
+      setLoadingResults(true)
+      const response = await fetch(`/api/results?sample_id=${sample.id}`)
+      if (!response.ok) throw new Error('Failed to fetch results')
+      
+      const data = await response.json()
+      const resultsArray = Array.isArray(data) ? data : (data.data || [])
+      setResults(resultsArray)
+    } catch (error) {
+      console.error('Error fetching results:', error)
+      setResults([])
+    } finally {
+      setLoadingResults(false)
+    }
+  }, [isOpen, sample.id])
+
+  useEffect(() => {
+    fetchResults()
+  }, [fetchResults])
+
   if (!isOpen) return null
+
+  const canCreateResults = userRole && ['admin', 'validador', 'comun'].includes(userRole)
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('es-ES', {
@@ -20,26 +69,38 @@ export default function ViewSampleModal({ isOpen, onClose, sample }: ViewSampleM
     })
   }
 
-  // Parse requested_tests back to the three categories for display
-  const parseRequestedTests = (tests: string[]) => {
-    const analysisTypes: string[] = []
-    const methodologies: string[] = []
-    const identificationTechniques: string[] = []
-    
-    tests.forEach(test => {
-      if (test.startsWith('Tipo: ')) {
-        analysisTypes.push(test.replace('Tipo: ', ''))
-      } else if (test.startsWith('Metodología: ')) {
-        methodologies.push(test.replace('Metodología: ', ''))
-      } else if (test.startsWith('Identificación: ')) {
-        identificationTechniques.push(test.replace('Identificación: ', ''))
+  // Extract test information from sample_tests relationship
+  const getTestInfo = () => {
+    if (!sample.sample_tests || !Array.isArray(sample.sample_tests)) {
+      return {
+        analysisTypes: ['No especificado'],
+        methodologies: ['No especificado'], 
+        identificationTechniques: ['No especificado']
       }
-    })
-    
-    return { analysisTypes, methodologies, identificationTechniques }
+    }
+
+    const analysisTypes = sample.sample_tests
+      .map(st => st.test_catalog?.area)
+      .filter(Boolean)
+      .filter((area, index, arr) => arr.indexOf(area) === index) // Remove duplicates
+
+    const methodologies = sample.sample_tests
+      .map(st => st.methods?.name)
+      .filter(Boolean)
+      .filter((method, index, arr) => arr.indexOf(method) === index) // Remove duplicates
+
+    const testNames = sample.sample_tests
+      .map(st => st.test_catalog?.name)
+      .filter(Boolean)
+
+    return {
+      analysisTypes: analysisTypes.length > 0 ? analysisTypes : ['No especificado'],
+      methodologies: methodologies.length > 0 ? methodologies : ['No especificado'],
+      identificationTechniques: testNames.length > 0 ? testNames : ['No especificado']
+    }
   }
 
-  const parsedTests = parseRequestedTests(sample.requested_tests || [])
+  const parsedTests = getTestInfo()
 
   const getStatusLabel = (status: string) => {
     const statusLabels = {
@@ -55,13 +116,12 @@ export default function ViewSampleModal({ isOpen, onClose, sample }: ViewSampleM
     return statusLabels[status as keyof typeof statusLabels] || status
   }
 
-  const getPriorityLabel = (priority: string) => {
-    const priorityLabels = {
+  const getSlaTypeLabel = (slaType: string) => {
+    const slaTypeLabels = {
       normal: 'Normal',
-      express: 'Express',
-      urgent: 'Urgente'
+      express: 'Express'
     }
-    return priorityLabels[priority as keyof typeof priorityLabels] || priority
+    return slaTypeLabels[slaType as keyof typeof slaTypeLabels] || slaType
   }
 
   return (
@@ -112,12 +172,12 @@ export default function ViewSampleModal({ isOpen, onClose, sample }: ViewSampleM
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Prioridad</label>
-                <p className="text-sm text-gray-900">{getPriorityLabel(sample.priority)}</p>
+                <p className="text-sm text-gray-900">{getSlaTypeLabel(sample.sla_type)}</p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Proyecto</label>
-                <p className="text-sm text-gray-900">{sample.project || 'No especificado'}</p>
+                <p className="text-sm text-gray-900">{'No especificado'}</p>
               </div>
 
               <div>
@@ -227,6 +287,166 @@ export default function ViewSampleModal({ isOpen, onClose, sample }: ViewSampleM
                 </div>
               </div>
 
+              {/* Results Section */}
+              <div className="sm:col-span-2 lg:col-span-3">
+                <div className="flex items-center justify-between mb-4 mt-6">
+                  <h4 className="text-md font-medium text-gray-900 flex items-center">
+                    <FlaskConical className="h-5 w-5 mr-2" />
+                    Resultados ({results.length})
+                  </h4>
+                  {canCreateResults && (
+                    <button
+                      onClick={() => setShowAddResultModal(true)}
+                      className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Agregar Resultado
+                    </button>
+                  )}
+                </div>
+                
+                {loadingResults ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                    <span className="ml-2 text-sm text-gray-500">Cargando resultados...</span>
+                  </div>
+                ) : results.length === 0 ? (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                    <FlaskConical className="mx-auto h-8 w-8 text-gray-400" />
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">Sin resultados</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      No hay resultados registrados para esta muestra.
+                    </p>
+                    {canCreateResults && (
+                      <div className="mt-4">
+                        <button
+                          onClick={() => setShowAddResultModal(true)}
+                          className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Agregar Primer Resultado
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {results.map((result) => {
+                      const getStatusIcon = (status: string) => {
+                        switch (status) {
+                          case 'pending':
+                            return <Clock className="h-4 w-4 text-yellow-500" />
+                          case 'completed':
+                            return <CheckCircle className="h-4 w-4 text-blue-500" />
+                          case 'validated':
+                            return <CheckCircle className="h-4 w-4 text-green-500" />
+                          default:
+                            return <AlertCircle className="h-4 w-4 text-gray-400" />
+                        }
+                      }
+
+                      const getStatusText = (status: string) => {
+                        switch (status) {
+                          case 'pending':
+                            return 'Pendiente'
+                          case 'completed':
+                            return 'Completado'
+                          case 'validated':
+                            return 'Validado'
+                          default:
+                            return status
+                        }
+                      }
+
+                      const getResultTypeColor = (resultType: string | null) => {
+                        switch (resultType) {
+                          case 'positive':
+                            return 'bg-red-100 text-red-800'
+                          case 'negative':
+                            return 'bg-green-100 text-green-800'
+                          case 'inconclusive':
+                            return 'bg-gray-100 text-gray-800'
+                          default:
+                            return 'bg-gray-100 text-gray-800'
+                        }
+                      }
+
+                      const getResultTypeText = (resultType: string | null) => {
+                        switch (resultType) {
+                          case 'positive':
+                            return 'Positivo'
+                          case 'negative':
+                            return 'Negativo'
+                          case 'inconclusive':
+                            return 'No conclusivo'
+                          default:
+                            return 'N/A'
+                        }
+                      }
+
+                      return (
+                        <div key={result.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3 mb-2">
+                                {getStatusIcon(result.status)}
+                                <span className="text-sm font-medium text-gray-900">
+                                  {getStatusText(result.status)}
+                                </span>
+                                {result.result_type && (
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getResultTypeColor(result.result_type)}`}>
+                                    {getResultTypeText(result.result_type)}
+                                  </span>
+                                )}
+                                <span className="text-xs text-gray-500 capitalize">
+                                  {result.test_area?.replace('_', ' ')}
+                                </span>
+                              </div>
+                              
+                              {result.pathogen_identified && (
+                                <p className="text-sm text-gray-700 mb-1">
+                                  <span className="font-medium">Patógeno:</span> {result.pathogen_identified}
+                                </p>
+                              )}
+                              
+                              {result.diagnosis && (
+                                <p className="text-sm text-gray-700 mb-1 line-clamp-2">
+                                  <span className="font-medium">Diagnóstico:</span> {result.diagnosis}
+                                </p>
+                              )}
+                              
+                              <div className="flex items-center text-xs text-gray-500 space-x-4 mt-2">
+                                <span>
+                                  Realizado: {new Date(result.performed_at).toLocaleDateString()}
+                                </span>
+                                {result.validation_date && (
+                                  <span>
+                                    Validado: {new Date(result.validation_date).toLocaleDateString()}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center ml-4">
+                              <button
+                                onClick={() => {
+                                  setSelectedResultId(result.id)
+                                  setShowViewResultModal(true)
+                                }}
+                                className="text-green-600 hover:text-green-800 p-1"
+                                title="Ver detalles"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
               {/* Notes */}
               <div className="sm:col-span-2 lg:col-span-3">
                 <h4 className="text-md font-medium text-gray-900 mb-4 mt-6">Notas y observaciones</h4>
@@ -255,6 +475,26 @@ export default function ViewSampleModal({ isOpen, onClose, sample }: ViewSampleM
           </div>
         </div>
       </div>
+
+      {/* Results Modals */}
+      <ViewResultModal
+        isOpen={showViewResultModal}
+        onClose={() => {
+          setShowViewResultModal(false)
+          setSelectedResultId(null)
+        }}
+        resultId={selectedResultId}
+      />
+
+      <AddResultModal
+        isOpen={showAddResultModal}
+        onClose={() => setShowAddResultModal(false)}
+        onSuccess={() => {
+          fetchResults()
+          setShowAddResultModal(false)
+        }}
+        preselectedSampleId={sample.id}
+      />
     </div>
   )
 }
