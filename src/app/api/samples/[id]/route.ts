@@ -219,7 +219,7 @@ export async function PUT(
       await supabase
         .from('sample_status_transitions')
         .insert({
-          sample_id: params.id,
+          sample_id: resolvedParams.id,
           from_status: currentSample.status,
           to_status: status,
           by_user: user.id,
@@ -375,7 +375,7 @@ export async function PATCH(
       await supabase
         .from('sample_status_transitions')
         .insert({
-          sample_id: params.id,
+          sample_id: resolvedParams.id,
           from_status: currentSample.status,
           to_status: status,
           by_user: user.id,
