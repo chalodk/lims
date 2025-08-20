@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
     const body = await request.json()
     const { token, password } = body
 
@@ -35,9 +35,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
-    const { data: existingUser } = await supabase.auth.admin.getUserByEmail(invitation.email)
+    const { data: users } = await supabase.auth.admin.listUsers()
+    const existingUser = users?.users?.find(user => user.email === invitation.email)
     
-    if (existingUser?.user) {
+    if (existingUser) {
       return NextResponse.json(
         { error: 'User already exists with this email' },
         { status: 409 }

@@ -3,10 +3,11 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; sample_test_id: string } }
+  { params }: { params: Promise<{ id: string; sample_test_id: string }> }
 ) {
   try {
-    const supabase = createClient()
+    const resolvedParams = await params
+    const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
@@ -17,8 +18,8 @@ export async function DELETE(
     const { data: sampleTest, error: fetchError } = await supabase
       .from('sample_tests')
       .select('id')
-      .eq('id', params.sample_test_id)
-      .eq('sample_id', params.id)
+      .eq('id', resolvedParams.sample_test_id)
+      .eq('sample_id', resolvedParams.id)
       .single()
 
     if (fetchError || !sampleTest) {
@@ -31,7 +32,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('sample_tests')
       .delete()
-      .eq('id', params.sample_test_id)
+      .eq('id', resolvedParams.sample_test_id)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

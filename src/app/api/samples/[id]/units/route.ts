@@ -3,10 +3,11 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createClient()
+    const resolvedParams = await params
+    const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
@@ -23,7 +24,7 @@ export async function GET(
           methods (*)
         )
       `)
-      .eq('sample_id', params.id)
+      .eq('sample_id', resolvedParams.id)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
@@ -41,10 +42,11 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createClient()
+    const resolvedParams = await params
+    const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
@@ -57,7 +59,7 @@ export async function POST(
     const { data, error } = await supabase
       .from('sample_units')
       .insert({
-        sample_id: params.id,
+        sample_id: resolvedParams.id,
         code,
         label
       })
