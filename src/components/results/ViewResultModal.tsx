@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ResultWithRelations } from '@/types/database'
 import { 
   FlaskConical,
@@ -30,13 +30,7 @@ export default function ViewResultModal({ isOpen, onClose, resultId }: ViewResul
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (isOpen && resultId) {
-      fetchResult()
-    }
-  }, [isOpen, resultId])
-
-  const fetchResult = async () => {
+  const fetchResult = useCallback(async () => {
     if (!resultId) return
 
     try {
@@ -56,7 +50,13 @@ export default function ViewResultModal({ isOpen, onClose, resultId }: ViewResul
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [resultId])
+
+  useEffect(() => {
+    if (isOpen && resultId) {
+      fetchResult()
+    }
+  }, [isOpen, resultId, fetchResult])
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {

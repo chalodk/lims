@@ -1,7 +1,6 @@
 'use client'
 
 import { useAuth } from '@/hooks/useAuth'
-import UserSetup from '@/components/auth/UserSetup'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { 
   FlaskConical, 

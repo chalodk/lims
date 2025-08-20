@@ -8,7 +8,7 @@ import CreateSampleModal from '@/components/samples/CreateSampleModal'
 import ViewSampleModal from '@/components/samples/ViewSampleModal'
 import EditSampleModal from '@/components/samples/EditSampleModal'
 import DeleteConfirmModal from '@/components/samples/DeleteConfirmModal'
-import { Sample, SampleWithClient } from '@/types/database'
+import { SampleWithClient } from '@/types/database'
 import { 
   Plus,
   Search,

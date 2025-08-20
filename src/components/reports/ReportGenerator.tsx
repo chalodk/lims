@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useReports } from '@/hooks/useReports'
-import { ReportTemplate, Report } from '@/types/database'
+import { Report } from '@/types/database'
 
 interface ReportGeneratorProps {
   sampleId: string

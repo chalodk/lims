@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { createClient } from '@/lib/supabase/client'
 import { SampleWithClient, ResultWithRelations } from '@/types/database'
 import ViewResultModal from '@/components/results/ViewResultModal'
 import AddResultModal from '@/components/results/AddResultModal'
@@ -32,7 +31,6 @@ export default function ViewSampleModal({ isOpen, onClose, sample }: ViewSampleM
   const [showViewResultModal, setShowViewResultModal] = useState(false)
   const [selectedResultId, setSelectedResultId] = useState<string | null>(null)
   
-  const supabase = createClient()
 
   const fetchResults = useCallback(async () => {
     if (!isOpen || !sample.id) return

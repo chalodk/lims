@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Sample } from '@/types/database'
 import { 
   Clock, 
   AlertTriangle, 
@@ -51,9 +50,9 @@ export function SLACards() {
     return () => {
       subscription.unsubscribe()
     }
-  }, [])
+  }, [fetchSLAStats, supabase])
 
-  const fetchSLAStats = async () => {
+  const fetchSLAStats = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('samples')
@@ -87,7 +86,7 @@ export function SLACards() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [supabase])
 
   if (loading) {
     return (

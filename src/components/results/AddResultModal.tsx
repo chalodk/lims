@@ -8,9 +8,7 @@ import {
   FlaskConical,
   X,
   Loader2,
-  TestTube,
-  Search,
-  AlertCircle
+  TestTube
 } from 'lucide-react'
 
 interface AddResultModalProps {

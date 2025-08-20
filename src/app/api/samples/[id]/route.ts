@@ -3,9 +3,10 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
@@ -64,7 +65,7 @@ export async function GET(
           visibility
         )
       `)
-      .eq('id', params.id)
+      .eq('id', resolvedParams.id)
       .single()
 
     if (error) {
@@ -91,9 +92,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
@@ -139,7 +141,7 @@ export async function PUT(
     const { data: currentSample, error: fetchError } = await supabase
       .from('samples')
       .select('status, company_id')
-      .eq('id', params.id)
+      .eq('id', resolvedParams.id)
       .single()
 
     if (fetchError) {
@@ -151,7 +153,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
 
     // Only include fields that are provided
     if (client_id !== undefined) updateData.client_id = client_id
@@ -200,7 +202,7 @@ export async function PUT(
     const { data, error } = await supabase
       .from('samples')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', resolvedParams.id)
       .select(`
         *,
         clients (id, name),
@@ -237,9 +239,10 @@ export async function PUT(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
@@ -292,7 +295,7 @@ export async function PATCH(
     const { data: currentSample, error: fetchError } = await supabase
       .from('samples')
       .select('status, company_id')
-      .eq('id', params.id)
+      .eq('id', resolvedParams.id)
       .single()
 
     if (fetchError) {
@@ -350,7 +353,7 @@ export async function PATCH(
     const { data, error } = await supabase
       .from('samples')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', resolvedParams.id)
       .select(`
         *,
         clients (id, name),

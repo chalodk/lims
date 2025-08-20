@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
 
     // Create sample_tests records based on analysis selections
     if (analysis_selections && typeof analysis_selections === 'object') {
-      const { analysis_types = [], methodologies = [], identification_techniques = [] } = analysis_selections
+      const { analysis_types = [], methodologies = [] } = analysis_selections
 
       // Create sample_tests records for each selected analysis type and methodology combination
       const sampleTestsToCreate = []

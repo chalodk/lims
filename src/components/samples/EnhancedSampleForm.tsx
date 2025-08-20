@@ -11,7 +11,6 @@ import {
   Variety,
   Project 
 } from '@/types/database'
-import { SPECIES_CATEGORIES } from '@/constants/species'
 import { 
   TestTube, 
   Loader2,
@@ -24,7 +23,7 @@ interface EnhancedSampleFormProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
-  initialData?: any
+  initialData?: Record<string, unknown>
   isEditing?: boolean
 }
 
@@ -89,9 +88,9 @@ export default function EnhancedSampleForm({
     if (isOpen) {
       loadCatalogData()
     }
-  }, [isOpen])
+  }, [isOpen, loadCatalogData])
 
-  const loadCatalogData = async () => {
+  const loadCatalogData = useCallback(async () => {
     try {
       const [
         clientsResponse,
@@ -115,7 +114,7 @@ export default function EnhancedSampleForm({
     } catch (error) {
       console.error('Error loading catalog data:', error)
     }
-  }
+  }, [supabase])
 
   // Load varieties when species changes
   useEffect(() => {
@@ -124,9 +123,9 @@ export default function EnhancedSampleForm({
     } else {
       setVarieties([])
     }
-  }, [formData.species])
+  }, [formData.species, loadVarieties])
 
-  const loadVarieties = async () => {
+  const loadVarieties = useCallback(async () => {
     try {
       const selectedSpecies = species.find(s => s.name === formData.species)
       if (!selectedSpecies) return
@@ -141,9 +140,9 @@ export default function EnhancedSampleForm({
     } catch (error) {
       console.error('Error loading varieties:', error)
     }
-  }
+  }, [supabase, species, formData.species])
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: string | number | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
@@ -156,7 +155,7 @@ export default function EnhancedSampleForm({
     setSelectedTests(prev => prev.filter((_, i) => i !== index))
   }
 
-  const updateTest = (index: number, field: keyof SelectedTest, value: any) => {
+  const updateTest = (index: number, field: keyof SelectedTest, value: number | undefined) => {
     setSelectedTests(prev => prev.map((test, i) => 
       i === index ? { ...test, [field]: value } : test
     ))
@@ -182,7 +181,7 @@ export default function EnhancedSampleForm({
     ))
   }
 
-  const getMethodsForTest = (testId: number) => {
+  const getMethodsForTest = () => {
     return methods.filter(method => {
       // Filter methods based on test compatibility if you have test_method_map
       return true // For now, show all methods
@@ -498,7 +497,7 @@ export default function EnhancedSampleForm({
                       className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Método sugerido</option>
-                      {getMethodsForTest(test.test_id).map((method) => (
+                      {getMethodsForTest().map((method) => (
                         <option key={method.id} value={method.id}>
                           {method.name} ({method.matrix})
                         </option>

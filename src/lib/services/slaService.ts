@@ -204,9 +204,9 @@ export class SLAService {
    * Get samples that need attention based on SLA status
    */
   async getSamplesNeedingAttention(): Promise<{
-    at_risk: any[]
-    breached: any[]
-    express_due_soon: any[]
+    at_risk: Array<{ id: string; code: string; client_id: string; due_date: string; status: string; clients?: { name: string } }>
+    breached: Array<{ id: string; code: string; client_id: string; due_date: string; status: string; clients?: { name: string } }>
+    express_due_soon: Array<{ id: string; code: string; client_id: string; due_date: string; status: string; clients?: { name: string } }>
   }> {
     try {
       const [atRiskResult, breachedResult, expressResult] = await Promise.all([

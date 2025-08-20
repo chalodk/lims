@@ -88,14 +88,14 @@ export class InterpretationService {
    */
   private async evaluateRule(
     rule: InterpretationRule, 
-    sample: any
+    sample: SampleFull
   ): Promise<{ message: string }[]> {
     const matches: { message: string }[] = []
 
     // Filter by area if specified
     if (rule.area) {
-      const hasAreaResults = sample.sample_units?.some((unit: any) =>
-        unit.unit_results?.some((result: any) => 
+      const hasAreaResults = sample.sample_units?.some((unit) =>
+        unit.unit_results?.some((result) => 
           result.test_catalog?.area === rule.area
         )
       )
@@ -132,8 +132,8 @@ export class InterpretationService {
   /**
    * Get results relevant to the rule
    */
-  private getRelevantResults(sample: any, rule: InterpretationRule): any[] {
-    const results: any[] = []
+  private getRelevantResults(sample: SampleFull, rule: InterpretationRule): UnitResult[] {
+    const results: UnitResult[] = []
 
     if (!sample.sample_units) return results
 
@@ -155,7 +155,7 @@ export class InterpretationService {
   /**
    * Evaluate if a result meets the rule condition
    */
-  private evaluateAnalyteCondition(result: any, rule: InterpretationRule): boolean {
+  private evaluateAnalyteCondition(result: UnitResult, rule: InterpretationRule): boolean {
     const threshold = rule.threshold_json
     
     switch (rule.comparator) {
@@ -192,7 +192,7 @@ export class InterpretationService {
   /**
    * Customize interpretation message with actual result values
    */
-  private customizeMessage(template: string, result: any, sample: any): string {
+  private customizeMessage(template: string, result: UnitResult & { unit?: { code?: string; label?: string } }, sample: SampleFull): string {
     let message = template
 
     // Replace placeholders with actual values

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { ResultWithRelations } from '@/types/database'
 import { 
@@ -45,13 +45,7 @@ export default function EditResultModal({
     status: 'pending'
   })
 
-  useEffect(() => {
-    if (isOpen && resultId) {
-      fetchResult()
-    }
-  }, [isOpen, resultId])
-
-  const fetchResult = async () => {
+  const fetchResult = useCallback(async () => {
     if (!resultId) return
 
     try {
@@ -86,7 +80,13 @@ export default function EditResultModal({
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [resultId])
+
+  useEffect(() => {
+    if (isOpen && resultId) {
+      fetchResult()
+    }
+  }, [isOpen, resultId, fetchResult])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -99,7 +99,7 @@ export default function EditResultModal({
       if (formData.findings.trim()) {
         try {
           findingsData = JSON.parse(formData.findings)
-        } catch (e) {
+        } catch {
           alert('El formato de hallazgos técnicos no es JSON válido')
           return
         }

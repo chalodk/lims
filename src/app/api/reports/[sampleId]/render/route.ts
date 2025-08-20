@@ -4,10 +4,11 @@ import { ReportService } from '@/lib/reports/reportService'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { sampleId: string } }
+  { params }: { params: Promise<{ sampleId: string }> }
 ) {
   try {
-    const supabase = createClient()
+    const resolvedParams = await params
+    const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
@@ -27,14 +28,14 @@ export async function POST(
     const reportService = new ReportService()
     
     // Check if user has access to this sample
-    const sample = await reportService.getSampleData(params.sampleId)
+    const sample = await reportService.getSampleData(resolvedParams.sampleId)
     if (!sample) {
       return NextResponse.json({ error: 'Sample not found' }, { status: 404 })
     }
 
     // Generate the report
     const report = await reportService.renderReport(
-      params.sampleId,
+      resolvedParams.sampleId,
       template_code,
       version,
       user.id
@@ -52,10 +53,11 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { sampleId: string } }
+  { params }: { params: Promise<{ sampleId: string }> }
 ) {
   try {
-    const supabase = createClient()
+    const resolvedParams = await params
+    const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
@@ -63,7 +65,7 @@ export async function GET(
     }
 
     const reportService = new ReportService()
-    const reports = await reportService.getReportsForSample(params.sampleId)
+    const reports = await reportService.getReportsForSample(resolvedParams.sampleId)
 
     return NextResponse.json(reports)
   } catch (error) {

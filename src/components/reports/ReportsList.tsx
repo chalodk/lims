@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Report } from '@/types/database'
 import { useReports } from '@/hooks/useReports'
 
@@ -17,9 +17,9 @@ export function ReportsList({ sampleId, onReportSelect }: ReportsListProps) {
 
   useEffect(() => {
     loadReports()
-  }, [sampleId])
+  }, [sampleId, loadReports])
 
-  const loadReports = async () => {
+  const loadReports = useCallback(async () => {
     setLoading(true)
     setError(null)
     
@@ -31,7 +31,7 @@ export function ReportsList({ sampleId, onReportSelect }: ReportsListProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [fetchReportsForSample, sampleId])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-CL', {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { 
   SampleUnit, 
@@ -11,7 +11,7 @@ import {
 } from '@/types/database'
 import { 
   Save, 
-  CheckCircle, 
+ 
   AlertCircle 
 } from 'lucide-react'
 
@@ -42,13 +42,7 @@ export function ResultsEntry({ sampleId, onSave }: ResultsEntryProps) {
 
   const supabase = createClient()
 
-  useEffect(() => {
-    if (sampleId) {
-      fetchSampleData()
-    }
-  }, [sampleId])
-
-  const fetchSampleData = async () => {
+  const fetchSampleData = useCallback(async () => {
     try {
       const { data: sampleData, error: sampleError } = await supabase
         .from('samples')
@@ -79,11 +73,11 @@ export function ResultsEntry({ sampleId, onSave }: ResultsEntryProps) {
       const resultEntries: ResultEntry[] = []
       
       if (sampleData.sample_units && sampleData.sample_tests) {
-        sampleData.sample_units.forEach((unit: any) => {
-          sampleData.sample_tests.forEach((sampleTest: any) => {
+        sampleData.sample_units.forEach((unit: SampleUnit) => {
+          (sampleData.sample_tests as Array<{ test_id: number; method_id?: number; test_catalog?: TestCatalog; methods?: Method }>).forEach((sampleTest) => {
             // Check if result already exists
             const existingResult = unit.unit_results?.find(
-              (result: any) => result.test_id === sampleTest.test_id
+              (result: UnitResult) => result.test_id === sampleTest.test_id
             )
 
             if (existingResult) {
@@ -113,9 +107,15 @@ export function ResultsEntry({ sampleId, onSave }: ResultsEntryProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [supabase, sampleId])
 
-  const updateResult = (index: number, field: keyof ResultEntry, value: any) => {
+  useEffect(() => {
+    if (sampleId) {
+      fetchSampleData()
+    }
+  }, [sampleId, fetchSampleData])
+
+  const updateResult = (index: number, field: keyof ResultEntry, value: string | number | undefined | null) => {
     setResults(prev => prev.map((result, i) => 
       i === index ? { ...result, [field]: value } : result
     ))

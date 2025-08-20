@@ -3,10 +3,11 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { filename: string } }
+  { params }: { params: Promise<{ filename: string }> }
 ) {
   try {
-    const supabase = createClient()
+    const resolvedParams = await params
+    const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
@@ -23,7 +24,7 @@ export async function GET(
     return new NextResponse(
       JSON.stringify({ 
         message: 'PDF generation service not yet implemented',
-        filename: params.filename 
+        filename: resolvedParams.filename 
       }),
       {
         status: 501,
@@ -36,7 +37,7 @@ export async function GET(
     // Example implementation:
     // const { data, error } = await supabase.storage
     //   .from('reports')
-    //   .download(params.filename)
+    //   .download(resolvedParams.filename)
 
     // if (error) {
     //   return NextResponse.json({ error: 'PDF not found' }, { status: 404 })
@@ -45,7 +46,7 @@ export async function GET(
     // return new NextResponse(data, {
     //   headers: {
     //     'Content-Type': 'application/pdf',
-    //     'Content-Disposition': `inline; filename="${params.filename}"`,
+    //     'Content-Disposition': `inline; filename="${resolvedParams.filename}"`,
     //   },
     // })
 

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 
 export default function ReportsPage() {
-  const { user, userRole } = useAuth()
+  const { userRole } = useAuth()
   const [reports, setReports] = useState<Report[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
