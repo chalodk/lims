@@ -354,9 +354,14 @@ export default function AddResultModal({
       )
 
       if (validTests.length > 0) {
+        const testsWithNames = validTests.map(test => {
+          const methodName = availableMethods.find(m => m.id === test.method)?.name || test.method
+          const virusName = availableAnalytes.find(a => a.id === test.virus)?.scientific_name || test.virus
+          return { ...test, method: methodName, virus: virusName }
+        })
         const virologyFindings = {
           type: 'virologia',
-          tests: validTests
+          tests: testsWithNames
         }
 
         setFormData(prev => ({
@@ -370,7 +375,7 @@ export default function AddResultModal({
         }))
       }
     }
-  }, [selectedAnalysisArea, virologyData])
+  }, [selectedAnalysisArea, virologyData, availableMethods, availableAnalytes])
 
   // Auto-populate findings JSON for phytopathology
   useEffect(() => {
@@ -1233,18 +1238,6 @@ export default function AddResultModal({
           </select>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Metodología
-          </label>
-          <input
-            type="text"
-            value={formData.methodology}
-            onChange={(e) => setFormData(prev => ({ ...prev, methodology: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-            placeholder="Metodología utilizada"
-          />
-        </div>
       </>
     )
 
@@ -1293,9 +1286,14 @@ export default function AddResultModal({
           test.method && test.virus && test.result
         )
         if (validTests.length > 0) {
+          const testsWithNames = validTests.map(test => {
+            const methodName = availableMethods.find(m => m.id === test.method)?.name || test.method
+            const virusName = availableAnalytes.find(a => a.id === test.virus)?.scientific_name || test.virus
+            return { ...test, method: methodName, virus: virusName }
+          })
           findings = {
             type: 'virologia',
-            tests: validTests
+            tests: testsWithNames
           }
         }
       } else if (isPhytopathology) {

@@ -229,7 +229,7 @@ async function seedInterpretationRules() {
           species: ('species' in rule ? rule.species : null),
           crop_next: ('crop_next' in rule ? rule.crop_next : null),
           threshold_json: Object.fromEntries(
-            Object.entries(rule.threshold_json).filter(([_, value]) => value !== undefined)
+            Object.entries(rule.threshold_json).filter(([, value]) => value !== undefined)
           ),
           active: true
         }

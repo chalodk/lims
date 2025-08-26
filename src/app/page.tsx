@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { detectBrowserIssues, addLoadingTimeout } from '@/lib/browser-debug'
 import { Loader2 } from 'lucide-react'
 import Image from 'next/image'
 
@@ -12,9 +13,18 @@ export default function HomePage() {
   const supabase = createClient()
 
   useEffect(() => {
+    // Detect browser issues on initial load
+    detectBrowserIssues()
+    
     const checkAuth = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
+        // Add timeout to help debug hanging auth calls
+        const authCall = supabase.auth.getUser()
+        const { data: { user } } = await addLoadingTimeout(
+          authCall, 
+          8000, 
+          'Authentication check'
+        )
         
         if (user) {
           router.push('/dashboard')
@@ -23,6 +33,10 @@ export default function HomePage() {
         }
       } catch (error) {
         console.error('Auth check failed:', error)
+        // Show helpful message for browser-related timeouts
+        if (error instanceof Error && error.message?.includes('timed out')) {
+          console.warn('Auth timeout detected - this is often caused by browser extensions or cache issues')
+        }
         router.push('/login')
       } finally {
         setIsLoading(false)

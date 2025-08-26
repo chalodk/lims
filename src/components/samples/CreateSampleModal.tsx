@@ -328,7 +328,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
                 {/* SLA Type */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tipo SLA
+                    Prioridad
                   </label>
                   <select
                     value={formData.sla_type}

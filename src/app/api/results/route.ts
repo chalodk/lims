@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+// Minimal types to avoid any in findings normalization
+type MethodRow = { id: string; name: string }
+type AnalyteRow = { id: string; scientific_name: string }
+type VirologyTestInput = { identification?: string; method?: string; virus?: string; result?: string }
+type FindingsObj = { type?: string; tests?: VirologyTestInput[]; [key: string]: unknown }
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -180,9 +186,52 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Sample test not found or does not belong to sample' }, { status: 404 })
     }
 
+    // Normalize findings to object and map IDs to names for virology
+    let normalizedFindings: FindingsObj | null = findings as FindingsObj | null
+    if (typeof normalizedFindings === 'string') {
+      try {
+        normalizedFindings = JSON.parse(normalizedFindings) as FindingsObj
+      } catch {
+        normalizedFindings = {}
+      }
+    }
+
+    if (normalizedFindings && Array.isArray(normalizedFindings.tests)) {
+      const methodIds: string[] = []
+      const virusIds: string[] = []
+      normalizedFindings.tests.forEach((t: VirologyTestInput) => {
+        if (t.method && typeof t.method === 'string') methodIds.push(t.method)
+        if (t.virus && typeof t.virus === 'string') virusIds.push(t.virus)
+      })
+
+      const uniqueMethodIds = Array.from(new Set(methodIds))
+      const uniqueVirusIds = Array.from(new Set(virusIds))
+
+      // Fetch names from DB
+      const [methodsRes, analytesRes] = await Promise.all([
+        uniqueMethodIds.length > 0
+          ? supabase.from('methods').select('id, name').in('id', uniqueMethodIds)
+          : Promise.resolve({ data: [] as MethodRow[], error: null } as const),
+        uniqueVirusIds.length > 0
+          ? supabase.from('analytes').select('id, scientific_name').in('id', uniqueVirusIds)
+          : Promise.resolve({ data: [] as AnalyteRow[], error: null } as const)
+      ])
+
+      const idToMethodName = new Map<string, string>((methodsRes.data || []).map((m: MethodRow) => [m.id, m.name]))
+      const idToVirusName = new Map<string, string>((analytesRes.data || []).map((a: AnalyteRow) => [a.id, a.scientific_name]))
+
+      // Only rewrite if we actually mapped at least one
+      const mappedTests = normalizedFindings.tests.map((t: VirologyTestInput) => ({
+        ...t,
+        method: t.method ? (idToMethodName.get(t.method) || t.method) : t.method,
+        virus: t.virus ? (idToVirusName.get(t.virus) || t.virus) : t.virus
+      }))
+      normalizedFindings = { ...normalizedFindings, tests: mappedTests }
+    }
+
     // Combine findings with methodologies and identification_techniques
     const combinedFindings = {
-      ...findings,
+      ...(normalizedFindings || {}),
       methodologies: methodologies || [],
       identification_techniques: identification_techniques || []
     }

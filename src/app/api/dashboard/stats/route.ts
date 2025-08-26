@@ -20,38 +20,56 @@ export async function GET() {
     const companyId = userData?.company_id
 
     // Query for sample statistics
-    const { data: sampleStats, error: samplesError } = await supabase
-      .from('samples')
-      .select('status')
-      .eq(companyId ? 'company_id' : 'id', companyId || user.id)
-
-    if (samplesError) {
-      console.error('Error fetching sample stats:', samplesError)
+    let sampleStats: Array<{ status: string }> = []
+    {
+      const base = supabase.from('samples').select('status')
+      const { data, error } = companyId
+        ? await base.eq('company_id', companyId)
+        : await base
+      if (error) {
+        console.error('Error fetching sample stats:', error)
+      } else if (data) {
+        sampleStats = data as Array<{ status: string }>
+      }
     }
 
     // Query for results statistics
-    const { data: resultStats, error: resultsError } = await supabase
-      .from('results')
-      .select(`
-        status,
-        samples!inner (
-          ${companyId ? 'company_id' : 'id'}
-        )
-      `)
-      .eq(companyId ? 'samples.company_id' : 'samples.id', companyId || user.id)
-
-    if (resultsError) {
-      console.error('Error fetching result stats:', resultsError)
+    let resultStats: Array<{ status: string }> = []
+    {
+      if (companyId) {
+        const { data, error } = await supabase
+          .from('results')
+          .select('status, samples!inner(company_id)')
+          .eq('samples.company_id', companyId)
+        if (error) {
+          console.error('Error fetching result stats:', error)
+        } else if (data) {
+          resultStats = data as Array<{ status: string }>
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('results')
+          .select('status')
+        if (error) {
+          console.error('Error fetching result stats:', error)
+        } else if (data) {
+          resultStats = data as Array<{ status: string }>
+        }
+      }
     }
 
     // Query for reports statistics
-    const { data: reportStats, error: reportsError } = await supabase
-      .from('reports')
-      .select('status')
-      .eq(companyId ? 'company_id' : 'client_id', companyId || user.id)
-
-    if (reportsError) {
-      console.error('Error fetching report stats:', reportsError)
+    let reportStats: Array<{ status: string }> = []
+    {
+      const base = supabase.from('reports').select('status')
+      const { data, error } = companyId
+        ? await base.eq('company_id', companyId)
+        : await base
+      if (error) {
+        console.error('Error fetching report stats:', error)
+      } else if (data) {
+        reportStats = data as Array<{ status: string }>
+      }
     }
 
     // Process sample statistics

@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+// Minimal types to reflect the Supabase response shape used below
+interface TestCatalogItem { id: string; name: string; area?: string }
+interface SampleTestItem { test_catalog?: TestCatalogItem | TestCatalogItem[] }
+interface SampleItem {
+  created_at: string
+  status: string
+  sample_tests?: SampleTestItem[]
+  [key: string]: unknown
+}
+
 
 export async function GET(request: NextRequest) {
   try {
@@ -58,14 +68,23 @@ export async function GET(request: NextRequest) {
     }
 
     // Format the response with additional computed fields
-    const formattedSamples = samples?.map(sample => ({
-      ...sample,
-      daysAgo: Math.floor((Date.now() - new Date(sample.created_at).getTime()) / (1000 * 60 * 60 * 24)),
-      testAreas: sample.sample_tests?.flatMap((st: { test_catalog: { area: string }[] }) => 
-        st.test_catalog.map(tc => tc.area)
-      ).filter(Boolean) || [],
-      statusLabel: getStatusLabel(sample.status)
-    })) || []
+    const formattedSamples = (samples as SampleItem[] | null)?.map((sample) => {
+      const areas = Array.isArray(sample.sample_tests)
+        ? sample.sample_tests
+            .map((st) => {
+              const tc = Array.isArray(st?.test_catalog) ? st.test_catalog[0] : st?.test_catalog
+              return tc?.area
+            })
+            .filter((a): a is string => Boolean(a))
+        : []
+
+      return {
+        ...sample,
+        daysAgo: Math.floor((Date.now() - new Date(sample.created_at).getTime()) / (1000 * 60 * 60 * 24)),
+        testAreas: areas,
+        statusLabel: getStatusLabel(sample.status)
+      }
+    }) || []
 
     return NextResponse.json({
       samples: formattedSamples,

@@ -3,6 +3,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { Database } from '@/types/database'
 
 export async function middleware(request: NextRequest) {
+  // Basic trace to debug local hangs
+  // Note: console.log in middleware appears in server logs
+  console.log(`[middleware] path=${request.nextUrl.pathname}`)
   let supabaseResponse = NextResponse.next({
     request,
   })
@@ -40,23 +43,12 @@ export async function middleware(request: NextRequest) {
 
   // Check if we have a valid session
   const isAuthenticated = !sessionError && !!session?.user && !!session?.access_token
+  console.log('[middleware] isAuthenticated=', isAuthenticated, 'isPublicRoute=', isPublicRoute)
 
   // If user is not signed in and trying to access protected route
   if (!isAuthenticated && !isPublicRoute) {
-    // Clear any stale cookies
-    const response = NextResponse.redirect(new URL('/login', request.url))
-    
-    // Clear all possible auth cookies
-    const cookieNames = ['sb-access-token', 'sb-refresh-token', 'sb-auth-token']
-    cookieNames.forEach(name => {
-      response.cookies.delete(name)
-      // Also try with the project ref prefix
-      response.cookies.delete(`sb-mknzstzwhbfoyxzfudfw-auth-token`)
-      response.cookies.delete(`sb-mknzstzwhbfoyxzfudfw-auth-token.0`)
-      response.cookies.delete(`sb-mknzstzwhbfoyxzfudfw-auth-token.1`)
-    })
-    
-    return response
+    // Only redirect to login, don't clear cookies (let client handle session cleanup)
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
   // If user is signed in and trying to access auth pages

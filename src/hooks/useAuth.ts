@@ -44,6 +44,7 @@ export function useAuth() {
         return
       }
 
+
       console.log('Valid session found, fetching user data')
       
       try {
@@ -130,67 +131,27 @@ export function useAuth() {
         console.log('User signed in')
         await updateAuthState(session)
       } else if (event === 'TOKEN_REFRESHED') {
-        console.log('Token refreshed successfully')
+        console.log('Token refreshed successfully via event listener')
         await updateAuthState(session)
       } else if (event === 'USER_UPDATED') {
         console.log('User updated')
         await updateAuthState(session)
       } else if (event === 'PASSWORD_RECOVERY') {
         console.log('Password recovery event')
+      } else {
+        // Handle any other auth events by updating state if we have a valid session
+        if (session?.user && session?.access_token) {
+          console.log('Auth event with valid session:', event)
+          await updateAuthState(session)
+        }
       }
     })
 
-    // Periodic session validation (every 2 minutes)
-    const sessionCheckInterval = setInterval(async () => {
-      if (!mounted) return
-      
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession()
-        
-        if (error) {
-          console.warn('Session check error:', error)
-          // Only clear auth state if it's a real auth error, not a network issue
-          if (error.message?.includes('invalid') || error.message?.includes('expired')) {
-            await updateAuthState(null)
-          }
-          return
-        }
 
-        // Check if session is still valid
-        if (session && session.expires_at) {
-          const expiresAt = new Date(session.expires_at * 1000)
-          const now = new Date()
-          
-          // If session expires in less than 10 minutes, try to refresh
-          if (expiresAt.getTime() - now.getTime() < 10 * 60 * 1000) {
-            console.log('Session expiring soon, attempting refresh...')
-            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
-            
-            if (refreshError) {
-              console.error('Session refresh failed:', refreshError)
-              // Only sign out if refresh truly failed, not on network errors
-              if (refreshError.message?.includes('invalid') || refreshError.message?.includes('expired')) {
-                await updateAuthState(null)
-              }
-            } else if (refreshData.session) {
-              console.log('Session refreshed successfully')
-              await updateAuthState(refreshData.session)
-            }
-          }
-        } else if (!session) {
-          // No session found, clear auth state
-          await updateAuthState(null)
-        }
-      } catch (error) {
-        console.error('Session check failed:', error)
-        // Don't clear auth state on network errors, only on auth errors
-      }
-    }, 120000) // Check every 2 minutes
 
     return () => {
       mounted = false
       subscription.unsubscribe()
-      clearInterval(sessionCheckInterval)
     }
   }, [supabase])
 
