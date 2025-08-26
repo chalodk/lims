@@ -31,16 +31,8 @@ export default function UserSetup({ authUser }: UserSetupProps) {
     setError('')
 
     try {
-      // First, create the company
-      const { data: company, error: companyError } = await supabase
-        .from('companies')
-        .insert([{ name: formData.company_name }])
-        .select()
-        .single()
-
-      if (companyError) {
-        throw companyError
-      }
+      // Use the forced company_id instead of creating a new company
+      const forcedCompanyId = '97efa8ef-de43-491c-9c9f-bdd21a7dbb17'
 
       // Get the role ID
       const { data: role, error: roleError } = await supabase
@@ -53,13 +45,13 @@ export default function UserSetup({ authUser }: UserSetupProps) {
         throw roleError
       }
 
-      // Create the user profile
+      // Create the user profile with forced company_id
       const { error: userError } = await supabase
         .from('users')
         .insert([
           {
             id: authUser.id,
-            company_id: company.id,
+            company_id: forcedCompanyId,
             role_id: role.id,
             name: formData.name,
             email: authUser.email,

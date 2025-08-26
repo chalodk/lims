@@ -12,7 +12,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
-  const [isSignUp] = useState(false)
+  const [isSignUp, setIsSignUp] = useState(false)
   
   const router = useRouter()
   const supabase = createClient()
@@ -154,7 +154,18 @@ export default function LoginPage() {
           </form>
 
           {/* Toggle Mode */}
-         
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-sm text-green-600 hover:text-green-500 transition-colors"
+            >
+              {isSignUp 
+                ? '¿Ya tienes cuenta? Inicia sesión' 
+                : '¿No tienes cuenta? Crear cuenta'
+              }
+            </button>
+          </div>
         </div>
 
         {/* Footer */}

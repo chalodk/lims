@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
         name: invitation.email.split('@')[0], // Default name from email
         email: invitation.email,
         client_id: invitation.client_id,
-        company_id: invitation.company_id
+        company_id: '97efa8ef-de43-491c-9c9f-bdd21a7dbb17' // Force specific company_id
       })
 
     if (profileError) {
