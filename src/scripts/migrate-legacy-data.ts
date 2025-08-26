@@ -23,13 +23,6 @@ if (!supabaseUrl || !supabaseServiceKey) {
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 const slaService = new SLAService()
 
-interface LegacySample {
-  id: string
-  priority: 'normal' | 'express'
-  received_date: string
-  created_at: string
-  requested_tests?: string[]
-}
 
 async function migrateLegacyData() {
   console.log('🚀 Starting data migration...')

@@ -2,6 +2,80 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { ResultWithRelations } from '@/types/database'
+
+interface NematodeEntry {
+  name: string
+  quantity: string
+}
+
+interface NematologyFindings {
+  type: 'nematologia_positive' | 'nematologia_negative'
+  nematodes: NematodeEntry[]
+}
+
+interface VirologyTest {
+  identification: string
+  method: string
+  virus: string
+  result: 'positive' | 'negative' | string
+}
+
+interface VirologyFindings {
+  type: 'virologia'
+  tests: VirologyTest[]
+}
+
+interface PhytopathologyTest {
+  identification: string
+  microorganism: string
+  dilutions: {
+    '10-1': string
+    '10-2': string
+    '10-3': string
+  }
+}
+
+interface PhytopathologyFindings {
+  type: 'fitopatologia'
+  tests: PhytopathologyTest[]
+}
+
+
+// Type guard functions
+function isNematologyFindings(f: unknown): f is NematologyFindings {
+  return (
+    typeof f === 'object' &&
+    f !== null &&
+    'type' in f &&
+    'nematodes' in f &&
+    ((f as Record<string, unknown>).type === 'nematologia_positive' || 
+     (f as Record<string, unknown>).type === 'nematologia_negative') &&
+    Array.isArray((f as Record<string, unknown>).nematodes)
+  )
+}
+
+function isVirologyFindings(f: unknown): f is VirologyFindings {
+  return (
+    typeof f === 'object' &&
+    f !== null &&
+    'type' in f &&
+    'tests' in f &&
+    (f as Record<string, unknown>).type === 'virologia' &&
+    Array.isArray((f as Record<string, unknown>).tests)
+  )
+}
+
+function isPhytopathologyFindings(f: unknown): f is PhytopathologyFindings {
+  return (
+    typeof f === 'object' &&
+    f !== null &&
+    'type' in f &&
+    'tests' in f &&
+    (f as Record<string, unknown>).type === 'fitopatologia' &&
+    Array.isArray((f as Record<string, unknown>).tests)
+  )
+}
+
 import { 
   FlaskConical,
   X,
@@ -58,7 +132,14 @@ export default function ViewResultModal({ isOpen, onClose, resultId }: ViewResul
     }
   }, [isOpen, resultId, fetchResult])
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string | null) => {
+    if (!status) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+          Sin estado
+        </span>
+      )
+    }
     const statusConfig = {
       pending: { color: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: Clock, text: 'Pendiente' },
       completed: { color: 'bg-blue-100 text-blue-800 border-blue-200', icon: CheckCircle, text: 'Completado' },
@@ -133,6 +214,204 @@ export default function ViewResultModal({ isOpen, onClose, resultId }: ViewResul
         <Shield className="w-4 h-4 mr-2" />
         Confianza {config.text}
       </span>
+    )
+  }
+
+  const renderNematologyFindings = (findings: unknown) => {
+    if (!isNematologyFindings(findings)) {
+      return null
+    }
+
+    return (
+      <div className="bg-white rounded border overflow-hidden">
+        <div className="bg-green-50 px-4 py-3 border-b">
+          <h5 className="text-sm font-medium text-green-900 flex items-center">
+            <Bug className="h-4 w-4 mr-2" />
+            Resultados de Nematología
+            <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${
+              findings.type === 'nematologia_positive' 
+                ? 'bg-red-100 text-red-700' 
+                : 'bg-green-100 text-green-700'
+            }`}>
+              {findings.type === 'nematologia_positive' ? 'Positivo' : 'Negativo'}
+            </span>
+          </h5>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Nemátodo
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Cantidad nematodos/250 cm³ de suelo
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {findings.nematodes.map((nematode: NematodeEntry, index: number) => (
+                <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {nematode.name || 'No especificado'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
+                    {nematode.quantity || 'No especificado'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
+  const renderVirologyFindings = (findings: unknown) => {
+    if (!isVirologyFindings(findings)) {
+      return null
+    }
+
+    return (
+      <div className="bg-white rounded border overflow-hidden">
+        <div className="bg-blue-50 px-4 py-3 border-b">
+          <h5 className="text-sm font-medium text-blue-900 flex items-center">
+            <Microscope className="h-4 w-4 mr-2" />
+            Resultados de Virología
+          </h5>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Identificación
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Técnica utilizada
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Virus
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Resultado
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {findings.tests.map((test: VirologyTest, index: number) => (
+                <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
+                    {test.identification || 'No especificado'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {test.method || 'No especificado'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {test.virus || 'No especificado'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      test.result === 'positive' 
+                        ? 'bg-red-100 text-red-700' 
+                        : test.result === 'negative'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-700'
+                    }`}>
+                      {test.result === 'positive' ? 'Positivo' : 
+                       test.result === 'negative' ? 'Negativo' : 
+                       test.result || 'No especificado'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
+  const renderPhytopathologyFindings = (findings: unknown) => {
+    if (!isPhytopathologyFindings(findings)) {
+      return null
+    }
+
+    return (
+      <div className="bg-white rounded border overflow-hidden">
+        <div className="bg-yellow-50 px-4 py-3 border-b">
+          <h5 className="text-sm font-medium text-yellow-900 flex items-center">
+            <Microscope className="h-4 w-4 mr-2" />
+            Resultados de Fitopatología
+          </h5>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-yellow-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  N° de muestra
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Identificación de la muestra
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Microorganismo Identificado
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" colSpan={3}>
+                  Recuento de microorganismos (N° de colonias/dilución)
+                </th>
+              </tr>
+              <tr className="bg-yellow-100">
+                <th colSpan={3}></th>
+                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                  Dilución utilizada
+                </th>
+                <th colSpan={2}></th>
+              </tr>
+              <tr className="bg-yellow-100">
+                <th colSpan={3}></th>
+                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
+                  10⁻¹
+                </th>
+                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
+                  10⁻²
+                </th>
+                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
+                  10⁻³
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {findings.tests.map((test: PhytopathologyTest, index: number) => (
+                <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center font-mono">
+                    {index + 1}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
+                    {test.identification || 'No especificado'}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {test.microorganism || 'No especificado'}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center font-mono">
+                    {test.dilutions?.['10-1'] || '-'}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center font-mono">
+                    {test.dilutions?.['10-2'] || '-'}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center font-mono">
+                    {test.dilutions?.['10-3'] || '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     )
   }
 
@@ -275,7 +554,13 @@ export default function ViewResultModal({ isOpen, onClose, resultId }: ViewResul
                       <div>
                         <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Método</label>
                         <p className="text-sm text-gray-900">
-                          {result.sample_tests.methods?.name || result.methodology || 'No especificado'}
+                          {(() => {
+                            const findingsMethodologies = (result.findings as Record<string, unknown>)?.methodologies
+                            if (findingsMethodologies && Array.isArray(findingsMethodologies) && findingsMethodologies.length > 0) {
+                              return findingsMethodologies.join(', ')
+                            }
+                            return result.sample_tests.methods?.name || result.methodology || 'No especificado'
+                          })()}
                         </p>
                       </div>
                     </div>
@@ -350,11 +635,20 @@ export default function ViewResultModal({ isOpen, onClose, resultId }: ViewResul
                 {result.findings && Object.keys(result.findings).length > 0 && (
                   <div className="bg-gray-50 rounded-lg p-4">
                     <h4 className="text-sm font-medium text-gray-900 mb-3">Hallazgos Técnicos</h4>
-                    <div className="bg-white rounded border p-3">
-                      <pre className="text-sm text-gray-700 whitespace-pre-wrap">
-                        {JSON.stringify(result.findings, null, 2)}
-                      </pre>
-                    </div>
+                    
+                    {/* Render specialized findings tables if applicable */}
+                    {renderNematologyFindings(result.findings)}
+                    {renderVirologyFindings(result.findings)}
+                    {renderPhytopathologyFindings(result.findings)}
+                    
+                    {/* Fallback to JSON display for non-specialized findings */}
+                    {!renderNematologyFindings(result.findings) && !renderVirologyFindings(result.findings) && !renderPhytopathologyFindings(result.findings) && (
+                      <div className="bg-white rounded border p-3">
+                        <pre className="text-sm text-gray-700 whitespace-pre-wrap">
+                          {JSON.stringify(result.findings, null, 2)}
+                        </pre>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -371,7 +665,7 @@ export default function ViewResultModal({ isOpen, onClose, resultId }: ViewResul
                         </span>
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
-                        {new Date(result.performed_at).toLocaleString()}
+                        {result.performed_at ? new Date(result.performed_at).toLocaleString() : 'N/A'}
                       </p>
                     </div>
                     {result.validated_by_user && (

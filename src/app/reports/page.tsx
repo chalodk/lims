@@ -59,12 +59,20 @@ export default function ReportsPage() {
   }, [fetchReports])
 
 
-  const filteredReports = reports.filter(report => {
+  const filteredReports = reports.filter(() => {
     // Simple filtering since we don't have joins - can be improved later
     return searchTerm === '' || true
   })
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string | null) => {
+    if (!status) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+          Sin estado
+        </span>
+      )
+    }
+    
     const statusConfig = {
       draft: 'bg-gray-100 text-gray-800 border-gray-200',
       generated: 'bg-blue-100 text-blue-800 border-blue-200',
@@ -254,7 +262,7 @@ export default function ReportsPage() {
                         )}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {new Date(report.created_at).toLocaleDateString('es-ES')}
+                        {report.created_at ? new Date(report.created_at).toLocaleDateString('es-ES') : 'N/A'}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">

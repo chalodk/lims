@@ -223,7 +223,18 @@ async function seedInterpretationRules() {
     
     for (const rule of allRules) {
       try {
-        const result = await interpretationService.createRule(rule)
+        // Add default values for required fields
+        const completeRule = {
+          ...rule,
+          species: ('species' in rule ? rule.species : null),
+          crop_next: ('crop_next' in rule ? rule.crop_next : null),
+          threshold_json: Object.fromEntries(
+            Object.entries(rule.threshold_json).filter(([_, value]) => value !== undefined)
+          ),
+          active: true
+        }
+        
+        const result = await interpretationService.createRule(completeRule)
         if (result) {
           created++
         } else {

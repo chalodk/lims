@@ -392,3 +392,118 @@ export async function PATCH(
     )
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const resolvedParams = await params
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Get user's company_id from users table
+    const { data: userData } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('id', user.id)
+      .single()
+
+    // First, get the current sample to check access
+    const { data: currentSample, error: fetchError } = await supabase
+      .from('samples')
+      .select('company_id')
+      .eq('id', resolvedParams.id)
+      .single()
+
+    if (fetchError) {
+      return NextResponse.json({ error: 'Sample not found' }, { status: 404 })
+    }
+
+    // Check access
+    if (userData?.company_id && currentSample.company_id !== userData.company_id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // Delete related records in the correct order to handle foreign key constraints
+    // 1. Get sample unit IDs first
+    const { data: sampleUnits } = await supabase
+      .from('sample_units')
+      .select('id')
+      .eq('sample_id', resolvedParams.id)
+
+    const sampleUnitIds = sampleUnits?.map(unit => unit.id) || []
+
+    // 2. Delete unit_results first (they reference sample_units)
+    if (sampleUnitIds.length > 0) {
+      await supabase
+        .from('unit_results')
+        .delete()
+        .in('sample_unit_id', sampleUnitIds)
+    }
+
+    // 3. Delete sample_units
+    await supabase
+      .from('sample_units')
+      .delete()
+      .eq('sample_id', resolvedParams.id)
+
+    // 3. Delete results
+    await supabase
+      .from('results')
+      .delete()
+      .eq('sample_id', resolvedParams.id)
+
+    // 4. Delete sample_tests
+    await supabase
+      .from('sample_tests')
+      .delete()
+      .eq('sample_id', resolvedParams.id)
+
+    // 5. Delete sample_status_transitions
+    await supabase
+      .from('sample_status_transitions')
+      .delete()
+      .eq('sample_id', resolvedParams.id)
+
+    // 6. Delete applied_interpretations
+    await supabase
+      .from('applied_interpretations')
+      .delete()
+      .eq('sample_id', resolvedParams.id)
+
+    // 7. Delete sample_files
+    await supabase
+      .from('sample_files')
+      .delete()
+      .eq('sample_id', resolvedParams.id)
+
+    // 8. Delete reports
+    await supabase
+      .from('reports')
+      .delete()
+      .eq('sample_id', resolvedParams.id)
+
+    // 9. Finally, delete the sample itself
+    const { error: deleteError } = await supabase
+      .from('samples')
+      .delete()
+      .eq('id', resolvedParams.id)
+
+    if (deleteError) {
+      return NextResponse.json({ error: deleteError.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ message: 'Sample deleted successfully' })
+  } catch (error) {
+    console.error('Error deleting sample:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}

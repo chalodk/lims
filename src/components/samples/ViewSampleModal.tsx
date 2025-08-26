@@ -165,12 +165,12 @@ export default function ViewSampleModal({ isOpen, onClose, sample }: ViewSampleM
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                <p className="text-sm text-gray-900">{getStatusLabel(sample.status)}</p>
+                <p className="text-sm text-gray-900">{getStatusLabel(sample.status || '')}</p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Prioridad</label>
-                <p className="text-sm text-gray-900">{getSlaTypeLabel(sample.sla_type)}</p>
+                <p className="text-sm text-gray-900">{getSlaTypeLabel(sample.sla_type || '')}</p>
               </div>
 
               <div>
@@ -387,9 +387,9 @@ export default function ViewSampleModal({ isOpen, onClose, sample }: ViewSampleM
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <div className="flex items-center space-x-3 mb-2">
-                                {getStatusIcon(result.status)}
+                                {getStatusIcon(result.status || '')}
                                 <span className="text-sm font-medium text-gray-900">
-                                  {getStatusText(result.status)}
+                                  {getStatusText(result.status || '')}
                                 </span>
                                 {result.result_type && (
                                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getResultTypeColor(result.result_type)}`}>
@@ -415,11 +415,11 @@ export default function ViewSampleModal({ isOpen, onClose, sample }: ViewSampleM
                               
                               <div className="flex items-center text-xs text-gray-500 space-x-4 mt-2">
                                 <span>
-                                  Realizado: {new Date(result.performed_at).toLocaleDateString()}
+                                  Realizado: {new Date(result.performed_at || '').toLocaleDateString()}
                                 </span>
                                 {result.validation_date && (
                                   <span>
-                                    Validado: {new Date(result.validation_date).toLocaleDateString()}
+                                    Validado: {new Date(result.validation_date || '').toLocaleDateString()}
                                   </span>
                                 )}
                               </div>

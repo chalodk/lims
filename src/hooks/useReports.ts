@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { ReportTemplate, Report } from '@/types/database'
+import { ReportTemplateRow, Report } from '@/types/database'
 
 export function useReports() {
-  const [templates, setTemplates] = useState<ReportTemplate[]>([])
+  const [templates, setTemplates] = useState<ReportTemplateRow[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -76,7 +76,7 @@ export function useReports() {
     name: string
     file_url?: string
     schema_json?: Record<string, unknown>
-  }): Promise<ReportTemplate> => {
+  }): Promise<ReportTemplateRow> => {
     setLoading(true)
     setError(null)
     

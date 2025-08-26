@@ -25,7 +25,6 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
   const [isSubmitting, setIsSubmitting] = useState(false)
   
   // TODO: Implement proper test editing using sample_tests relation
-  const parsedTests = { analysisTypes: [], methodologies: [], identificationTechniques: [] }
   
   const [formData, setFormData] = useState({
     client_id: sample.client_id || '',
@@ -133,30 +132,6 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
 
   if (!isOpen) return null
 
-  const analysisOptions = {
-    types: [
-      'Nematológico',
-      'Fitopatológico', 
-      'Virológico',
-      'Entomológico',
-      'Detección precoz de enfermedades'
-    ],
-    methodologies: [
-      'Tamizado de Cobb y Embudo de Baermann',
-      'Centrífuga',
-      'Incubación y Tamizado de Cobb',
-      'Placa petri',
-      'Incubación',
-      'Cámara húmeda',
-      'Recuento de colonias'
-    ],
-    identificationTechniques: [
-      'Taxonomía tradicional',
-      'RT-PCR',
-      'PCR',
-      'Elisa'
-    ]
-  }
 
   const statusOptions = [
     { value: 'received', label: 'Recibida' },
@@ -244,7 +219,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     Estado
                   </label>
                   <select
-                    value={formData.status}
+                    value={formData.status || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as typeof formData.status }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   >
@@ -274,7 +249,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     Prioridad
                   </label>
                   <select
-                    value={formData.sla_type}
+                    value={formData.sla_type || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, sla_type: e.target.value as typeof formData.sla_type }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   >

@@ -7,12 +7,12 @@ import ViewResultModal from '@/components/results/ViewResultModal'
 import AddResultModal from '@/components/results/AddResultModal'
 import EditResultModal from '@/components/results/EditResultModal'
 import { ResultWithRelations } from '@/types/database'
+import { formatDate } from '@/lib/utils/formatters'
+import { getResultStatusBadge, getResultTypeBadge, getSeverityBadge } from '@/lib/utils/badges'
 import { 
   Plus,
   Search,
   FlaskConical,
-  CheckCircle,
-  Clock,
   Loader2,
   Eye,
   Edit2,
@@ -65,62 +65,7 @@ export default function ResultsPage() {
     return matchesSearch && matchesStatus && matchesTestArea
   })
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      pending: { color: 'bg-yellow-100 text-yellow-800', icon: Clock, text: 'Pendiente' },
-      completed: { color: 'bg-blue-100 text-blue-800', icon: CheckCircle, text: 'Completado' },
-      validated: { color: 'bg-green-100 text-green-800', icon: CheckCircle, text: 'Validado' }
-    }
-    
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending
-    const IconComponent = config.icon
-    
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
-        <IconComponent className="w-3 h-3 mr-1" />
-        {config.text}
-      </span>
-    )
-  }
-
-  const getResultTypeBadge = (resultType: string | null) => {
-    if (!resultType) return null
-    
-    const typeConfig = {
-      positive: { color: 'bg-red-100 text-red-800', text: 'Positivo' },
-      negative: { color: 'bg-green-100 text-green-800', text: 'Negativo' },
-      inconclusive: { color: 'bg-gray-100 text-gray-800', text: 'No conclusivo' }
-    }
-    
-    const config = typeConfig[resultType as keyof typeof typeConfig]
-    if (!config) return null
-    
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
-        {config.text}
-      </span>
-    )
-  }
-
-  const getSeverityBadge = (severity: string | null) => {
-    if (!severity) return null
-    
-    const severityConfig = {
-      low: { color: 'bg-green-100 text-green-800', text: 'Baja' },
-      moderate: { color: 'bg-yellow-100 text-yellow-800', text: 'Moderada' },
-      high: { color: 'bg-orange-100 text-orange-800', text: 'Alta' },
-      severe: { color: 'bg-red-100 text-red-800', text: 'Severa' }
-    }
-    
-    const config = severityConfig[severity as keyof typeof severityConfig]
-    if (!config) return null
-    
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
-        {config.text}
-      </span>
-    )
-  }
+  // Badge functions moved to shared utilities
 
   const canCreateResults = userRole && ['admin', 'validador', 'comun'].includes(userRole)
   const canEditResults = userRole && ['admin', 'validador'].includes(userRole)
@@ -287,7 +232,7 @@ export default function ResultsPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(result.status)}
+                        {getResultStatusBadge(result.status)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getResultTypeBadge(result.result_type)}
@@ -299,7 +244,7 @@ export default function ResultsPage() {
                         {result.pathogen_identified || 'No identificado'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(result.performed_at).toLocaleDateString()}
+                        {formatDate(result.performed_at)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center space-x-2">

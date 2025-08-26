@@ -126,6 +126,8 @@ export async function POST(request: NextRequest) {
       sample_id,
       sample_test_id,
       methodology,
+      methodologies,
+      identification_techniques,
       findings,
       conclusion,
       diagnosis,
@@ -178,11 +180,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Sample test not found or does not belong to sample' }, { status: 404 })
     }
 
+    // Combine findings with methodologies and identification_techniques
+    const combinedFindings = {
+      ...findings,
+      methodologies: methodologies || [],
+      identification_techniques: identification_techniques || []
+    }
+
     const resultData = {
       sample_id,
       sample_test_id,
       methodology: methodology || null,
-      findings: findings || null,
+      findings: combinedFindings || null,
       conclusion: conclusion || null,
       diagnosis: diagnosis || null,
       pathogen_identified: pathogen_identified || null,

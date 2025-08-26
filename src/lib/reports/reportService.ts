@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import type { 
-  ReportTemplate, 
+  ReportTemplateRow, 
   Report, 
   SampleFull,
   Database 
@@ -9,7 +9,7 @@ import type {
 export class ReportService {
   private supabase = createClient()
 
-  async getTemplates(active: boolean = true): Promise<ReportTemplate[]> {
+  async getTemplates(active: boolean = true): Promise<ReportTemplateRow[]> {
     const { data, error } = await this.supabase
       .from('report_templates')
       .select('*')
@@ -20,7 +20,7 @@ export class ReportService {
     return data || []
   }
 
-  async getTemplate(code: string, version?: number): Promise<ReportTemplate | null> {
+  async getTemplate(code: string, version?: number): Promise<ReportTemplateRow | null> {
     let query = this.supabase
       .from('report_templates')
       .select('*')
@@ -38,7 +38,7 @@ export class ReportService {
     return data
   }
 
-  async createTemplate(template: Omit<Database['public']['Tables']['report_templates']['Insert'], 'id'>): Promise<ReportTemplate> {
+  async createTemplate(template: Omit<Database['public']['Tables']['report_templates']['Insert'], 'id'>): Promise<ReportTemplateRow> {
     // Check if template with same code exists to increment version
     const existing = await this.getTemplate(template.code)
     const version = existing ? existing.version + 1 : 1
@@ -132,7 +132,7 @@ export class ReportService {
     return report
   }
 
-  private async generateHTML(template: ReportTemplate, sampleData: SampleFull): Promise<string> {
+  private async generateHTML(template: ReportTemplateRow, sampleData: SampleFull): Promise<string> {
     // Basic template engine - you can enhance this with a more sophisticated templating system
     let html = template.file_url ? await this.fetchTemplateContent(template.file_url) : this.getDefaultTemplate()
     

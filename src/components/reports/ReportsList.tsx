@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Report } from '@/types/database'
+import { formatDate } from '@/lib/utils/formatters'
 import { useReports } from '@/hooks/useReports'
 
 interface ReportsListProps {
@@ -14,10 +15,6 @@ export function ReportsList({ sampleId, onReportSelect }: ReportsListProps) {
   const [reports, setReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    loadReports()
-  }, [sampleId, loadReports])
 
   const loadReports = useCallback(async () => {
     setLoading(true)
@@ -33,15 +30,11 @@ export function ReportsList({ sampleId, onReportSelect }: ReportsListProps) {
     }
   }, [fetchReportsForSample, sampleId])
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-CL', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
+  useEffect(() => {
+    loadReports()
+  }, [sampleId, loadReports])
+
+  // formatDate utility imported above handles null values
 
   const getStatusBadge = (status: string) => {
     const baseClasses = 'px-2 py-1 text-xs font-medium rounded-full'
@@ -109,7 +102,7 @@ export function ReportsList({ sampleId, onReportSelect }: ReportsListProps) {
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 <h4 className="font-medium text-gray-900">
-                  Reporte v{report.version}
+                  Reporte {report.template || 'Estándar'}
                 </h4>
                 <span className={getStatusBadge(report.status || 'draft')}>
                   {getStatusLabel(report.status || 'draft')}
@@ -124,23 +117,12 @@ export function ReportsList({ sampleId, onReportSelect }: ReportsListProps) {
                 <div className="flex items-center gap-4 text-xs">
                   <span>Recomendaciones: {report.include_recommendations ? 'Sí' : 'No'}</span>
                   <span>Imágenes: {report.include_images ? 'Sí' : 'No'}</span>
-                  <span>Visibilidad: {report.visibility === 'client' ? 'Cliente' : 'Interno'}</span>
+                  <span>Plantilla: {report.template || 'estándar'}</span>
                 </div>
               </div>
             </div>
 
             <div className="ml-4 flex flex-col gap-2">
-              {report.rendered_pdf_url && (
-                <a
-                  href={report.rendered_pdf_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  Ver PDF
-                </a>
-              )}
               {report.download_url && (
                 <a
                   href={report.download_url}

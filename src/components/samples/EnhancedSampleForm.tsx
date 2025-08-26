@@ -6,11 +6,35 @@ import { useAuth } from '@/hooks/useAuth'
 import { 
   Client, 
   TestCatalog, 
-  Method, 
-  Species, 
-  Variety,
-  Project 
+  Method
 } from '@/types/database'
+
+// Species enum constant
+const SPECIES = [
+  'Ají ornamental',
+  'Alcachofa',
+  'Apio',
+  'Arándano',
+  'Brócoli',
+  'Cebolla',
+  'Lechuga',
+  'Maíz',
+  'Papa',
+  'Tomate',
+  'Zanahoria'
+] as const
+
+interface Variety {
+  id: number
+  name: string
+  species_id: number
+}
+
+interface Project {
+  id: number
+  name: string
+  description?: string
+}
 import { 
   TestTube, 
   Loader2,
@@ -51,7 +75,7 @@ export default function EnhancedSampleForm({
   const [projects, setProjects] = useState<Project[]>([])
   const [tests, setTests] = useState<TestCatalog[]>([])
   const [methods, setMethods] = useState<Method[]>([])
-  const [species, setSpecies] = useState<Species[]>([])
+  // Species is now a constant array, no state needed
   const [varieties, setVarieties] = useState<Variety[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   
@@ -83,6 +107,29 @@ export default function EnhancedSampleForm({
   
   const supabase = createClient()
 
+  const loadCatalogData = useCallback(async () => {
+    try {
+      const [
+        clientsResponse,
+        projectsResponse,
+        testsResponse,
+        methodsResponse
+      ] = await Promise.all([
+        supabase.from('clients').select('*').order('name'),
+        supabase.from('projects').select('*').order('name'),
+        supabase.from('test_catalog').select('*').eq('active', true).order('name'),
+        supabase.from('methods').select('*').order('name')
+      ])
+
+      if (clientsResponse.data) setClients(clientsResponse.data)
+      if (projectsResponse.data) setProjects(projectsResponse.data)
+      if (testsResponse.data) setTests(testsResponse.data)
+      if (methodsResponse.data) setMethods(methodsResponse.data)
+    } catch (error) {
+      console.error('Error loading catalog data:', error)
+    }
+  }, [supabase])
+
   // Load catalog data
   useEffect(() => {
     if (isOpen) {
@@ -90,31 +137,16 @@ export default function EnhancedSampleForm({
     }
   }, [isOpen, loadCatalogData])
 
-  const loadCatalogData = useCallback(async () => {
+  const loadVarieties = useCallback(async () => {
     try {
-      const [
-        clientsResponse,
-        projectsResponse,
-        testsResponse,
-        methodsResponse,
-        speciesResponse
-      ] = await Promise.all([
-        supabase.from('clients').select('*').order('name'),
-        supabase.from('projects').select('*').order('name'),
-        supabase.from('test_catalog').select('*').eq('active', true).order('name'),
-        supabase.from('methods').select('*').order('name'),
-        supabase.from('species').select('*').order('name')
-      ])
-
-      if (clientsResponse.data) setClients(clientsResponse.data)
-      if (projectsResponse.data) setProjects(projectsResponse.data)
-      if (testsResponse.data) setTests(testsResponse.data)
-      if (methodsResponse.data) setMethods(methodsResponse.data)
-      if (speciesResponse.data) setSpecies(speciesResponse.data)
+      if (!formData.species) return
+      // Since we're not using species table anymore, we'll skip varieties for now
+      // or implement based on the species string directly
+      setVarieties([])
     } catch (error) {
-      console.error('Error loading catalog data:', error)
+      console.error('Error loading varieties:', error)
     }
-  }, [supabase])
+  }, [formData.species])
 
   // Load varieties when species changes
   useEffect(() => {
@@ -124,23 +156,6 @@ export default function EnhancedSampleForm({
       setVarieties([])
     }
   }, [formData.species, loadVarieties])
-
-  const loadVarieties = useCallback(async () => {
-    try {
-      const selectedSpecies = species.find(s => s.name === formData.species)
-      if (!selectedSpecies) return
-
-      const { data } = await supabase
-        .from('varieties')
-        .select('*')
-        .eq('species_id', selectedSpecies.id)
-        .order('name')
-
-      if (data) setVarieties(data)
-    } catch (error) {
-      console.error('Error loading varieties:', error)
-    }
-  }, [supabase, species, formData.species])
 
   const handleInputChange = (field: string, value: string | number | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -182,7 +197,7 @@ export default function EnhancedSampleForm({
   }
 
   const getMethodsForTest = () => {
-    return methods.filter(method => {
+    return methods.filter(() => {
       // Filter methods based on test compatibility if you have test_method_map
       return true // For now, show all methods
     })
@@ -197,7 +212,7 @@ export default function EnhancedSampleForm({
     try {
       const sampleData = {
         ...formData,
-        company_id: user.user_metadata?.company_id || null,
+        company_id: user.company_id || null,
         received_at: new Date(`${formData.received_date}T00:00:00`).toISOString(),
         registered_date: new Date().toISOString().split('T')[0]
       }
@@ -432,9 +447,9 @@ export default function EnhancedSampleForm({
                   required
                 >
                   <option value="">Seleccionar especie</option>
-                  {species.map((sp) => (
-                    <option key={sp.id} value={sp.name}>
-                      {sp.name}
+                  {SPECIES.map((sp) => (
+                    <option key={sp} value={sp}>
+                      {sp}
                     </option>
                   ))}
                 </select>

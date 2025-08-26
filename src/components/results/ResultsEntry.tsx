@@ -3,15 +3,47 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { 
-  SampleUnit, 
-  UnitResult, 
   TestCatalog, 
   Method,
-  SampleWithUnits 
+  Sample
 } from '@/types/database'
+
+interface SampleUnit {
+  id: string
+  sample_id: string
+  unit_number: number
+  weight?: number
+  volume?: number
+  description?: string
+  label?: string
+  code?: string
+  unit_results?: UnitResult[]
+}
+
+interface UnitResult {
+  id: string
+  sample_unit_id: string
+  test_id: number
+  result_value?: string
+  result_status?: string
+  notes?: string
+  methods?: Method
+}
+
+interface SampleTest {
+  test_id: number
+  method_id?: number
+  test_catalog?: TestCatalog
+  methods?: Method
+}
+
+interface SampleWithUnits extends Sample {
+  sample_units: SampleUnit[]
+  sample_tests: SampleTest[]
+}
+
 import { 
   Save, 
- 
   AlertCircle 
 } from 'lucide-react'
 
@@ -20,7 +52,7 @@ interface ResultsEntryProps {
   onSave?: () => void
 }
 
-interface ResultEntry extends Partial<UnitResult> {
+interface ResultEntry {
   id?: string
   sample_unit_id: string
   test_id: number
@@ -28,6 +60,7 @@ interface ResultEntry extends Partial<UnitResult> {
   analyte?: string
   result_value?: number
   result_flag?: 'positivo' | 'negativo' | 'na'
+  result_status?: string
   notes?: string
   test_catalog?: TestCatalog
   methods?: Method
@@ -74,7 +107,7 @@ export function ResultsEntry({ sampleId, onSave }: ResultsEntryProps) {
       
       if (sampleData.sample_units && sampleData.sample_tests) {
         sampleData.sample_units.forEach((unit: SampleUnit) => {
-          (sampleData.sample_tests as Array<{ test_id: number; method_id?: number; test_catalog?: TestCatalog; methods?: Method }>).forEach((sampleTest) => {
+          sampleData.sample_tests.forEach((sampleTest: SampleTest) => {
             // Check if result already exists
             const existingResult = unit.unit_results?.find(
               (result: UnitResult) => result.test_id === sampleTest.test_id
@@ -82,7 +115,13 @@ export function ResultsEntry({ sampleId, onSave }: ResultsEntryProps) {
 
             if (existingResult) {
               resultEntries.push({
-                ...existingResult,
+                id: existingResult.id,
+                sample_unit_id: existingResult.sample_unit_id,
+                test_id: existingResult.test_id,
+                result_value: existingResult.result_value ? Number(existingResult.result_value) : undefined,
+                result_status: existingResult.result_status,
+                result_flag: 'na',
+                notes: existingResult.notes,
                 test_catalog: sampleTest.test_catalog,
                 methods: existingResult.methods || sampleTest.methods
               })

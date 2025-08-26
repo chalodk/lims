@@ -21,6 +21,8 @@ interface CreateSampleModalProps {
 export default function CreateSampleModal({ isOpen, onClose, onSuccess }: CreateSampleModalProps) {
   const { user } = useAuth()
   const [clients, setClients] = useState<Client[]>([])
+  const [projects, setProjects] = useState<Array<{id: string, name: string}>>([])
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     client_id: '',
@@ -30,6 +32,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
     project: '',
     species: '',
     variety: '',
+    rootstock: '',
     planting_year: '',
     previous_crop: '',
     next_crop: '',
@@ -39,9 +42,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
     taken_by: 'client',
     delivery_method: '',
     suspected_pathogen: '',
-    analysis_types: [] as string[],
-    methodologies: [] as string[],
-    identification_techniques: [] as string[]
+    analysis_types: [] as string[]
   })
   
   const supabase = createClient()
@@ -67,6 +68,53 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
     }
   }, [supabase, user?.company_id])
 
+  const fetchProjects = useCallback(async () => {
+    try {
+      setIsLoadingProjects(true)
+      console.log('Fetching projects...')
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name')
+        .order('name', { ascending: true })
+
+      if (error) {
+        console.error('Supabase error:', error)
+        // If there's an error or no projects in DB, create fallback from constants
+        console.log('Using fallback projects from constants')
+        const fallbackProjects = PROJECT_OPTIONS.map((name, index) => ({
+          id: `fallback-${index}`,
+          name: name
+        }))
+        setProjects(fallbackProjects)
+        return
+      }
+      
+      console.log('Projects data:', data)
+      
+      // If database is empty, use fallback
+      if (!data || data.length === 0) {
+        console.log('No projects in database, using fallback from constants')
+        const fallbackProjects = PROJECT_OPTIONS.map((name) => ({
+          id: name, // Use name as ID for fallback to maintain compatibility
+          name: name
+        }))
+        setProjects(fallbackProjects)
+      } else {
+        setProjects(data)
+      }
+    } catch (error) {
+      console.error('Error fetching projects:', error)
+      // Fallback to constants
+      const fallbackProjects = PROJECT_OPTIONS.map((name) => ({
+        id: name,
+        name: name
+      }))
+      setProjects(fallbackProjects)
+    } finally {
+      setIsLoadingProjects(false)
+    }
+  }, [supabase])
+
   const generateSampleCode = useCallback(() => {
     const year = new Date().getFullYear()
     const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
@@ -76,9 +124,10 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
   useEffect(() => {
     if (isOpen) {
       fetchClients()
+      fetchProjects()
       generateSampleCode()
     }
-  }, [isOpen, fetchClients, generateSampleCode])
+  }, [isOpen, fetchClients, fetchProjects, generateSampleCode])
 
   const handleAnalysisTypeChange = (type: string, checked: boolean) => {
     setFormData(prev => ({
@@ -89,40 +138,16 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
     }))
   }
 
-  const handleMethodologyChange = (methodology: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      methodologies: checked 
-        ? [...prev.methodologies, methodology]
-        : prev.methodologies.filter(m => m !== methodology)
-    }))
-  }
-
-  const handleIdentificationTechniqueChange = (technique: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      identification_techniques: checked 
-        ? [...prev.identification_techniques, technique]
-        : prev.identification_techniques.filter(t => t !== technique)
-    }))
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
-      if (formData.analysis_types.length === 0 || formData.methodologies.length === 0 || formData.identification_techniques.length === 0) {
-        alert('Debe seleccionar al menos una opción de cada sección: Tipo de análisis, Metodología y Técnica de identificación')
+      if (formData.analysis_types.length === 0) {
+        alert('Debe seleccionar al menos un tipo de análisis')
         return
       }
 
-      // Combine all analysis selections into the requested_tests field
-      const combinedTests = [
-        ...formData.analysis_types.map(type => `Tipo: ${type}`),
-        ...formData.methodologies.map(method => `Metodología: ${method}`),
-        ...formData.identification_techniques.map(tech => `Identificación: ${tech}`)
-      ]
 
       const response = await fetch('/api/samples', {
         method: 'POST',
@@ -134,9 +159,10 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
           code: formData.code,
           received_date: formData.received_date,
           sla_type: formData.sla_type,
-          // project_id: formData.project || null, // TODO: Implement project lookup
+          project_id: formData.project || null,
           species: formData.species,
           variety: formData.variety || null,
+          rootstock: formData.rootstock || null,
           planting_year: formData.planting_year ? parseInt(formData.planting_year) : null,
           previous_crop: formData.previous_crop || null,
           next_crop: formData.next_crop || null,
@@ -147,9 +173,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
           delivery_method: formData.delivery_method || null,
           suspected_pathogen: formData.suspected_pathogen || null,
           analysis_selections: {
-            analysis_types: formData.analysis_types,
-            methodologies: formData.methodologies,
-            identification_techniques: formData.identification_techniques
+            analysis_types: formData.analysis_types
           },
         })
       })
@@ -171,6 +195,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
         project: '',
         species: '',
         variety: '',
+        rootstock: '',
         planting_year: '',
         previous_crop: '',
         next_crop: '',
@@ -180,9 +205,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
         taken_by: 'client',
         delivery_method: '',
         suspected_pathogen: '',
-        analysis_types: [],
-        methodologies: [],
-        identification_techniques: []
+        analysis_types: []
       })
     } catch (error: unknown) {
       console.error('Error creating sample:', error)
@@ -326,10 +349,13 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
                     value={formData.project}
                     onChange={(e) => setFormData(prev => ({ ...prev, project: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    disabled={isLoadingProjects}
                   >
-                    <option value="">Seleccionar proyecto</option>
-                    {PROJECT_OPTIONS.map(project => (
-                      <option key={project} value={project}>{project}</option>
+                    <option value="">
+                      {isLoadingProjects ? 'Cargando proyectos...' : 'Seleccionar proyecto'}
+                    </option>
+                    {projects.map(project => (
+                      <option key={project.id} value={project.id}>{project.name}</option>
                     ))}
                   </select>
                 </div>
@@ -371,6 +397,19 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
                   />
                 </div>
 
+                {/* Rootstock */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Portainjerto
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.rootstock}
+                    onChange={(e) => setFormData(prev => ({ ...prev, rootstock: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Ej: Mahaleb, Gisela 6"
+                  />
+                </div>
 
                 {/* Planting Year */}
                 <div>
@@ -520,45 +559,6 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
                   </div>
                 </div>
 
-                {/* Methodologies */}
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Metodología *
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-                    {analysisOptions.methodologies.map(methodology => (
-                      <label key={methodology} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={formData.methodologies.includes(methodology)}
-                          onChange={(e) => handleMethodologyChange(methodology, e.target.checked)}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className="ml-2 text-sm text-gray-700">{methodology}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Identification Techniques */}
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Técnica de identificación *
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 mb-6">
-                    {analysisOptions.identificationTechniques.map(technique => (
-                      <label key={technique} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={formData.identification_techniques.includes(technique)}
-                          onChange={(e) => handleIdentificationTechniqueChange(technique, e.target.checked)}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className="ml-2 text-sm text-gray-700">{technique}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
 
                 {/* Notes Section */}
                 <div className="sm:col-span-2 lg:col-span-3">

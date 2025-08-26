@@ -6,6 +6,12 @@ import type {
   SampleFull
 } from '@/types/database'
 
+interface ThresholdConfig {
+  value?: number
+  flag?: string
+  values?: unknown[]
+}
+
 export class InterpretationService {
   private supabase = createClient()
 
@@ -132,8 +138,8 @@ export class InterpretationService {
   /**
    * Get results relevant to the rule
    */
-  private getRelevantResults(sample: SampleFull, rule: InterpretationRule): UnitResult[] {
-    const results: UnitResult[] = []
+  private getRelevantResults(sample: SampleFull, rule: InterpretationRule): (UnitResult & { unit?: { code?: string; label?: string } })[] {
+    const results: (UnitResult & { unit?: { code?: string; label?: string } })[] = []
 
     if (!sample.sample_units) return results
 
@@ -144,7 +150,13 @@ export class InterpretationService {
         // Match by analyte name (case insensitive)
         if (result.analyte && 
             result.analyte.toLowerCase().includes(rule.analyte.toLowerCase())) {
-          results.push({ ...result, unit })
+          results.push({ 
+            ...result, 
+            unit: { 
+              code: unit.code || undefined, 
+              label: unit.label || undefined 
+            } 
+          })
         }
       }
     }
@@ -156,16 +168,22 @@ export class InterpretationService {
    * Evaluate if a result meets the rule condition
    */
   private evaluateAnalyteCondition(result: UnitResult, rule: InterpretationRule): boolean {
-    const threshold = rule.threshold_json
+    const threshold = rule.threshold_json as ThresholdConfig
     
     switch (rule.comparator) {
       case '>':
         return result.result_value !== null && 
-               result.result_value > (threshold.value || 0)
+               result.result_value !== undefined &&
+               typeof result.result_value === 'number' &&
+               typeof threshold.value === 'number' &&
+               result.result_value > threshold.value
       
       case '>=':
         return result.result_value !== null && 
-               result.result_value >= (threshold.value || 0)
+               result.result_value !== undefined &&
+               typeof result.result_value === 'number' &&
+               typeof threshold.value === 'number' &&
+               result.result_value >= threshold.value
       
       case '=':
         if (threshold.value !== undefined) {

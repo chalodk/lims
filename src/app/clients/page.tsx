@@ -242,7 +242,7 @@ export default function ClientsPage() {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-500">Cliente desde</span>
                     <span className="text-gray-900 font-medium">
-                      {new Date(client.created_at).toLocaleDateString('es-ES')}
+                      {client.created_at ? new Date(client.created_at).toLocaleDateString('es-ES') : 'N/A'}
                     </span>
                   </div>
                 </div>

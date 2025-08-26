@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { User, Role, UserRole } from '@/types/database'
+import { User, Role, RoleName } from '@/types/database'
 import type { User as AuthUser, Session } from '@supabase/supabase-js'
 
 interface AuthState {
   user: User | null
   authUser: AuthUser | null
   role: Role | null
-  userRole: UserRole | null
+  userRole: RoleName | null
   isLoading: boolean
   isAuthenticated: boolean
 }

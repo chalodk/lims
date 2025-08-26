@@ -9,6 +9,8 @@ import ViewSampleModal from '@/components/samples/ViewSampleModal'
 import EditSampleModal from '@/components/samples/EditSampleModal'
 import DeleteConfirmModal from '@/components/samples/DeleteConfirmModal'
 import { SampleWithClient } from '@/types/database'
+import { formatDate } from '@/lib/utils/formatters'
+import { getSampleStatusBadge, getSlaTypeBadge } from '@/lib/utils/badges'
 import { 
   Plus,
   Search,
@@ -147,7 +149,9 @@ export default function SamplesPage() {
     }
   }
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: string | null) => {
+    if (!status) return <TestTube className="h-4 w-4 text-gray-500" />
+    
     switch (status) {
       case 'received':
         return <Clock className="h-4 w-4 text-blue-500" />
@@ -162,57 +166,7 @@ export default function SamplesPage() {
     }
   }
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      received: 'bg-blue-100 text-blue-800 border-blue-200',
-      processing: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      microscopy: 'bg-orange-100 text-orange-800 border-orange-200',
-      isolation: 'bg-purple-100 text-purple-800 border-purple-200',
-      identification: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-      molecular_analysis: 'bg-cyan-100 text-cyan-800 border-cyan-200',
-      validation: 'bg-purple-100 text-purple-800 border-purple-200',
-      completed: 'bg-green-100 text-green-800 border-green-200'
-    }
-
-    const statusLabels = {
-      received: 'Recibida',
-      processing: 'Procesando',
-      microscopy: 'Microscopía',
-      isolation: 'Aislamiento',
-      identification: 'Identificación',
-      molecular_analysis: 'Análisis Molecular',
-      validation: 'Validación',
-      completed: 'Completada'
-    }
-
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-        statusConfig[status as keyof typeof statusConfig] || 'bg-gray-100 text-gray-800 border-gray-200'
-      }`}>
-        {statusLabels[status as keyof typeof statusLabels] || status}
-      </span>
-    )
-  }
-
-  const getSlaTypeBadge = (slaType: string) => {
-    const slaTypeConfig = {
-      normal: 'bg-gray-100 text-gray-800',
-      express: 'bg-orange-100 text-orange-800'
-    }
-
-    const slaTypeLabels = {
-      normal: 'Normal',
-      express: 'Express'
-    }
-
-    return (
-      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-        slaTypeConfig[slaType as keyof typeof slaTypeConfig] || 'bg-gray-100 text-gray-800'
-      }`}>
-        {slaTypeLabels[slaType as keyof typeof slaTypeLabels] || slaType}
-      </span>
-    )
-  }
+  // Badge functions moved to shared utilities
 
   if (isLoading) {
     return (
@@ -355,13 +309,13 @@ export default function SamplesPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        {getStatusBadge(sample.status)}
+                        {getSampleStatusBadge(sample.status)}
                       </td>
                       <td className="px-6 py-4">
                         {getSlaTypeBadge(sample.sla_type)}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {new Date(sample.received_date).toLocaleDateString('es-ES')}
+                        {formatDate(sample.received_date)}
                       </td>
                       <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center space-x-2">

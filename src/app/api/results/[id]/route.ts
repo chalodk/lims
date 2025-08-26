@@ -36,6 +36,7 @@ export async function GET(
           species,
           variety,
           received_date,
+          company_id,
           clients (id, name, contact_email),
           projects (id, name)
         ),

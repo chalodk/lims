@@ -1,6 +1,15 @@
 import { createClient } from '@/lib/supabase/client'
 import type { SLAType, SLAStatus } from '@/types/database'
 
+interface SampleWithClientArray {
+  id: string
+  code: string
+  client_id: string
+  due_date: string
+  status: string
+  clients: { name: string }[]
+}
+
 export class SLAService {
   private supabase = createClient()
 
@@ -204,9 +213,9 @@ export class SLAService {
    * Get samples that need attention based on SLA status
    */
   async getSamplesNeedingAttention(): Promise<{
-    at_risk: Array<{ id: string; code: string; client_id: string; due_date: string; status: string; clients?: { name: string } }>
-    breached: Array<{ id: string; code: string; client_id: string; due_date: string; status: string; clients?: { name: string } }>
-    express_due_soon: Array<{ id: string; code: string; client_id: string; due_date: string; status: string; clients?: { name: string } }>
+    at_risk: Array<{ id: string; code: string; client_id: string; due_date: string; status: string; clients: { name: string } | null }>
+    breached: Array<{ id: string; code: string; client_id: string; due_date: string; status: string; clients: { name: string } | null }>
+    express_due_soon: Array<{ id: string; code: string; client_id: string; due_date: string; status: string; clients: { name: string } | null }>
   }> {
     try {
       const [atRiskResult, breachedResult, expressResult] = await Promise.all([
@@ -215,7 +224,7 @@ export class SLAService {
           .from('samples')
           .select(`
             id, code, client_id, due_date, status,
-            clients (name)
+            clients!inner (name)
           `)
           .eq('sla_status', 'at_risk')
           .neq('status', 'completed'),
@@ -225,7 +234,7 @@ export class SLAService {
           .from('samples')
           .select(`
             id, code, client_id, due_date, status,
-            clients (name)
+            clients!inner (name)
           `)
           .eq('sla_status', 'breached')
           .neq('status', 'completed'),
@@ -235,17 +244,24 @@ export class SLAService {
           .from('samples')
           .select(`
             id, code, client_id, due_date, status,
-            clients (name)
+            clients!inner (name)
           `)
           .eq('sla_type', 'express')
           .neq('status', 'completed')
           .lte('due_date', new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
       ])
 
+      const transformData = (data: SampleWithClientArray[]) => {
+        return data.map(item => ({
+          ...item,
+          clients: item.clients && item.clients.length > 0 ? item.clients[0] : null
+        }))
+      }
+
       return {
-        at_risk: atRiskResult.data || [],
-        breached: breachedResult.data || [],
-        express_due_soon: expressResult.data || []
+        at_risk: transformData(atRiskResult.data || []),
+        breached: transformData(breachedResult.data || []),
+        express_due_soon: transformData(expressResult.data || [])
       }
     } catch (error) {
       console.error('Error getting samples needing attention:', error)

@@ -28,30 +28,6 @@ export function SLACards() {
 
   const supabase = createClient()
 
-  useEffect(() => {
-    fetchSLAStats()
-    
-    // Set up real-time subscription for sample updates
-    const subscription = supabase
-      .channel('sla-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'samples'
-        },
-        () => {
-          fetchSLAStats()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [fetchSLAStats, supabase])
-
   const fetchSLAStats = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -87,6 +63,30 @@ export function SLACards() {
       setLoading(false)
     }
   }, [supabase])
+
+  useEffect(() => {
+    fetchSLAStats()
+    
+    // Set up real-time subscription for sample updates
+    const subscription = supabase
+      .channel('sla-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'samples'
+        },
+        () => {
+          fetchSLAStats()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [fetchSLAStats, supabase])
 
   if (loading) {
     return (
