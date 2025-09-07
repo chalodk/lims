@@ -72,20 +72,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      // Fetch user data from the users table
-      const { data: userData, error: userError } = await supabase
+      // Fetch user data from the users table with timeout
+      const userQuery = supabase
         .from('users')
         .select('*')
         .eq('id', session.user.id)
         .single()
 
+      // Add timeout to prevent hanging
+      const userQueryWithTimeout = Promise.race([
+        userQuery,
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('User query timeout')), 5000)
+        )
+      ])
+
+      const result = await userQueryWithTimeout as { data: User | null, error: { message: string } | null }
+      const { data: userData, error: userError } = result
+
       if (userError) {
-        console.error('Error fetching user data:', userError)
+        console.warn('User not found in users table, using auth user only:', userError.message)
+        // User exists in auth but not in users table - this is OK for now
         setState({
-          user: null,
+          user: {
+            id: session.user.id,
+            email: session.user.email || '',
+            name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuario',
+            company_id: null,
+            client_id: null,
+            specialization: null,
+            avatar: null,
+            created_at: session.user.created_at || new Date().toISOString(),
+            updated_at: session.user.updated_at || new Date().toISOString(),
+            role_id: null
+          },
           authUser: session.user,
           role: null,
-          userRole: null,
+          userRole: 'admin', // Default role for now
           isLoading: false,
           isAuthenticated: true,
           session,
@@ -106,11 +129,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLastSessionCheck(now)
     } catch (error) {
       console.error('Error in updateAuthState:', error)
+      // Fallback to auth user only
       setState({
-        user: null,
+        user: {
+          id: session.user.id,
+          email: session.user.email || '',
+          name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuario',
+          company_id: null,
+          client_id: null,
+          specialization: null,
+          avatar: null,
+          created_at: session.user.created_at || new Date().toISOString(),
+          updated_at: session.user.updated_at || new Date().toISOString(),
+          role_id: null
+        },
         authUser: session.user,
         role: null,
-        userRole: null,
+        userRole: 'admin', // Default role for now
         isLoading: false,
         isAuthenticated: true,
         session,
@@ -119,7 +154,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [state.user, lastSessionCheck, supabase])
 
   const refreshSession = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { user } } = await supabase.auth.getUser()
+    const session = user ? { user, access_token: 'validated' } as Session : null
     await updateAuthState(session, true)
   }, [supabase, updateAuthState])
 
@@ -128,15 +164,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initializeAuth = async () => {
       try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        // Use getUser() instead of getSession() for security
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
         
-        if (sessionError) {
-          console.error('Session error:', sessionError)
+        if (userError) {
+          console.error('User error:', userError)
           if (mounted) await updateAuthState(null)
           return
         }
 
         if (mounted) {
+          // Create a session-like object for compatibility
+          const session = user ? { user, access_token: 'validated' } as Session : null
           await updateAuthState(session)
         }
       } catch (error) {

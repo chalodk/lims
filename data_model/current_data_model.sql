@@ -27,8 +27,8 @@ CREATE TABLE public.applied_interpretations (
   severity text NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT applied_interpretations_pkey PRIMARY KEY (id),
-  CONSTRAINT applied_interpretations_rule_id_fkey FOREIGN KEY (rule_id) REFERENCES public.interpretation_rules(id),
-  CONSTRAINT applied_interpretations_sample_id_fkey FOREIGN KEY (sample_id) REFERENCES public.samples(id)
+  CONSTRAINT applied_interpretations_sample_id_fkey FOREIGN KEY (sample_id) REFERENCES public.samples(id),
+  CONSTRAINT applied_interpretations_rule_id_fkey FOREIGN KEY (rule_id) REFERENCES public.interpretation_rules(id)
 );
 CREATE TABLE public.clients (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -75,9 +75,9 @@ CREATE TABLE public.invitations (
   accepted_at timestamp with time zone,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT invitations_pkey PRIMARY KEY (id),
-  CONSTRAINT invitations_invited_by_fkey FOREIGN KEY (invited_by) REFERENCES public.users(id),
+  CONSTRAINT invitations_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id),
   CONSTRAINT invitations_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
-  CONSTRAINT invitations_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id)
+  CONSTRAINT invitations_invited_by_fkey FOREIGN KEY (invited_by) REFERENCES public.users(id)
 );
 CREATE TABLE public.methods (
   id bigint NOT NULL DEFAULT nextval('methods_id_seq'::regclass),
@@ -111,14 +111,14 @@ CREATE TABLE public.permissions (
 );
 CREATE TABLE public.projects (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  client_id uuid NOT NULL,
   name text NOT NULL,
   code text,
   start_date date,
   end_date date,
   notes text,
+  company_id uuid,
   CONSTRAINT projects_pkey PRIMARY KEY (id),
-  CONSTRAINT projects_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id)
+  CONSTRAINT projects_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id)
 );
 CREATE TABLE public.report_assets (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -140,7 +140,6 @@ CREATE TABLE public.report_templates (
 );
 CREATE TABLE public.reports (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  sample_id uuid UNIQUE,
   client_id uuid,
   company_id uuid,
   delivery_date date,
@@ -160,14 +159,14 @@ CREATE TABLE public.reports (
   checksum text,
   supersedes_report_id uuid,
   visibility text NOT NULL DEFAULT 'client'::text CHECK (visibility = ANY (ARRAY['internal'::text, 'client'::text])),
+  test_areas ARRAY DEFAULT '{}'::text[],
   CONSTRAINT reports_pkey PRIMARY KEY (id),
-  CONSTRAINT reports_sample_id_fkey FOREIGN KEY (sample_id) REFERENCES public.samples(id),
-  CONSTRAINT reports_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
-  CONSTRAINT reports_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id),
-  CONSTRAINT reports_generated_by_fkey FOREIGN KEY (generated_by) REFERENCES public.users(id),
+  CONSTRAINT reports_supersedes_report_id_fkey FOREIGN KEY (supersedes_report_id) REFERENCES public.reports(id),
   CONSTRAINT reports_responsible_id_fkey FOREIGN KEY (responsible_id) REFERENCES public.users(id),
-  CONSTRAINT reports_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.report_templates(id),
-  CONSTRAINT reports_supersedes_report_id_fkey FOREIGN KEY (supersedes_report_id) REFERENCES public.reports(id)
+  CONSTRAINT reports_generated_by_fkey FOREIGN KEY (generated_by) REFERENCES public.users(id),
+  CONSTRAINT reports_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id),
+  CONSTRAINT reports_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
+  CONSTRAINT reports_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.report_templates(id)
 );
 CREATE TABLE public.results (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -182,10 +181,22 @@ CREATE TABLE public.results (
   status text DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'completed'::text, 'validated'::text])),
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  sample_test_id uuid,
+  test_area text,
+  methodology text,
+  findings jsonb,
+  pathogen_identified text,
+  pathogen_type text CHECK (pathogen_type = ANY (ARRAY['fungus'::text, 'bacteria'::text, 'virus'::text, 'nematode'::text, 'insect'::text, 'abiotic'::text, 'unknown'::text])),
+  severity text CHECK (severity = ANY (ARRAY['low'::text, 'moderate'::text, 'high'::text, 'severe'::text])),
+  confidence text CHECK (confidence = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text])),
+  result_type text CHECK (result_type = ANY (ARRAY['positive'::text, 'negative'::text, 'inconclusive'::text])),
+  report_id uuid,
   CONSTRAINT results_pkey PRIMARY KEY (id),
-  CONSTRAINT results_performed_by_fkey FOREIGN KEY (performed_by) REFERENCES public.users(id),
+  CONSTRAINT results_report_id_fkey FOREIGN KEY (report_id) REFERENCES public.reports(id),
   CONSTRAINT results_sample_id_fkey FOREIGN KEY (sample_id) REFERENCES public.samples(id),
-  CONSTRAINT results_validated_by_fkey FOREIGN KEY (validated_by) REFERENCES public.users(id)
+  CONSTRAINT results_sample_test_id_fkey FOREIGN KEY (sample_test_id) REFERENCES public.sample_tests(id),
+  CONSTRAINT results_validated_by_fkey FOREIGN KEY (validated_by) REFERENCES public.users(id),
+  CONSTRAINT results_performed_by_fkey FOREIGN KEY (performed_by) REFERENCES public.users(id)
 );
 CREATE TABLE public.role_views (
   id integer NOT NULL,
@@ -234,8 +245,8 @@ CREATE TABLE public.sample_status_transitions (
   at timestamp with time zone NOT NULL DEFAULT now(),
   reason text,
   CONSTRAINT sample_status_transitions_pkey PRIMARY KEY (id),
-  CONSTRAINT sample_status_transitions_by_user_fkey FOREIGN KEY (by_user) REFERENCES public.users(id),
-  CONSTRAINT sample_status_transitions_sample_id_fkey FOREIGN KEY (sample_id) REFERENCES public.samples(id)
+  CONSTRAINT sample_status_transitions_sample_id_fkey FOREIGN KEY (sample_id) REFERENCES public.samples(id),
+  CONSTRAINT sample_status_transitions_by_user_fkey FOREIGN KEY (by_user) REFERENCES public.users(id)
 );
 CREATE TABLE public.sample_tests (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -243,9 +254,9 @@ CREATE TABLE public.sample_tests (
   test_id bigint NOT NULL,
   method_id bigint,
   CONSTRAINT sample_tests_pkey PRIMARY KEY (id),
-  CONSTRAINT sample_tests_sample_id_fkey FOREIGN KEY (sample_id) REFERENCES public.samples(id),
   CONSTRAINT sample_tests_test_id_fkey FOREIGN KEY (test_id) REFERENCES public.test_catalog(id),
-  CONSTRAINT sample_tests_method_id_fkey FOREIGN KEY (method_id) REFERENCES public.methods(id)
+  CONSTRAINT sample_tests_method_id_fkey FOREIGN KEY (method_id) REFERENCES public.methods(id),
+  CONSTRAINT sample_tests_sample_id_fkey FOREIGN KEY (sample_id) REFERENCES public.samples(id)
 );
 CREATE TABLE public.sample_units (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -285,10 +296,11 @@ CREATE TABLE public.samples (
   sampling_observations text,
   reception_observations text,
   project_id uuid,
+  rootstock text,
   CONSTRAINT samples_pkey PRIMARY KEY (id),
+  CONSTRAINT samples_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id),
   CONSTRAINT samples_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id),
-  CONSTRAINT samples_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
-  CONSTRAINT samples_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id)
+  CONSTRAINT samples_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id)
 );
 CREATE TABLE public.sla_policies (
   id bigint NOT NULL DEFAULT nextval('sla_policies_id_seq'::regclass),
@@ -316,8 +328,8 @@ CREATE TABLE public.test_method_map (
   test_id bigint NOT NULL,
   method_id bigint NOT NULL,
   CONSTRAINT test_method_map_pkey PRIMARY KEY (test_id, method_id),
-  CONSTRAINT test_method_map_test_id_fkey FOREIGN KEY (test_id) REFERENCES public.test_catalog(id),
-  CONSTRAINT test_method_map_method_id_fkey FOREIGN KEY (method_id) REFERENCES public.methods(id)
+  CONSTRAINT test_method_map_method_id_fkey FOREIGN KEY (method_id) REFERENCES public.methods(id),
+  CONSTRAINT test_method_map_test_id_fkey FOREIGN KEY (test_id) REFERENCES public.test_catalog(id)
 );
 CREATE TABLE public.tissues (
   id bigint NOT NULL DEFAULT nextval('tissues_id_seq'::regclass),
@@ -362,9 +374,12 @@ CREATE TABLE public.users (
   avatar text,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  role_id integer,
   CONSTRAINT users_pkey PRIMARY KEY (id),
-  CONSTRAINT users_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id),
-  CONSTRAINT users_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id)
+  CONSTRAINT users_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
+  CONSTRAINT users_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id),
+  CONSTRAINT users_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
+  CONSTRAINT users_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id)
 );
 CREATE TABLE public.varieties (
   id bigint NOT NULL DEFAULT nextval('varieties_id_seq'::regclass),

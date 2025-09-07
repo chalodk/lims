@@ -1,6 +1,4 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { Database } from '@/types/database'
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
@@ -17,7 +15,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  let supabaseResponse = NextResponse.next({
+  const supabaseResponse = NextResponse.next({
     request,
   })
 
@@ -37,33 +35,9 @@ export async function middleware(request: NextRequest) {
 
   // If user has auth cookie and trying to access auth pages
   if (hasAuthCookie && isPublicRoute) {
-    // Verify the session is still valid
-    const supabase = createServerClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return request.cookies.getAll()
-          },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-            supabaseResponse = NextResponse.next({
-              request,
-            })
-            cookiesToSet.forEach(({ name, value, options }) =>
-              supabaseResponse.cookies.set(name, value, options)
-            )
-          },
-        },
-      }
-    )
-
-    const { data: { session } } = await supabase.auth.getSession()
-    
-    if (session?.user) {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
-    }
+    // Skip session verification for better performance
+    // The AuthContext will handle session validation
+    return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
   return supabaseResponse

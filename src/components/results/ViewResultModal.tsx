@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { ResultWithRelations } from '@/types/database'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface NematodeEntry {
   name: string
@@ -90,19 +91,23 @@ import {
   Bug,
   TrendingUp,
   Shield,
-  Loader2
+  Loader2,
+  CheckCheck
 } from 'lucide-react'
 
 interface ViewResultModalProps {
   isOpen: boolean
   onClose: () => void
   resultId: string | null
+  onValidated?: () => void
 }
 
-export default function ViewResultModal({ isOpen, onClose, resultId }: ViewResultModalProps) {
+export default function ViewResultModal({ isOpen, onClose, resultId, onValidated }: ViewResultModalProps) {
+  const { userRole } = useAuth()
   const [result, setResult] = useState<ResultWithRelations | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isValidating, setIsValidating] = useState(false)
 
   const fetchResult = useCallback(async () => {
     if (!resultId) return
@@ -131,6 +136,39 @@ export default function ViewResultModal({ isOpen, onClose, resultId }: ViewResul
       fetchResult()
     }
   }, [isOpen, resultId, fetchResult])
+
+  const handleValidateResult = async () => {
+    if (!result || !resultId) return
+
+    if (!confirm('¿Estás seguro de que quieres validar este resultado? Esta acción no se puede deshacer.')) {
+      return
+    }
+
+    setIsValidating(true)
+    try {
+      const response = await fetch(`/api/results/${resultId}/validate`, {
+        method: 'PATCH',
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Error al validar el resultado')
+      }
+
+      await fetchResult()
+      
+      if (onValidated) {
+        onValidated()
+      }
+      
+      alert('Resultado validado exitosamente')
+    } catch (error) {
+      console.error('Error validating result:', error)
+      alert('Error al validar el resultado. Por favor, intente nuevamente.')
+    } finally {
+      setIsValidating(false)
+    }
+  }
 
   const getStatusBadge = (status: string | null) => {
     if (!status) {
@@ -699,7 +737,29 @@ export default function ViewResultModal({ isOpen, onClose, resultId }: ViewResul
           </div>
 
           {/* Footer */}
-          <div className="bg-gray-50 px-6 py-3 flex justify-end">
+          <div className="bg-gray-50 px-6 py-3 flex justify-between items-center">
+            <div className="flex space-x-3">
+              {result && result.status !== 'validated' && (userRole === 'admin' || userRole === 'validador') && (
+                <button
+                  type="button"
+                  onClick={handleValidateResult}
+                  disabled={isValidating}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isValidating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Validando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCheck className="h-4 w-4 mr-2" />
+                      Validar Resultado
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
             <button
               type="button"
               onClick={onClose}

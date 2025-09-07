@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { Report } from '@/types/database'
+import CreateReportModal from '@/components/reports/CreateReportModal'
+import ViewReportModal from '@/components/reports/ViewReportModal'
 import { 
   FileText,
   Download,
@@ -14,8 +15,31 @@ import {
   TestTube,
   Loader2,
   Eye,
-  Edit
+  Edit,
+  Plus,
+  Trash2
 } from 'lucide-react'
+
+interface Report {
+  id: string
+  status: string
+  created_at: string
+  template: string
+  download_url?: string
+  clients: {
+    id: string
+    name: string
+    rut: string
+  }
+  results: Array<{
+    id: string
+    samples: {
+      code: string
+      species: string
+      variety?: string
+    }
+  }>
+}
 
 export default function ReportsPage() {
   const { userRole } = useAuth()
@@ -23,6 +47,9 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState<string | null>(null)
+  const [viewReportId, setViewReportId] = useState<string | null>(null)
   
   const supabase = createClient()
 
@@ -32,10 +59,19 @@ export default function ReportsPage() {
         .from('reports')
         .select(`
           *,
-          samples (code, species, clients (name)),
-          clients (name),
-          users!generated_by (name, email),
-          responsible:users!responsible_id (name, email)
+          clients!inner (
+            id,
+            name,
+            rut
+          ),
+          results (
+            id,
+            samples (
+              code,
+              species,
+              variety
+            )
+          )
         `)
         .order('created_at', { ascending: false })
 
@@ -58,10 +94,48 @@ export default function ReportsPage() {
     fetchReports()
   }, [fetchReports])
 
+  const handleDeleteReport = async (reportId: string, reportStatus: string) => {
+    if (reportStatus === 'sent') {
+      alert('No se pueden eliminar informes enviados')
+      return
+    }
 
-  const filteredReports = reports.filter(() => {
-    // Simple filtering since we don't have joins - can be improved later
-    return searchTerm === '' || true
+    if (!confirm('¿Estás seguro de que quieres eliminar este informe? Esta acción no se puede deshacer.')) {
+      return
+    }
+
+    setIsDeleting(reportId)
+    try {
+      const response = await fetch(`/api/reports/delete/${reportId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Error al eliminar el informe')
+      }
+
+      await fetchReports()
+    } catch (error) {
+      console.error('Error deleting report:', error)
+      alert('Error al eliminar el informe. Por favor, intente nuevamente.')
+    } finally {
+      setIsDeleting(null)
+    }
+  }
+
+
+  const filteredReports = reports.filter((report) => {
+    if (searchTerm === '') return true
+    
+    const searchLower = searchTerm.toLowerCase()
+    const clientName = report.clients?.name?.toLowerCase() || ''
+    const clientRut = report.clients?.rut?.toLowerCase() || ''
+    const sampleCodes = report.results?.map((r) => r.samples?.code?.toLowerCase() || '').join(' ') || ''
+    
+    return clientName.includes(searchLower) || 
+           clientRut.includes(searchLower) || 
+           sampleCodes.includes(searchLower)
   })
 
   const getStatusBadge = (status: string | null) => {
@@ -142,15 +216,18 @@ export default function ReportsPage() {
               <h1 className="text-2xl font-bold text-gray-900">Informes</h1>
               <p className="text-gray-600">Gestiona y genera informes de análisis</p>
             </div>
-            {(userRole === 'admin' || userRole === 'validador') && (
+            {(userRole === 'admin' || userRole === 'comun') && (
               <div className="flex space-x-3">
                 <button className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-gray-50 transition-colors">
                   <Filter className="h-4 w-4" />
                   <span>Filtros</span>
                 </button>
-                <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors">
-                  <FileText className="h-4 w-4" />
-                  <span>Generar informe</span>
+                <button 
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Crear informe</span>
                 </button>
               </div>
             )}
@@ -204,19 +281,16 @@ export default function ReportsPage() {
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Muestra
+                      Cliente
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Cliente
+                      Muestras
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Plantilla
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Estado
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Generado por
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Fecha
@@ -230,16 +304,31 @@ export default function ReportsPage() {
                   {filteredReports.map((report) => (
                     <tr key={report.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <TestTube className="h-4 w-4 text-gray-400 mr-2" />
-                          <div>
-                            <div className="font-medium text-gray-900">Muestra: {report.sample_id?.split('-').slice(-1)[0] || 'N/A'}</div>
-                            <div className="text-sm text-gray-500">ID: {report.sample_id || 'N/A'}</div>
-                          </div>
+                        <div>
+                          <div className="font-medium text-gray-900">{report.clients?.name || 'N/A'}</div>
+                          {report.clients?.rut && (
+                            <div className="text-sm text-gray-500">RUT: {report.clients.rut}</div>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="font-medium text-gray-900">Cliente: {report.client_id?.split('-').slice(-1)[0] || 'N/A'}</div>
+                        <div className="space-y-1">
+                          {report.results && report.results.length > 0 ? (
+                            report.results.map((result) => (
+                              <div key={result.id} className="flex items-center">
+                                <TestTube className="h-4 w-4 text-gray-400 mr-2" />
+                                <span className="text-sm text-gray-900">
+                                  {result.samples?.code || 'N/A'}
+                                  {result.samples?.species && (
+                                    <span className="text-gray-500 ml-1">({result.samples.species})</span>
+                                  )}
+                                </span>
+                              </div>
+                            ))
+                          ) : (
+                            <span className="text-sm text-gray-500">Sin muestras</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         {getTemplateBadge(report.template)}
@@ -247,26 +336,16 @@ export default function ReportsPage() {
                       <td className="px-6 py-4">
                         {getStatusBadge(report.status)}
                       </td>
-                      <td className="px-6 py-4">
-                        {report.generated_by ? (
-                          <div className="flex items-center">
-                            <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center mr-2">
-                              <span className="text-indigo-600 font-medium text-xs">
-                                U
-                              </span>
-                            </div>
-                            <span className="text-sm text-gray-900">{report.generated_by.split('-').slice(-1)[0]}</span>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-gray-500">-</span>
-                        )}
-                      </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {report.created_at ? new Date(report.created_at).toLocaleDateString('es-ES') : 'N/A'}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">
-                          <button className="p-1 text-gray-400 hover:text-indigo-600 transition-colors" title="Ver">
+                          <button 
+                            onClick={() => setViewReportId(report.id)}
+                            className="p-1 text-gray-400 hover:text-indigo-600 transition-colors" 
+                            title="Ver"
+                          >
                             <Eye className="h-4 w-4" />
                           </button>
                           {report.download_url && (
@@ -284,6 +363,20 @@ export default function ReportsPage() {
                               </button>
                             </>
                           )}
+                          {(userRole === 'admin' || userRole === 'comun') && (
+                            <button 
+                              onClick={() => handleDeleteReport(report.id, report.status)}
+                              disabled={isDeleting === report.id}
+                              className="p-1 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                              title="Eliminar"
+                            >
+                              {isDeleting === report.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -293,6 +386,23 @@ export default function ReportsPage() {
             </div>
           )}
         </div>
+        
+        {/* Create Report Modal */}
+        <CreateReportModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onSuccess={() => {
+            setIsCreateModalOpen(false)
+            fetchReports()
+          }}
+        />
+        
+        {/* View Report Modal */}
+        <ViewReportModal
+          isOpen={viewReportId !== null}
+          onClose={() => setViewReportId(null)}
+          reportId={viewReportId}
+        />
       </div>
     </DashboardLayout>
   )
