@@ -19,13 +19,11 @@ export async function middleware(request: NextRequest) {
     request,
   })
 
-  // Only check session for route navigation, not for every request
-  // The AuthContext will handle session management
-  // Supabase uses cookies with the project ref in their name
+  // Check for Supabase auth cookies
   const cookies = request.cookies.getAll()
   const hasAuthCookie = cookies.some(cookie => 
     cookie.name.includes('auth-token') || 
-    (cookie.name.startsWith('sb-') && cookie.name.includes('auth-token'))
+    (cookie.name.startsWith('sb-') && (cookie.name.includes('auth-token') || cookie.name.includes('access-token')))
   )
 
   // If user doesn't have auth cookie and trying to access protected route
