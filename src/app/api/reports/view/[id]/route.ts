@@ -25,7 +25,18 @@ export async function GET(
     const { data: report, error } = await supabase
       .from('reports')
       .select(`
-        *,
+        id,
+        created_at,
+        status,
+        template,
+        include_recommendations,
+        include_images,
+        test_areas,
+        company_id,
+        client_id,
+        responsible_id,
+        generated_by,
+        download_url,
         clients (
           id,
           name,

@@ -151,6 +151,17 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
 
       if (reportError) throw reportError
 
+      // Create PDF in PDFMonkey (non-blocking for UX)
+      try {
+        await fetch('/api/reports/pdfmonkey', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ report_id: reportData.id })
+        })
+      } catch (e) {
+        console.error('Failed to request PDF creation:', e)
+      }
+
       // Update results to link them to the report
       const { error: updateError } = await supabase
         .from('results')

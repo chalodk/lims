@@ -129,6 +129,18 @@ export class ReportService {
       .single()
 
     if (error) throw error
+    
+    // Trigger PDF creation in PDFMonkey
+    try {
+      await fetch('/api/reports/pdfmonkey', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report_id: report.id })
+      })
+    } catch (e) {
+      console.error('Failed to request PDF creation (service):', e)
+    }
+
     return report
   }
 
