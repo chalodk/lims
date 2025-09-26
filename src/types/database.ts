@@ -366,6 +366,8 @@ export interface Database {
           supersedes_report_id: string | null
           visibility: ReportVisibility
           test_areas: string[] // text[]
+          payment: boolean | null
+          invoice_number: string | null
         }
         Insert: {
           id?: string
@@ -390,6 +392,8 @@ export interface Database {
           supersedes_report_id?: string | null
           visibility?: ReportVisibility
           test_areas?: string[]
+          payment?: boolean | null
+          invoice_number?: string | null
         }
         Update: Partial<Database['public']['Tables']['reports']['Insert']>
       }

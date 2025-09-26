@@ -17,7 +17,10 @@ import {
   Eye,
   Edit,
   Plus,
-  Trash2
+  Trash2,
+  DollarSign,
+  Save,
+  X
 } from 'lucide-react'
 
 interface Report {
@@ -26,6 +29,8 @@ interface Report {
   created_at: string
   template: string
   download_url?: string
+  payment?: boolean | null
+  invoice_number?: string | null
   clients: {
     id: string
     name: string
@@ -50,6 +55,9 @@ export default function ReportsPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState<string | null>(null)
   const [viewReportId, setViewReportId] = useState<string | null>(null)
+  const [editingPayment, setEditingPayment] = useState<string | null>(null)
+  const [paymentData, setPaymentData] = useState<{[key: string]: { payment: boolean, invoice_number: string }}>({})
+  const [savingPayment, setSavingPayment] = useState<string | null>(null)
   
   const supabase = createClient()
 
@@ -93,6 +101,95 @@ export default function ReportsPage() {
   useEffect(() => {
     fetchReports()
   }, [fetchReports])
+
+  const handleEditPayment = (reportId: string, currentPayment?: boolean, currentInvoice?: string) => {
+    setEditingPayment(reportId)
+    setPaymentData(prev => ({
+      ...prev,
+      [reportId]: {
+        payment: currentPayment || false,
+        invoice_number: currentInvoice || ''
+      }
+    }))
+  }
+
+  const handleSavePayment = async (reportId: string) => {
+    setSavingPayment(reportId)
+    try {
+      const data = paymentData[reportId]
+      const response = await fetch(`/api/reports/payment/${reportId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          payment: data.payment,
+          invoice_number: data.invoice_number || null
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update payment information')
+      }
+
+      // Update the report in the local state
+      setReports(prev => prev.map(report => 
+        report.id === reportId 
+          ? { ...report, payment: data.payment, invoice_number: data.invoice_number || null }
+          : report
+      ))
+      
+      setEditingPayment(null)
+      delete paymentData[reportId]
+      setPaymentData({ ...paymentData })
+    } catch (err) {
+      console.error('Error updating payment information:', err)
+      alert('Error al actualizar la información de pago. Por favor, intente nuevamente.')
+    } finally {
+      setSavingPayment(null)
+    }
+  }
+
+  const handleClearPayment = async (reportId: string) => {
+    setSavingPayment(reportId)
+    try {
+      const response = await fetch(`/api/reports/payment/${reportId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          payment: false,
+          invoice_number: null
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to clear payment information')
+      }
+
+      // Update the report in the local state
+      setReports(prev => prev.map(report => 
+        report.id === reportId 
+          ? { ...report, payment: false, invoice_number: null }
+          : report
+      ))
+      
+      setEditingPayment(null)
+    } catch (err) {
+      console.error('Error clearing payment information:', err)
+      alert('Error al limpiar la información de pago. Por favor, intente nuevamente.')
+    } finally {
+      setSavingPayment(null)
+    }
+  }
+
+  const handleCancelEdit = (reportId: string) => {
+    setEditingPayment(null)
+    const updatedData = { ...paymentData }
+    delete updatedData[reportId]
+    setPaymentData(updatedData)
+  }
 
   const handleDeleteReport = async (reportId: string, reportStatus: string) => {
     if (reportStatus === 'sent') {
@@ -296,6 +393,9 @@ export default function ReportsPage() {
                       Fecha
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Pago
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Acciones
                     </th>
                   </tr>
@@ -338,6 +438,97 @@ export default function ReportsPage() {
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {report.created_at ? new Date(report.created_at).toLocaleDateString('es-ES') : 'N/A'}
+                      </td>
+                      <td className="px-6 py-4">
+                        {editingPayment === report.id ? (
+                          <div className="space-y-3 min-w-48">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                id={`payment-${report.id}`}
+                                checked={paymentData[report.id]?.payment || false}
+                                onChange={(e) => setPaymentData(prev => ({
+                                  ...prev,
+                                  [report.id]: {
+                                    ...prev[report.id],
+                                    payment: e.target.checked
+                                  }
+                                }))}
+                                className="h-4 w-4 text-green-600 rounded border-gray-300"
+                              />
+                              <label htmlFor={`payment-${report.id}`} className="text-sm text-gray-700">
+                                Pagado
+                              </label>
+                            </div>
+                            
+                            <div>
+                              <input
+                                type="text"
+                                placeholder="Número de factura"
+                                value={paymentData[report.id]?.invoice_number || ''}
+                                onChange={(e) => setPaymentData(prev => ({
+                                  ...prev,
+                                  [report.id]: {
+                                    ...prev[report.id],
+                                    invoice_number: e.target.value
+                                  }
+                                }))}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              />
+                            </div>
+                            
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleSavePayment(report.id)}
+                                disabled={savingPayment === report.id}
+                                className="flex items-center gap-1 px-2 py-1 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 disabled:opacity-50"
+                              >
+                                <Save className="h-3 w-3" />
+                                {savingPayment === report.id ? 'Guardando...' : 'Guardar'}
+                              </button>
+                              
+                              <button
+                                onClick={() => handleClearPayment(report.id)}
+                                disabled={savingPayment === report.id}
+                                className="flex items-center gap-1 px-2 py-1 bg-red-600 text-white text-xs font-medium rounded hover:bg-red-700 disabled:opacity-50"
+                              >
+                                <X className="h-3 w-3" />
+                                Limpiar
+                              </button>
+                              
+                              <button
+                                onClick={() => handleCancelEdit(report.id)}
+                                disabled={savingPayment === report.id}
+                                className="px-2 py-1 border border-gray-300 text-gray-700 text-xs font-medium rounded hover:bg-gray-50 disabled:opacity-50"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                report.payment 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {report.payment ? 'Pagado' : 'Pendiente'}
+                              </span>
+                              <button
+                                onClick={() => handleEditPayment(report.id, report.payment || false, report.invoice_number || '')}
+                                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                              >
+                                Editar
+                              </button>
+                            </div>
+                            {report.invoice_number && (
+                              <div className="text-xs text-gray-600">
+                                <span className="font-mono">{report.invoice_number}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">

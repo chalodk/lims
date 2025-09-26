@@ -37,6 +37,7 @@ export async function GET(
         responsible_id,
         generated_by,
         download_url,
+        rendered_pdf_url,
         clients (
           id,
           name,

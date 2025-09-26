@@ -28,6 +28,7 @@ interface ReportData {
   include_images: boolean
   test_areas: string[]
   download_url?: string | null
+  rendered_pdf_url?: string | null
   clients: {
     id: string
     name: string
@@ -218,9 +219,9 @@ export default function ViewReportModal({ isOpen, onClose, reportId }: ViewRepor
           </div>
 
           {/* Content */}
-          <div className="bg-white px-8 py-6" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+          <div className="bg-white px-6 py-6 h-[70vh] overflow-hidden">
             {isLoading ? (
-              <div className="flex justify-center items-center py-12">
+              <div className="flex justify-center items-center h-full">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
                 <span className="ml-2 text-gray-600">Cargando informe...</span>
               </div>
@@ -237,242 +238,21 @@ export default function ViewReportModal({ isOpen, onClose, reportId }: ViewRepor
                 </button>
               </div>
             ) : report ? (
-              <div className="max-w-4xl mx-auto space-y-8 print:space-y-6">
-                {/* Header Section */}
-                <div className="text-center border-b-2 border-blue-600 pb-6">
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                    INFORME DE ANÁLISIS FITOSANITARIO
-                  </h1>
-                  <p className="text-lg text-gray-600">
-                    Informe N° {report.id.slice(-8).toUpperCase()}
-                  </p>
-                  <p className="text-sm text-gray-500 mt-2">
-                    Fecha de emisión: {formatDate(report.created_at)}
-                  </p>
-                </div>
-
-                {/* 1. Client Identification */}
-                <section className="bg-blue-50 rounded-lg p-6">
-                  <div className="flex items-center mb-4">
-                    <Building2 className="h-6 w-6 text-blue-600 mr-3" />
-                    <h2 className="text-xl font-bold text-gray-900">CLIENTE</h2>
+              <div className="h-full">
+                {report.rendered_pdf_url ? (
+                  <iframe
+                    src={report.rendered_pdf_url}
+                    className="w-full h-full border-0 rounded"
+                    title="Vista previa del informe PDF"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="flex flex-col justify-center items-center h-full text-center">
+                    <Loader2 className="h-12 w-12 animate-spin text-blue-600 mb-4" />
+                    <p className="text-lg text-gray-600">Generando vista previa...</p>
+                    <p className="text-sm text-gray-500 mt-2">El informe se está procesando</p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Razón Social</label>
-                        <p className="text-base font-semibold text-gray-900">{report.clients.name}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">RUT</label>
-                        <p className="text-base text-gray-900">{report.clients.rut || 'No especificado'}</p>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      {report.clients.contact_email && (
-                        <div className="flex items-center">
-                          <Mail className="h-4 w-4 text-gray-400 mr-2" />
-                          <span className="text-sm text-gray-900">{report.clients.contact_email}</span>
-                        </div>
-                      )}
-                      {report.clients.contact_phone && (
-                        <div className="flex items-center">
-                          <Phone className="h-4 w-4 text-gray-400 mr-2" />
-                          <span className="text-sm text-gray-900">{report.clients.contact_phone}</span>
-                        </div>
-                      )}
-                      {report.clients.address && (
-                        <div className="flex items-start">
-                          <MapPin className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
-                          <span className="text-sm text-gray-900">{report.clients.address}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </section>
-
-                {/* 2. Sample and Analysis Information */}
-                {report.results.map((result) => (
-                  <section key={result.id} className="bg-gray-50 rounded-lg p-6">
-                    <div className="flex items-center mb-4">
-                      <TestTube className="h-6 w-6 text-green-600 mr-3" />
-                      <h2 className="text-xl font-bold text-gray-900">
-                        Muestra y Análisis
-                      </h2>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Código de Muestra</label>
-                          <p className="text-base font-mono font-semibold text-gray-900">{result.samples.code}</p>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Especie</label>
-                          <p className="text-base text-gray-900">{result.samples.species}</p>
-                        </div>
-                        {result.samples.variety && (
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Variedad</label>
-                            <p className="text-base text-gray-900">{result.samples.variety}</p>
-                          </div>
-                        )}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Recepción</label>
-                          <p className="text-base text-gray-900">{formatDate(result.samples.received_date)}</p>
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Análisis</label>
-                          <p className="text-base text-gray-900">
-                            {result.sample_tests?.test_catalog?.name || 'No especificado'}
-                          </p>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Área</label>
-                          <p className="text-base text-gray-900 capitalize">{result.test_area?.replace('_', ' ')}</p>
-                        </div>
-                        {result.sample_tests?.methods && (
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Metodología</label>
-                            <p className="text-base text-gray-900">{result.sample_tests.methods.name}</p>
-                          </div>
-                        )}
-                        {result.samples.description && (
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-                            <p className="text-base text-gray-900">{result.samples.description}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </section>
-                ))}
-
-                {/* 3. Results Type */}
-                <section className="bg-yellow-50 rounded-lg p-6">
-                  <div className="flex items-center mb-4">
-                    <Microscope className="h-6 w-6 text-yellow-600 mr-3" />
-                    <h2 className="text-xl font-bold text-gray-900">RESULTADOS</h2>
-                  </div>
-                  <div className="space-y-4">
-                    {report.results.map((result) => (
-                      <div key={result.id} className="flex items-center justify-between p-4 bg-white rounded-lg border">
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            Muestra: {result.samples.code} - {result.samples.species}
-                          </p>
-                          {result.pathogen_identified && (
-                            <p className="text-sm text-gray-600 mt-1">
-                              Patógeno identificado: <span className="font-medium">{result.pathogen_identified}</span>
-                            </p>
-                          )}
-                        </div>
-                        <div className="ml-4">
-                          {getResultTypeBadge(result.result_type)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
-                {/* 4. Diagnosis, Conclusions and Recommendations */}
-                <section className="bg-green-50 rounded-lg p-6">
-                  <div className="flex items-center mb-4">
-                    <FileText className="h-6 w-6 text-green-600 mr-3" />
-                    <h2 className="text-xl font-bold text-gray-900">DIAGNÓSTICO, CONCLUSIONES Y RECOMENDACIONES</h2>
-                  </div>
-                  <div className="space-y-6">
-                    {report.results.map((result) => (
-                      <div key={result.id} className="bg-white rounded-lg border p-4">
-                        <h3 className="font-semibold text-gray-900 mb-3">
-                          Muestra: {result.samples.code}
-                        </h3>
-                        <div className="space-y-4">
-                          {result.diagnosis && (
-                            <div>
-                              <label className="block text-sm font-bold text-gray-700 mb-2">DIAGNÓSTICO</label>
-                              <p className="text-base text-gray-900 leading-relaxed whitespace-pre-wrap">
-                                {result.diagnosis}
-                              </p>
-                            </div>
-                          )}
-                          {result.conclusion && (
-                            <div>
-                              <label className="block text-sm font-bold text-gray-700 mb-2">CONCLUSIÓN</label>
-                              <p className="text-base text-gray-900 leading-relaxed whitespace-pre-wrap">
-                                {result.conclusion}
-                              </p>
-                            </div>
-                          )}
-                          {result.recommendations && (
-                            <div>
-                              <label className="block text-sm font-bold text-gray-700 mb-2">RECOMENDACIONES</label>
-                              <p className="text-base text-gray-900 leading-relaxed whitespace-pre-wrap">
-                                {result.recommendations}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
-                {/* Footer Section */}
-                <section className="border-t-2 border-gray-300 pt-6 mt-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h3 className="font-bold text-gray-900 mb-2">Personal Responsable</h3>
-                      {report.results.map((result) => (
-                        <div key={result.id} className="space-y-2">
-                          {result.performed_by_user && (
-                            <div className="flex items-center">
-                              <User className="h-4 w-4 text-gray-400 mr-2" />
-                              <div>
-                                <p className="text-sm font-medium text-gray-900">
-                                  Realizado por: {result.performed_by_user.name}
-                                </p>
-                                <p className="text-xs text-gray-500">{result.performed_by_user.email}</p>
-                              </div>
-                            </div>
-                          )}
-                          {result.validated_by_user && (
-                            <div className="flex items-center">
-                              <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                              <div>
-                                <p className="text-sm font-medium text-gray-900">
-                                  Validado por: {result.validated_by_user.name}
-                                </p>
-                                <p className="text-xs text-gray-500">{result.validated_by_user.email}</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-900 mb-2">Información del Informe</h3>
-                      <div className="flex items-center mb-2">
-                        <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                        <p className="text-sm text-gray-900">
-                          Fecha de generación: {formatDate(report.created_at)}
-                        </p>
-                      </div>
-                      {report.generated_by_user && (
-                        <div className="flex items-center">
-                          <User className="h-4 w-4 text-gray-400 mr-2" />
-                          <div>
-                            <p className="text-sm text-gray-900">
-                              Generado por: {report.generated_by_user.name}
-                            </p>
-                            <p className="text-xs text-gray-500">{report.generated_by_user.email}</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </section>
+                )}
               </div>
             ) : (
               <div className="text-center py-12">
