@@ -22,12 +22,12 @@ interface AuthContextValue extends AuthState {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
-// Session cache duration (30 minutes) - much longer to reduce unnecessary DB queries
-const SESSION_CACHE_DURATION = 30 * 60 * 1000
+// Short session cache duration (2 minutes) - faster auth checks
+const SESSION_CACHE_DURATION = 2 * 60 * 1000
 
-// Retry configuration for database queries
-const MAX_RETRIES = 2
-const RETRY_DELAY = 1000
+// Simple retry configuration - faster failure
+const MAX_RETRIES = 1
+const RETRY_DELAY = 500
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
@@ -118,11 +118,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .eq('id', session.user.id)
             .single()
 
-          // Longer timeout to prevent premature failures
+          // Shorter timeout for faster failures
           const userQueryWithTimeout = Promise.race([
             userQuery,
             new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('User query timeout')), 10000)
+              setTimeout(() => reject(new Error('User query timeout')), 5000)
             )
           ])
 
@@ -164,7 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           },
           authUser: session.user,
           role: null,
-          userRole: 'admin', // Default role for now
+          userRole: 'consumidor', // Default role - lowest privilege
           isLoading: false,
           isAuthenticated: true,
           session,
@@ -204,7 +204,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           },
           authUser: session.user,
           role: null,
-          userRole: 'admin', // Default role for now
+          userRole: 'consumidor', // Default role - lowest privilege
           isLoading: false,
           isAuthenticated: true,
           session,
@@ -254,40 +254,74 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true
     let refreshInterval: NodeJS.Timeout | null = null
+    let initializationTimeout: NodeJS.Timeout | null = null
 
     const initializeAuth = async () => {
       try {
+        // Set a maximum timeout for the entire initialization process
+        initializationTimeout = setTimeout(() => {
+          if (mounted) {
+            console.warn('Auth initialization timed out after 10 seconds, redirecting to login')
+            setState({
+              user: null,
+              authUser: null,
+              role: null,
+              userRole: null,
+              isLoading: false,
+              isAuthenticated: false,
+              session: null,
+            })
+            // Force redirect to login on timeout
+            if (typeof window !== 'undefined') {
+              window.location.href = '/login'
+            }
+          }
+        }, 10000) // 10 second maximum for entire auth initialization
+
         // Get the current session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
         
+        if (!mounted) return
+        
+        // Clear the timeout since we got a response
+        if (initializationTimeout) {
+          clearTimeout(initializationTimeout)
+          initializationTimeout = null
+        }
+        
         if (sessionError) {
           console.error('Session error:', sessionError)
-          if (mounted) await updateAuthState(null)
+          await updateAuthState(null)
           return
         }
 
-        if (mounted) {
-          await updateAuthState(session)
-          
-          // Set up periodic session refresh (every 15 minutes)
-          if (session?.user) {
-            refreshInterval = setInterval(async () => {
-              if (mounted) {
-                try {
-                  const { data: { session: currentSession } } = await supabase.auth.getSession()
-                  if (currentSession?.user) {
-                    await updateAuthState(currentSession)
-                  }
-                } catch (error) {
-                  console.error('Periodic session refresh error:', error)
+        await updateAuthState(session)
+        
+        // Set up periodic session refresh (every 15 minutes) only if we have a valid session
+        if (session?.user) {
+          refreshInterval = setInterval(async () => {
+            if (mounted) {
+              try {
+                const { data: { session: currentSession } } = await supabase.auth.getSession()
+                if (currentSession?.user) {
+                  await updateAuthState(currentSession)
                 }
+              } catch (error) {
+                console.error('Periodic session refresh error:', error)
               }
-            }, 15 * 60 * 1000) // 15 minutes
-          }
+            }
+          }, 15 * 60 * 1000) // 15 minutes
         }
       } catch (error) {
         console.error('Error initializing auth:', error)
-        if (mounted) await updateAuthState(null)
+        if (mounted) {
+          // Clear timeout and set unauthenticated state on error
+          if (initializationTimeout) {
+            clearTimeout(initializationTimeout)
+            initializationTimeout = null
+          }
+          await updateAuthState(null)
+        }
       }
     }
 
@@ -322,6 +356,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (refreshInterval) {
         clearInterval(refreshInterval)
       }
+      if (initializationTimeout) {
+        clearTimeout(initializationTimeout)
+      }
       subscription.unsubscribe()
     }
   }, [supabase, updateAuthState])
@@ -330,18 +367,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setState(prev => ({ ...prev, isLoading: true }))
       
-      const { error } = await supabase.auth.signOut()
+      // Force logout with global scope
+      const { error } = await supabase.auth.signOut({ scope: 'global' })
       
       if (error) {
         console.error('SignOut error:', error)
       }
       
-      // Clear local storage
+      // Clear all storage more aggressively
       if (typeof window !== 'undefined') {
+        // Clear localStorage
         Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('sb-') || key.includes('supabase')) {
+          if (key.startsWith('sb-') || key.includes('supabase') || key.includes('auth')) {
             localStorage.removeItem(key)
           }
+        })
+        
+        // Clear sessionStorage
+        Object.keys(sessionStorage).forEach(key => {
+          if (key.startsWith('sb-') || key.includes('supabase') || key.includes('auth')) {
+            sessionStorage.removeItem(key)
+          }
+        })
+        
+        // Clear cookies more aggressively
+        document.cookie.split(";").forEach(function(c) { 
+          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+        })
+      }
+      
+      // Immediate state reset
+      setState({
+        user: null,
+        authUser: null,
+        role: null,
+        userRole: null,
+        isLoading: false,
+        isAuthenticated: false,
+        session: null,
+      })
+      
+      // Force redirect with timeout fallback
+      setTimeout(() => {
+        window.location.href = '/login'
+      }, 100)
+      
+    } catch (error) {
+      console.error('Error in signOut:', error)
+      
+      // Force clear everything on error
+      if (typeof window !== 'undefined') {
+        localStorage.clear()
+        sessionStorage.clear()
+        
+        // Clear cookies
+        document.cookie.split(";").forEach(function(c) { 
+          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
         })
       }
       
@@ -355,19 +436,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         session: null,
       })
       
-      window.location.replace('/login')
-    } catch (error) {
-      console.error('Error in signOut:', error)
-      setState({
-        user: null,
-        authUser: null,
-        role: null,
-        userRole: null,
-        isLoading: false,
-        isAuthenticated: false,
-        session: null,
-      })
-      window.location.replace('/login')
+      // Force redirect
+      window.location.href = '/login'
     }
   }
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { 
   FlaskConical, 
@@ -60,15 +61,26 @@ interface RecentSample {
 }
 
 export default function DashboardPage() {
-  const { isLoading } = useAuth()
+  const { isLoading, isAuthenticated } = useAuth()
+  const router = useRouter()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [recentSamples, setRecentSamples] = useState<RecentSample[]>([])
   const [isLoadingStats, setIsLoadingStats] = useState(true)
   const [isLoadingSamples, setIsLoadingSamples] = useState(true)
 
+  // Redirect to login if not authenticated
   useEffect(() => {
-    fetchDashboardData()
-  }, [])
+    if (!isLoading && !isAuthenticated) {
+      router.push('/login')
+    }
+  }, [isLoading, isAuthenticated, router])
+
+  useEffect(() => {
+    // Only fetch dashboard data if authenticated
+    if (isAuthenticated) {
+      fetchDashboardData()
+    }
+  }, [isAuthenticated])
 
   const fetchDashboardData = async () => {
     try {
@@ -111,8 +123,17 @@ export default function DashboardPage() {
     return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800'
   }
 
-  // Simple loading check
+  // Show loading or redirect unauthenticated users
   if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+      </div>
+    )
+  }
+
+  // Don't render dashboard if not authenticated (will redirect)
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-green-600" />
