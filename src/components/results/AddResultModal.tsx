@@ -34,8 +34,7 @@ const IDENTIFICATION_TECHNIQUE_OPTIONS = [
   'Taxonomía tradicional',
   'RT-PCR',
   'PCR',
-  'ELISA',
-  'Secuenciación'
+  'ELISA'
 ]
 
 export default function AddResultModal({ 
@@ -355,8 +354,8 @@ export default function AddResultModal({
 
       if (validTests.length > 0) {
         const testsWithNames = validTests.map(test => {
-          const methodName = availableMethods.find(m => m.id === test.method)?.name || test.method
-          const virusName = availableAnalytes.find(a => a.id === test.virus)?.scientific_name || test.virus
+          const methodName = availableMethods.find(m => m.id == test.method)?.name || test.method
+          const virusName = availableAnalytes.find(a => a.id == test.virus)?.scientific_name || test.virus
           return { ...test, method: methodName, virus: virusName }
         })
         const virologyFindings = {
@@ -1287,8 +1286,8 @@ export default function AddResultModal({
         )
         if (validTests.length > 0) {
           const testsWithNames = validTests.map(test => {
-            const methodName = availableMethods.find(m => m.id === test.method)?.name || test.method
-            const virusName = availableAnalytes.find(a => a.id === test.virus)?.scientific_name || test.virus
+            const methodName = availableMethods.find(m => m.id == test.method)?.name || test.method
+            const virusName = availableAnalytes.find(a => a.id == test.virus)?.scientific_name || test.virus
             return { ...test, method: methodName, virus: virusName }
           })
           findings = {
