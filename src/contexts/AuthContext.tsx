@@ -22,12 +22,11 @@ interface AuthContextValue extends AuthState {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
-// Short session cache duration (2 minutes) - faster auth checks
-const SESSION_CACHE_DURATION = 2 * 60 * 1000
+// Extended session cache duration (15 minutes) - rely more on session tokens
+const SESSION_CACHE_DURATION = 15 * 60 * 1000
 
-// Simple retry configuration - faster failure
-const MAX_RETRIES = 1
-const RETRY_DELAY = 500
+// Only query database in these cases
+const FORCE_DB_QUERY_EVENTS = ['SIGNED_IN', 'USER_UPDATED']
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
@@ -43,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [lastSessionCheck, setLastSessionCheck] = useState<number>(0)
   const supabase = createClient()
 
-  const updateAuthState = useCallback(async (session: Session | null, forceRefresh = false) => {
+  const updateAuthState = useCallback(async (session: Session | null, forceRefresh = false, eventType = '') => {
     if (!session?.user || !session?.access_token) {
       setState({
         user: null,
@@ -57,182 +56,96 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // Check if we need to refresh user data
     const now = Date.now()
-    const shouldRefreshUserData = forceRefresh || 
-      !state.user || 
-      state.user.id !== session.user.id ||
-      (now - lastSessionCheck) > SESSION_CACHE_DURATION
-
-    if (!shouldRefreshUserData && state.user) {
-      // Use cached data but always update session
-      setState(prev => ({
-        ...prev,
-        session,
-        authUser: session.user,
-        isLoading: false,
-        isAuthenticated: true,
-      }))
-      return
+    
+    // Always update session and auth state first - rely on session validation
+    const baseAuthState = {
+      session,
+      authUser: session.user,
+      isLoading: false,
+      isAuthenticated: true,
     }
 
-    // If we have a valid user but just need to update session, skip DB query
+    // If we have cached user data and session is valid, use it
     if (state.user && state.user.id === session.user.id && !forceRefresh) {
       setState(prev => ({
         ...prev,
-        session,
-        authUser: session.user,
-        isLoading: false,
-        isAuthenticated: true,
+        ...baseAuthState,
       }))
-      return
+      
+      // Only query database if cache is very old or for critical events
+      const cacheAge = now - lastSessionCheck
+      const shouldQueryDB = forceRefresh || 
+        cacheAge > SESSION_CACHE_DURATION ||
+        FORCE_DB_QUERY_EVENTS.includes(eventType)
+        
+      if (!shouldQueryDB) {
+        return
+      }
     }
 
-    // Check if we should skip DB query entirely (fallback mode)
-    const shouldSkipDBQuery = state.user && 
-      state.user.id === session.user.id && 
-      (now - lastSessionCheck) < SESSION_CACHE_DURATION
-
-    if (shouldSkipDBQuery) {
-      console.log('Skipping DB query, using cached user data')
-      setState(prev => ({
-        ...prev,
-        session,
-        authUser: session.user,
-        isLoading: false,
-        isAuthenticated: true,
-      }))
-      return
+    // Create fallback user data from session
+    const fallbackUser: User = {
+      id: session.user.id,
+      email: session.user.email || '',
+      name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuario',
+      company_id: null,
+      client_id: null,
+      specialization: null,
+      avatar: null,
+      created_at: session.user.created_at || new Date().toISOString(),
+      updated_at: session.user.updated_at || new Date().toISOString(),
+      role_id: null
     }
 
+    // If no cached user, set fallback immediately to prevent logout
+    if (!state.user || state.user.id !== session.user.id) {
+      setState({
+        user: fallbackUser,
+        authUser: session.user,
+        role: null,
+        userRole: 'admin', // Default role
+        isLoading: false,
+        isAuthenticated: true,
+        session,
+      })
+    }
+
+    // Try to fetch user data from database (optional enhancement)
     try {
-      // Try to fetch user data with retry logic
-      let userData: User | null = null
-      let userError: { message: string } | null = null
+      const userQuery = supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single()
+
+      // Longer timeout but still reasonable (15 seconds)
+      const userQueryWithTimeout = Promise.race([
+        userQuery,
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('User query timeout')), 15000)
+        )
+      ])
+
+      const result = await userQueryWithTimeout as { data: User | null, error: { message: string } | null }
       
-      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-        try {
-          const userQuery = supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
-
-          // Shorter timeout for faster failures
-          const userQueryWithTimeout = Promise.race([
-            userQuery,
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('User query timeout')), 5000)
-            )
-          ])
-
-          const result = await userQueryWithTimeout as { data: User | null, error: { message: string } | null }
-          userData = result.data
-          userError = result.error
-          
-          // If successful, break out of retry loop
-          if (!userError) break
-          
-          // If not the last attempt, wait before retrying
-          if (attempt < MAX_RETRIES) {
-            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY))
-          }
-        } catch (retryError) {
-          if (attempt === MAX_RETRIES) {
-            throw retryError
-          }
-          // Wait before retrying
-          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY))
-        }
+      if (!result.error && result.data) {
+        // Successfully got user data from database
+        setState(prev => ({
+          ...prev,
+          user: result.data,
+          userRole: 'admin', // Default role for now
+          ...baseAuthState,
+        }))
+        setLastSessionCheck(now)
+      } else {
+        // Database query failed, but keep using fallback user (no logout)
+        console.warn('User query failed, continuing with session-based auth:', result.error?.message)
       }
-
-      if (userError) {
-        console.warn('User query failed, using auth user only:', userError.message)
-        // Don't fail the entire auth process - use auth user data
-        setState({
-          user: {
-            id: session.user.id,
-            email: session.user.email || '',
-            name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuario',
-            company_id: null,
-            client_id: null,
-            specialization: null,
-            avatar: null,
-            created_at: session.user.created_at || new Date().toISOString(),
-            updated_at: session.user.updated_at || new Date().toISOString(),
-            role_id: null
-          },
-          authUser: session.user,
-          role: null,
-          userRole: 'consumidor', // Default role - lowest privilege
-          isLoading: false,
-          isAuthenticated: true,
-          session,
-        })
-        return
-      }
-
-      setState({
-        user: userData,
-        authUser: session.user,
-        role: null,
-        userRole: 'admin', // Default role for now
-        isLoading: false,
-        isAuthenticated: true,
-        session,
-      })
-      
-      setLastSessionCheck(now)
     } catch (error) {
-      console.error('Error in updateAuthState:', error)
-      
-      // If it's a timeout error, don't fail the auth - just use auth user data
-      if (error instanceof Error && error.message.includes('timeout')) {
-        console.warn('Database query timed out, using auth user data only')
-        setState({
-          user: {
-            id: session.user.id,
-            email: session.user.email || '',
-            name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuario',
-            company_id: null,
-            client_id: null,
-            specialization: null,
-            avatar: null,
-            created_at: session.user.created_at || new Date().toISOString(),
-            updated_at: session.user.updated_at || new Date().toISOString(),
-            role_id: null
-          },
-          authUser: session.user,
-          role: null,
-          userRole: 'consumidor', // Default role - lowest privilege
-          isLoading: false,
-          isAuthenticated: true,
-          session,
-        })
-        return
-      }
-      
-      // For other errors, still try to maintain auth state
-      setState({
-        user: {
-          id: session.user.id,
-          email: session.user.email || '',
-          name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuario',
-          company_id: null,
-          client_id: null,
-          specialization: null,
-          avatar: null,
-          created_at: session.user.created_at || new Date().toISOString(),
-          updated_at: session.user.updated_at || new Date().toISOString(),
-          role_id: null
-        },
-        authUser: session.user,
-        role: null,
-        userRole: 'admin', // Default role for now
-        isLoading: false,
-        isAuthenticated: true,
-        session,
-      })
+      // Database timeout or error - don't reset auth state, just log
+      console.warn('Database query failed, continuing with session-based auth:', error)
+      // Auth state is already set with fallback user, no need to reset
     }
   }, [state.user, lastSessionCheck, supabase])
 
@@ -241,13 +154,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data: { session }, error } = await supabase.auth.getSession()
       if (error) {
         console.error('Session refresh error:', error)
-        await updateAuthState(null)
+        // Don't reset auth state on refresh errors, just log
         return
       }
-      await updateAuthState(session, true)
+      // Don't force refresh, just validate session
+      await updateAuthState(session, false, 'MANUAL_REFRESH')
     } catch (error) {
       console.error('Error refreshing session:', error)
-      await updateAuthState(null)
+      // Don't reset auth state on refresh errors
     }
   }, [supabase, updateAuthState])
 
@@ -295,22 +209,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return
         }
 
-        await updateAuthState(session)
+        await updateAuthState(session, false, 'INITIAL_SESSION')
         
-        // Set up periodic session refresh (every 15 minutes) only if we have a valid session
+        // Set up periodic session refresh (every 30 minutes) with less aggressive refresh
         if (session?.user) {
           refreshInterval = setInterval(async () => {
             if (mounted) {
               try {
                 const { data: { session: currentSession } } = await supabase.auth.getSession()
                 if (currentSession?.user) {
-                  await updateAuthState(currentSession)
+                  // Don't force refresh, just validate session
+                  await updateAuthState(currentSession, false, 'PERIODIC_REFRESH')
                 }
               } catch (error) {
-                console.error('Periodic session refresh error:', error)
+                console.warn('Periodic session refresh error (non-critical):', error)
+                // Don't reset auth state on periodic refresh errors
               }
             }
-          }, 15 * 60 * 1000) // 15 minutes
+          }, 30 * 60 * 1000) // 30 minutes - less frequent
         }
       } catch (error) {
         console.error('Error initializing auth:', error)
@@ -337,17 +253,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (event === 'SIGNED_OUT') {
         await updateAuthState(null)
-      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        await updateAuthState(session, true)
+      } else if (event === 'SIGNED_IN') {
+        // Force refresh on sign in to get latest user data
+        await updateAuthState(session, true, event)
+      } else if (event === 'USER_UPDATED') {
+        // Force refresh when user profile is updated
+        await updateAuthState(session, true, event)
+      } else if (event === 'TOKEN_REFRESHED') {
+        // Don't force refresh on token refresh, just update session
+        await updateAuthState(session, false, event)
       } else if (event === 'INITIAL_SESSION') {
         // Handle initial session properly
         if (session?.user && session?.access_token) {
-          await updateAuthState(session)
+          await updateAuthState(session, false, event)
         } else {
           await updateAuthState(null)
         }
       } else if (session?.user && session?.access_token) {
-        await updateAuthState(session)
+        await updateAuthState(session, false, event)
       }
     })
 
