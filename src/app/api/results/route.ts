@@ -3,9 +3,18 @@ import { createClient } from '@/lib/supabase/server'
 
 // Minimal types to avoid any in findings normalization
 type MethodRow = { id: string; name: string }
-type AnalyteRow = { id: string; scientific_name: string }
+type AnalyteRow = { id: string; scientific_name: string; name: string }
 type VirologyTestInput = { identification?: string; method?: string; virus?: string; result?: string }
-type FindingsObj = { type?: string; tests?: VirologyTestInput[]; [key: string]: unknown }
+type PhytoTestInput = { microorganism?: string; method?: string; result?: string; [key: string]: unknown }
+type TestInput = VirologyTestInput | PhytoTestInput
+type NematologyTestInput = { name?: string; quantity?: string; [key: string]: unknown }
+type FindingsObj = { 
+  type?: string; 
+  tests?: VirologyTestInput[]; 
+  microorganisms?: PhytoTestInput[];
+  nematodes?: NematologyTestInput[];
+  [key: string]: unknown 
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -196,37 +205,71 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Collect all IDs that need name resolution
+    const methodIds: string[] = []
+    const analyteIds: string[] = []
+
+    // Process tests array (used by virology, phytopatology, etc.)
     if (normalizedFindings && Array.isArray(normalizedFindings.tests)) {
-      const methodIds: string[] = []
-      const virusIds: string[] = []
-      normalizedFindings.tests.forEach((t: VirologyTestInput) => {
+      normalizedFindings.tests.forEach((t: TestInput) => {
+        // Collect method IDs
         if (t.method && typeof t.method === 'string') methodIds.push(t.method)
-        if (t.virus && typeof t.virus === 'string') virusIds.push(t.virus)
+        
+        // Collect analyte IDs from different fields
+        if (t.virus && typeof t.virus === 'string') analyteIds.push(t.virus)
+        if ('microorganism' in t && t.microorganism && typeof t.microorganism === 'string') analyteIds.push(t.microorganism)
       })
+    }
 
-      const uniqueMethodIds = Array.from(new Set(methodIds))
-      const uniqueVirusIds = Array.from(new Set(virusIds))
+    // Process nematology - nematodes might have IDs in name field
+    if (normalizedFindings && Array.isArray(normalizedFindings.nematodes)) {
+      normalizedFindings.nematodes.forEach((n: NematologyTestInput) => {
+        if (n.name && typeof n.name === 'string') analyteIds.push(n.name)
+      })
+    }
 
-      // Fetch names from DB
-      const [methodsRes, analytesRes] = await Promise.all([
-        uniqueMethodIds.length > 0
-          ? supabase.from('methods').select('id, name').in('id', uniqueMethodIds)
-          : Promise.resolve({ data: [] as MethodRow[], error: null } as const),
-        uniqueVirusIds.length > 0
-          ? supabase.from('analytes').select('id, scientific_name').in('id', uniqueVirusIds)
-          : Promise.resolve({ data: [] as AnalyteRow[], error: null } as const)
-      ])
+    const uniqueMethodIds = Array.from(new Set(methodIds.filter(id => id)))
+    const uniqueAnalyteIds = Array.from(new Set(analyteIds.filter(id => id)))
 
-      const idToMethodName = new Map<string, string>((methodsRes.data || []).map((m: MethodRow) => [m.id, m.name]))
-      const idToVirusName = new Map<string, string>((analytesRes.data || []).map((a: AnalyteRow) => [a.id, a.scientific_name]))
+    // Fetch names from DB
+    const [methodsRes, analytesRes] = await Promise.all([
+      uniqueMethodIds.length > 0
+        ? supabase.from('methods').select('id, name').in('id', uniqueMethodIds)
+        : Promise.resolve({ data: [] as MethodRow[], error: null } as const),
+      uniqueAnalyteIds.length > 0
+        ? supabase.from('analytes').select('id, scientific_name, name').in('id', uniqueAnalyteIds)
+        : Promise.resolve({ data: [] as AnalyteRow[], error: null } as const)
+    ])
 
-      // Only rewrite if we actually mapped at least one
-      const mappedTests = normalizedFindings.tests.map((t: VirologyTestInput) => ({
-        ...t,
-        method: t.method ? (idToMethodName.get(t.method) || t.method) : t.method,
-        virus: t.virus ? (idToVirusName.get(t.virus) || t.virus) : t.virus
+    const idToMethodName = new Map<string, string>((methodsRes.data || []).map((m: MethodRow) => [m.id, m.name]))
+    const idToAnalyteName = new Map<string, string>((analytesRes.data || []).map((a: AnalyteRow) => [a.id, a.scientific_name || a.name]))
+
+    // Map tests array (handles virology, phytopatology, etc.)
+    if (normalizedFindings && Array.isArray(normalizedFindings.tests)) {
+      const mappedTests = normalizedFindings.tests.map((t: TestInput) => {
+        const mapped: TestInput = {
+          ...t,
+          method: t.method ? (idToMethodName.get(t.method) || t.method) : t.method,
+          virus: t.virus && typeof t.virus === 'string' ? (idToAnalyteName.get(t.virus) || t.virus) : t.virus
+        }
+        
+        // Handle microorganism field for phytopathology tests
+        if ('microorganism' in t && t.microorganism) {
+          (mapped as PhytoTestInput).microorganism = idToAnalyteName.get(t.microorganism) || t.microorganism
+        }
+        
+        return mapped
+      })
+      normalizedFindings.tests = mappedTests
+    }
+
+    // Map nematology nematodes
+    if (normalizedFindings && Array.isArray(normalizedFindings.nematodes)) {
+      const mappedNematodes = normalizedFindings.nematodes.map((n: NematologyTestInput) => ({
+        ...n,
+        name: n.name ? (idToAnalyteName.get(n.name) || n.name) : n.name
       }))
-      normalizedFindings = { ...normalizedFindings, tests: mappedTests }
+      normalizedFindings.nematodes = mappedNematodes
     }
 
     // Combine findings with methodologies and identification_techniques

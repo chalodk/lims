@@ -4,19 +4,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { 
   X, 
   FileText, 
-  User, 
-  Building2, 
-  Calendar,
-  TestTube,
-  Microscope,
   AlertCircle,
-  CheckCircle,
-  XCircle,
   Loader2,
-  Download,
-  Phone,
-  Mail,
-  MapPin
+  Download
 } from 'lucide-react'
 
 interface ReportData {
@@ -142,23 +132,6 @@ export default function ViewReportModal({ isOpen, onClose, reportId }: ViewRepor
     }
   }, [isOpen, reportId, fetchReport])
 
-  const getResultTypeBadge = (resultType: string) => {
-    const typeConfig = {
-      positive: { color: 'text-red-600 bg-red-50', text: 'POSITIVO', icon: AlertCircle },
-      negative: { color: 'text-green-600 bg-green-50', text: 'NEGATIVO', icon: CheckCircle },
-      inconclusive: { color: 'text-gray-600 bg-gray-50', text: 'NO CONCLUSIVO', icon: XCircle }
-    }
-    
-    const config = typeConfig[resultType as keyof typeof typeConfig] || typeConfig.inconclusive
-    const IconComponent = config.icon
-    
-    return (
-      <div className={`inline-flex items-center px-4 py-2 rounded-lg border-2 ${config.color} font-bold text-lg`}>
-        <IconComponent className="h-5 w-5 mr-2" />
-        {config.text}
-      </div>
-    )
-  }
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-ES', {

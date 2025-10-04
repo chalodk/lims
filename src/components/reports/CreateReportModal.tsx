@@ -151,13 +151,19 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
 
       if (reportError) throw reportError
 
-      // Create PDF in PDFMonkey (non-blocking for UX)
+      // Create PDF in PDFMonkey using the first selected result
       try {
-        await fetch('/api/reports/pdfmonkey', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ report_id: reportData.id })
-        })
+        const firstResultId = selectedResults[0]
+        if (firstResultId) {
+          await fetch('/api/reports/pdfmonkey', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              result_id: firstResultId,
+              report_id: reportData.id 
+            })
+          })
+        }
       } catch (e) {
         console.error('Failed to request PDF creation:', e)
       }

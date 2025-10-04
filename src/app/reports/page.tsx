@@ -18,7 +18,6 @@ import {
   Edit,
   Plus,
   Trash2,
-  DollarSign,
   Save,
   X
 } from 'lucide-react'

@@ -22,12 +22,6 @@ interface AuthContextValue extends AuthState {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
-// Extended session cache duration (15 minutes) - rely more on session tokens
-const SESSION_CACHE_DURATION = 15 * 60 * 1000
-
-// Only query database in these cases
-const FORCE_DB_QUERY_EVENTS = ['SIGNED_IN', 'USER_UPDATED']
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
@@ -39,10 +33,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session: null,
   })
   
-  const [lastSessionCheck, setLastSessionCheck] = useState<number>(0)
   const supabase = createClient()
 
-  const updateAuthState = useCallback(async (session: Session | null, forceRefresh = false, eventType = '') => {
+  const updateAuthState = useCallback(async (session: Session | null) => {
     if (!session?.user || !session?.access_token) {
       setState({
         user: null,
@@ -56,152 +49,100 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    const now = Date.now()
-    
-    // Always update session and auth state first - rely on session validation
-    const baseAuthState = {
-      session,
-      authUser: session.user,
-      isLoading: false,
-      isAuthenticated: true,
-    }
-
-    // If we have cached user data and session is valid, use it
-    if (state.user && state.user.id === session.user.id && !forceRefresh) {
-      setState(prev => ({
-        ...prev,
-        ...baseAuthState,
-      }))
-      
-      // Only query database if cache is very old or for critical events
-      const cacheAge = now - lastSessionCheck
-      const shouldQueryDB = forceRefresh || 
-        cacheAge > SESSION_CACHE_DURATION ||
-        FORCE_DB_QUERY_EVENTS.includes(eventType)
-        
-      if (!shouldQueryDB) {
-        return
-      }
-    }
-
-    // Create fallback user data from session
-    const fallbackUser: User = {
-      id: session.user.id,
-      email: session.user.email || '',
-      name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuario',
-      company_id: null,
-      client_id: null,
-      specialization: null,
-      avatar: null,
-      created_at: session.user.created_at || new Date().toISOString(),
-      updated_at: session.user.updated_at || new Date().toISOString(),
-      role_id: null
-    }
-
-    // If no cached user, set fallback immediately to prevent logout
-    if (!state.user || state.user.id !== session.user.id) {
-      setState({
-        user: fallbackUser,
-        authUser: session.user,
-        role: null,
-        userRole: 'admin', // Default role
-        isLoading: false,
-        isAuthenticated: true,
-        session,
-      })
-    }
-
-    // Try to fetch user data from database (optional enhancement)
     try {
-      const userQuery = supabase
+      // Fetch user data from database
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('id', session.user.id)
         .single()
 
-      // Longer timeout but still reasonable (15 seconds)
-      const userQueryWithTimeout = Promise.race([
-        userQuery,
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('User query timeout')), 15000)
-        )
-      ])
-
-      const result = await userQueryWithTimeout as { data: User | null, error: { message: string } | null }
-      
-      if (!result.error && result.data) {
-        // Successfully got user data from database
-        setState(prev => ({
-          ...prev,
-          user: result.data,
-          userRole: 'admin', // Default role for now
-          ...baseAuthState,
-        }))
-        setLastSessionCheck(now)
-      } else {
-        // Database query failed, but keep using fallback user (no logout)
-        console.warn('User query failed, continuing with session-based auth:', result.error?.message)
+      if (userError) {
+        console.warn('User query failed, using auth user only:', userError.message)
+        // Use auth user data as fallback
+        setState({
+          user: {
+            id: session.user.id,
+            email: session.user.email || '',
+            name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuario',
+            company_id: null,
+            client_id: null,
+            specialization: null,
+            avatar: null,
+            created_at: session.user.created_at || new Date().toISOString(),
+            updated_at: session.user.updated_at || new Date().toISOString(),
+            role_id: null
+          },
+          authUser: session.user,
+          role: null,
+          userRole: 'consumidor', // Default role
+          isLoading: false,
+          isAuthenticated: true,
+          session,
+        })
+        return
       }
+
+      setState({
+        user: userData,
+        authUser: session.user,
+        role: null,
+        userRole: 'admin', // Default role for now
+        isLoading: false,
+        isAuthenticated: true,
+        session,
+      })
     } catch (error) {
-      // Database timeout or error - don't reset auth state, just log
-      console.warn('Database query failed, continuing with session-based auth:', error)
-      // Auth state is already set with fallback user, no need to reset
+      console.error('Error in updateAuthState:', error)
+      
+      // Use auth user data as fallback
+      setState({
+        user: {
+          id: session.user.id,
+          email: session.user.email || '',
+          name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuario',
+          company_id: null,
+          client_id: null,
+          specialization: null,
+          avatar: null,
+          created_at: session.user.created_at || new Date().toISOString(),
+          updated_at: session.user.updated_at || new Date().toISOString(),
+          role_id: null
+        },
+        authUser: session.user,
+        role: null,
+        userRole: 'consumidor', // Default role
+        isLoading: false,
+        isAuthenticated: true,
+        session,
+      })
     }
-  }, [state.user, lastSessionCheck, supabase])
+  }, [supabase])
 
   const refreshSession = useCallback(async () => {
     try {
       const { data: { session }, error } = await supabase.auth.getSession()
       if (error) {
         console.error('Session refresh error:', error)
-        // Don't reset auth state on refresh errors, just log
+        await updateAuthState(null)
         return
       }
-      // Don't force refresh, just validate session
-      await updateAuthState(session, false, 'MANUAL_REFRESH')
+      await updateAuthState(session)
     } catch (error) {
       console.error('Error refreshing session:', error)
-      // Don't reset auth state on refresh errors
+      await updateAuthState(null)
     }
   }, [supabase, updateAuthState])
 
   useEffect(() => {
     let mounted = true
-    let refreshInterval: NodeJS.Timeout | null = null
-    let initializationTimeout: NodeJS.Timeout | null = null
 
     const initializeAuth = async () => {
       try {
-        // Set a maximum timeout for the entire initialization process
-        initializationTimeout = setTimeout(() => {
-          if (mounted) {
-            console.warn('Auth initialization timed out after 10 seconds, redirecting to login')
-            setState({
-              user: null,
-              authUser: null,
-              role: null,
-              userRole: null,
-              isLoading: false,
-              isAuthenticated: false,
-              session: null,
-            })
-            // Force redirect to login on timeout
-            if (typeof window !== 'undefined') {
-              window.location.href = '/login'
-            }
-          }
-        }, 10000) // 10 second maximum for entire auth initialization
-
         // Get the current session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
         
         if (!mounted) return
-        
-        // Clear the timeout since we got a response
-        if (initializationTimeout) {
-          clearTimeout(initializationTimeout)
-          initializationTimeout = null
-        }
         
         if (sessionError) {
           console.error('Session error:', sessionError)
@@ -209,33 +150,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return
         }
 
-        await updateAuthState(session, false, 'INITIAL_SESSION')
-        
-        // Set up periodic session refresh (every 30 minutes) with less aggressive refresh
-        if (session?.user) {
-          refreshInterval = setInterval(async () => {
-            if (mounted) {
-              try {
-                const { data: { session: currentSession } } = await supabase.auth.getSession()
-                if (currentSession?.user) {
-                  // Don't force refresh, just validate session
-                  await updateAuthState(currentSession, false, 'PERIODIC_REFRESH')
-                }
-              } catch (error) {
-                console.warn('Periodic session refresh error (non-critical):', error)
-                // Don't reset auth state on periodic refresh errors
-              }
-            }
-          }, 30 * 60 * 1000) // 30 minutes - less frequent
-        }
+        await updateAuthState(session)
       } catch (error) {
         console.error('Error initializing auth:', error)
         if (mounted) {
-          // Clear timeout and set unauthenticated state on error
-          if (initializationTimeout) {
-            clearTimeout(initializationTimeout)
-            initializationTimeout = null
-          }
           await updateAuthState(null)
         }
       }
@@ -253,35 +171,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (event === 'SIGNED_OUT') {
         await updateAuthState(null)
-      } else if (event === 'SIGNED_IN') {
-        // Force refresh on sign in to get latest user data
-        await updateAuthState(session, true, event)
-      } else if (event === 'USER_UPDATED') {
-        // Force refresh when user profile is updated
-        await updateAuthState(session, true, event)
-      } else if (event === 'TOKEN_REFRESHED') {
-        // Don't force refresh on token refresh, just update session
-        await updateAuthState(session, false, event)
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        await updateAuthState(session)
       } else if (event === 'INITIAL_SESSION') {
-        // Handle initial session properly
         if (session?.user && session?.access_token) {
-          await updateAuthState(session, false, event)
+          await updateAuthState(session)
         } else {
           await updateAuthState(null)
         }
-      } else if (session?.user && session?.access_token) {
-        await updateAuthState(session, false, event)
       }
     })
 
     return () => {
       mounted = false
-      if (refreshInterval) {
-        clearInterval(refreshInterval)
-      }
-      if (initializationTimeout) {
-        clearTimeout(initializationTimeout)
-      }
       subscription.unsubscribe()
     }
   }, [supabase, updateAuthState])
@@ -290,36 +192,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setState(prev => ({ ...prev, isLoading: true }))
       
-      // Force logout with global scope
-      const { error } = await supabase.auth.signOut({ scope: 'global' })
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut()
       
       if (error) {
         console.error('SignOut error:', error)
       }
       
-      // Clear all storage more aggressively
-      if (typeof window !== 'undefined') {
-        // Clear localStorage
-        Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('sb-') || key.includes('supabase') || key.includes('auth')) {
-            localStorage.removeItem(key)
-          }
-        })
-        
-        // Clear sessionStorage
-        Object.keys(sessionStorage).forEach(key => {
-          if (key.startsWith('sb-') || key.includes('supabase') || key.includes('auth')) {
-            sessionStorage.removeItem(key)
-          }
-        })
-        
-        // Clear cookies more aggressively
-        document.cookie.split(";").forEach(function(c) { 
-          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
-        })
-      }
-      
-      // Immediate state reset
+      // Clear state
       setState({
         user: null,
         authUser: null,
@@ -330,25 +210,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         session: null,
       })
       
-      // Force redirect with timeout fallback
-      setTimeout(() => {
+      // Redirect to login
+      if (typeof window !== 'undefined') {
         window.location.href = '/login'
-      }, 100)
+      }
       
     } catch (error) {
       console.error('Error in signOut:', error)
       
-      // Force clear everything on error
-      if (typeof window !== 'undefined') {
-        localStorage.clear()
-        sessionStorage.clear()
-        
-        // Clear cookies
-        document.cookie.split(";").forEach(function(c) { 
-          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
-        })
-      }
-      
+      // Clear state even on error
       setState({
         user: null,
         authUser: null,
@@ -360,7 +230,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
       
       // Force redirect
-      window.location.href = '/login'
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login'
+      }
     }
   }
 

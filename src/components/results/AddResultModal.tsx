@@ -37,6 +37,36 @@ const IDENTIFICATION_TECHNIQUE_OPTIONS = [
   'ELISA'
 ]
 
+// Helper function to map analysis IDs to names for different analysis types
+const mapAnalysisIdsToNames = (
+  tests: Array<{method?: string, virus?: string, microorganism?: string, [key: string]: unknown}>, 
+  analysisType: 'virology' | 'phytopathology', 
+  availableMethods: Array<{id: string, name: string}>,
+  availableAnalytes: Array<{id: string, scientific_name: string}>,
+  availableMicroorganisms: Array<{id: string, scientific_name: string}>
+) => {
+  return tests.map(test => {
+    const mappedTest = { ...test }
+    
+    // Map method ID to name (common for all types)
+    if (test.method && availableMethods) {
+      const methodName = availableMethods.find(m => m.id == test.method)?.name
+      if (methodName) mappedTest.method = methodName
+    }
+    
+    // Map specific fields based on analysis type
+    if (analysisType == 'virology' && test.virus && availableAnalytes) {
+      const virusName = availableAnalytes.find(a => a.id == test.virus)?.scientific_name
+      if (virusName) mappedTest.virus = virusName
+    } else if (analysisType == 'phytopathology' && test.microorganism && availableMicroorganisms) {
+      const microorganismName = availableMicroorganisms.find(m => m.id == test.microorganism)?.scientific_name
+      if (microorganismName) mappedTest.microorganism = microorganismName
+    }
+    
+    return mappedTest
+  })
+}
+
 export default function AddResultModal({ 
   isOpen, 
   onClose, 
@@ -384,9 +414,10 @@ export default function AddResultModal({
       )
 
       if (validTests.length > 0) {
+        const testsWithNames = mapAnalysisIdsToNames(validTests, 'phytopathology', availableMethods, availableAnalytes, availableMicroorganisms)
         const phytopathologyFindings = {
           type: 'fitopatologia',
-          tests: validTests
+          tests: testsWithNames
         }
 
         setFormData(prev => ({
@@ -400,7 +431,7 @@ export default function AddResultModal({
         }))
       }
     }
-  }, [selectedAnalysisArea, phytopathologyData])
+  }, [selectedAnalysisArea, phytopathologyData, availableMethods, availableAnalytes, availableMicroorganisms])
 
   const addNematodeEntry = () => {
     setNematologyData(prev => ({
@@ -1285,14 +1316,9 @@ export default function AddResultModal({
           test.method && test.virus && test.result
         )
         if (validTests.length > 0) {
-          const testsWithNames = validTests.map(test => {
-            const methodName = availableMethods.find(m => m.id == test.method)?.name || test.method
-            const virusName = availableAnalytes.find(a => a.id == test.virus)?.scientific_name || test.virus
-            return { ...test, method: methodName, virus: virusName }
-          })
           findings = {
             type: 'virologia',
-            tests: testsWithNames
+            tests: mapAnalysisIdsToNames(validTests, 'virology', availableMethods, availableAnalytes, availableMicroorganisms)
           }
         }
       } else if (isPhytopathology) {
@@ -1303,7 +1329,7 @@ export default function AddResultModal({
         if (validTests.length > 0) {
           findings = {
             type: 'fitopatologia',
-            tests: validTests
+            tests: mapAnalysisIdsToNames(validTests, 'phytopathology', availableMethods, availableAnalytes, availableMicroorganisms)
           }
         }
       } else if (formData.findings) {
