@@ -227,6 +227,7 @@ export async function POST(request: NextRequest) {
         'Nematológico': 'nematologia',
         'Fitopatológico': 'fitopatologia',
         'Virológico': 'virologia',
+        'Bacteriológico': 'bacteriologia',
         'Entomológico': 'fitopatologia', // Maps to fitopatologia area
         'Detección precoz de enfermedades': 'deteccion_precoz'
       }

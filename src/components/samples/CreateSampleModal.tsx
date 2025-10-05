@@ -222,7 +222,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
       'Nematológico',
       'Fitopatológico', 
       'Virológico',
-      'Entomológico',
+      'Bacteriológico',
       'Detección precoz de enfermedades'
     ],
     methodologies: [

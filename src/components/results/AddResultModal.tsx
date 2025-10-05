@@ -110,6 +110,11 @@ export default function AddResultModal({
     tests: [{ identification: '', method: '', virus: '', result: '' }]
   })
 
+  // Bacteriology-specific state (similar to virology but using microorganism)
+  const [bacteriologyData, setBacteriologyData] = useState({
+    tests: [{ identification: '', method: '', microorganism: '', result: '' }]
+  })
+
   // Phytopathology-specific state
   const [phytopathologyData, setPhytopathologyData] = useState({
     tests: [{ 
@@ -127,6 +132,7 @@ export default function AddResultModal({
   const [availableAnalytes, setAvailableAnalytes] = useState<Array<{id: string, scientific_name: string}>>([])
   const [availableMicroorganisms, setAvailableMicroorganisms] = useState<Array<{id: string, scientific_name: string}>>([])
   const [availableNematodes, setAvailableNematodes] = useState<Array<{id: string, scientific_name: string}>>([])
+  const [availableBacteria, setAvailableBacteria] = useState<Array<{id: string, scientific_name: string}>>([])
   const [loadingMethodsAndAnalytes, setLoadingMethodsAndAnalytes] = useState(false)
 
   const supabase = createClient()
@@ -260,6 +266,16 @@ export default function AddResultModal({
 
       if (nematodesError) throw nematodesError
       setAvailableNematodes(nematodesData || [])
+
+      // Fetch bacteria for bacteriology
+      const { data: bacteriaData, error: bacteriaError } = await supabase
+        .from('analytes')
+        .select('id, scientific_name')
+        .eq('type', 'bacteria')
+        .order('scientific_name')
+
+      if (bacteriaError) throw bacteriaError
+      setAvailableBacteria(bacteriaData || [])
     } catch (error) {
       console.error('Error fetching methods and analytes:', error)
     } finally {
@@ -290,6 +306,17 @@ export default function AddResultModal({
     }
   }, [selectedAnalysisArea, fetchMethodsAndAnalytes])
 
+  // Handle bacteriología pathogen type and data fetching
+  useEffect(() => {
+    if (selectedAnalysisArea.toLowerCase().includes('bacteriolog')) {
+      setFormData(prev => ({
+        ...prev,
+        pathogen_type: 'bacteria'
+      }))
+      fetchMethodsAndAnalytes()
+    }
+  }, [selectedAnalysisArea, fetchMethodsAndAnalytes])
+
   // Handle fitopatología pathogen type and data fetching
   useEffect(() => {
     if (selectedAnalysisArea.toLowerCase().includes('fitopatolog')) {
@@ -315,7 +342,23 @@ export default function AddResultModal({
           ...prev,
           tests: prev.tests.map((test, index) => ({
             ...test,
-            identification: `${selectedSample.code}-${index + 1}`
+            identification: test.identification || `${selectedSample.code}-${index + 1}`
+          }))
+        }))
+      }
+    }
+  }, [selectedAnalysisArea, formData.sample_id, samples])
+
+  // Generate identification for bacteriología
+  useEffect(() => {
+    if (selectedAnalysisArea.toLowerCase().includes('bacteriolog') && formData.sample_id) {
+      const selectedSample = samples.find(s => s.id === formData.sample_id)
+      if (selectedSample?.code) {
+        setBacteriologyData(prev => ({
+          ...prev,
+          tests: prev.tests.map((test, index) => ({
+            ...test,
+            identification: test.identification || `${selectedSample.code}-${index + 1}`
           }))
         }))
       }
@@ -331,7 +374,7 @@ export default function AddResultModal({
           ...prev,
           tests: prev.tests.map((test, index) => ({
             ...test,
-            identification: `${selectedSample.code}-${index + 1}`
+            identification: test.identification || `${selectedSample.code}-${index + 1}`
           }))
         }))
       }
@@ -406,6 +449,37 @@ export default function AddResultModal({
     }
   }, [selectedAnalysisArea, virologyData, availableMethods, availableAnalytes])
 
+  // Auto-populate findings JSON for bacteriology (similar to virology)
+  useEffect(() => {
+    if (selectedAnalysisArea.toLowerCase().includes('bacteriolog')) {
+      const validTests = bacteriologyData.tests.filter(test => 
+        test.method && test.microorganism && test.result
+      )
+
+      if (validTests.length > 0) {
+        const testsWithNames = validTests.map(test => {
+          const methodName = availableMethods.find(m => m.id == test.method)?.name || test.method
+          const bacteriaName = availableBacteria.find(a => a.id == test.microorganism)?.scientific_name || test.microorganism
+          return { ...test, method: methodName, microorganism: bacteriaName }
+        })
+        const bacteriologyFindings = {
+          type: 'bacteriologia',
+          tests: testsWithNames
+        }
+
+        setFormData(prev => ({
+          ...prev,
+          findings: JSON.stringify(bacteriologyFindings, null, 2)
+        }))
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          findings: ''
+        }))
+      }
+    }
+  }, [selectedAnalysisArea, bacteriologyData, availableMethods, availableBacteria])
+
   // Auto-populate findings JSON for phytopathology
   useEffect(() => {
     if (selectedAnalysisArea.toLowerCase().includes('fitopatolog')) {
@@ -472,6 +546,47 @@ export default function AddResultModal({
     }))
   }
 
+  // Bacteriology test management functions
+  const addBacteriologyTest = () => {
+    const selectedSample = samples.find(s => s.id === formData.sample_id)
+    const sampleCode = selectedSample?.code || 'SAMPLE'
+    
+    setBacteriologyData(prev => ({
+      ...prev,
+      tests: [...prev.tests, { 
+        identification: `${sampleCode}-${prev.tests.length + 1}`,
+        method: '', 
+        microorganism: '', 
+        result: '' 
+      }]
+    }))
+  }
+
+  const removeBacteriologyTest = (index: number) => {
+    setBacteriologyData(prev => {
+      const newTests = prev.tests.filter((_, i) => i !== index)
+      const selectedSample = samples.find(s => s.id === formData.sample_id)
+      const sampleCode = selectedSample?.code || 'SAMPLE'
+      
+      return {
+        ...prev,
+        tests: newTests.map((test, i) => ({
+          ...test,
+          identification: `${sampleCode}-${i + 1}`
+        }))
+      }
+    })
+  }
+
+  const updateBacteriologyTest = (index: number, field: 'identification' | 'method' | 'microorganism' | 'result', value: string) => {
+    setBacteriologyData(prev => ({
+      ...prev,
+      tests: prev.tests.map((test, i) =>
+        i === index ? { ...test, [field]: value } : test
+      )
+    }))
+  }
+
   const removeVirologyTest = (index: number) => {
     setVirologyData(prev => {
       const newTests = prev.tests.filter((_, i) => i !== index)
@@ -489,7 +604,7 @@ export default function AddResultModal({
     })
   }
 
-  const updateVirologyTest = (index: number, field: 'method' | 'virus' | 'result', value: string) => {
+  const updateVirologyTest = (index: number, field: 'identification' | 'method' | 'virus' | 'result', value: string) => {
     setVirologyData(prev => ({
       ...prev,
       tests: prev.tests.map((test, i) =>
@@ -534,13 +649,15 @@ export default function AddResultModal({
     })
   }
 
-  const updatePhytopathologyTest = (index: number, field: 'microorganism' | string, value: string) => {
+  const updatePhytopathologyTest = (index: number, field: 'identification' | 'microorganism' | string, value: string) => {
     setPhytopathologyData(prev => ({
       ...prev,
       tests: prev.tests.map((test, i) => {
         if (i === index) {
           if (field === 'microorganism') {
             return { ...test, microorganism: value }
+          } else if (field === 'identification') {
+            return { ...test, identification: value }
           } else if (field.startsWith('dilution-')) {
             const dilutionKey = field.replace('dilution-', '')
             return {
@@ -648,18 +765,7 @@ export default function AddResultModal({
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Metodología
-            </label>
-            <input
-              type="text"
-              value={formData.methodology}
-              onChange={(e) => setFormData(prev => ({ ...prev, methodology: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-              placeholder="Metodología utilizada"
-            />
-          </div>
+          
 
           {/* Phytopathology Tests Table */}
           <div className="sm:col-span-2">
@@ -727,7 +833,12 @@ export default function AddResultModal({
                           {index + 1}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
-                          {test.identification}
+                          <input
+                            type="text"
+                            value={test.identification}
+                            onChange={(e) => updatePhytopathologyTest(index, 'identification', e.target.value)}
+                            className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500 font-mono"
+                          />
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
                           <select
@@ -863,18 +974,7 @@ export default function AddResultModal({
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Metodología
-            </label>
-            <input
-              type="text"
-              value={formData.methodology}
-              onChange={(e) => setFormData(prev => ({ ...prev, methodology: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-              placeholder="Metodología utilizada"
-            />
-          </div>
+          
 
           {/* Virology Tests Table */}
           <div className="sm:col-span-2">
@@ -918,7 +1018,12 @@ export default function AddResultModal({
                     {virologyData.tests.map((test, index) => (
                       <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 font-mono">
-                          {test.identification}
+                          <input
+                            type="text"
+                            value={test.identification}
+                            onChange={(e) => updateVirologyTest(index, 'identification', e.target.value)}
+                            className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500 font-mono"
+                          />
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap">
                           <select
@@ -981,6 +1086,191 @@ export default function AddResultModal({
               {loadingMethodsAndAnalytes && (
                 <div className="px-4 py-2 text-sm text-gray-500 text-center">
                   Cargando métodos y analitos...
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )
+    }
+
+    // Bacteriology UI (similar to virology but microorganisms=bacteria)
+    if (selectedAnalysisArea.toLowerCase().includes('bacteriolog')) {
+      return (
+        <>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tipo de Resultado
+            </label>
+            <select
+              value={formData.result_type}
+              onChange={(e) => setFormData(prev => ({ ...prev, result_type: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+            >
+              <option value="">Seleccionar tipo</option>
+              <option value="positive">Positivo</option>
+              <option value="negative">Negativo</option>
+              <option value="inconclusive">No conclusivo</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Confianza
+            </label>
+            <select
+              value={formData.confidence}
+              onChange={(e) => setFormData(prev => ({ ...prev, confidence: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+            >
+              <option value="">Seleccionar confianza</option>
+              <option value="low">Baja</option>
+              <option value="medium">Media</option>
+              <option value="high">Alta</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tipo de Patógeno
+            </label>
+            <input
+              type="text"
+              value="Bacteria"
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Severidad
+            </label>
+            <select
+              value={formData.severity}
+              onChange={(e) => setFormData(prev => ({ ...prev, severity: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+            >
+              <option value="">Seleccionar severidad</option>
+              <option value="low">Baja</option>
+              <option value="moderate">Moderada</option>
+              <option value="high">Alta</option>
+              <option value="severe">Severa</option>
+            </select>
+          </div>
+
+          
+
+          {/* Bacteriology Tests Table */}
+          <div className="sm:col-span-2">
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Pruebas Bacteriológicas
+              </label>
+              <button
+                type="button"
+                onClick={addBacteriologyTest}
+                className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Agregar
+              </button>
+            </div>
+            
+            <div className="bg-white border rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Identificación
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Técnica utilizada
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Bacteria
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Resultado
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Acciones
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {bacteriologyData.tests.map((test, index) => (
+                      <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 font-mono">
+                          <input
+                            type="text"
+                            value={test.identification}
+                            onChange={(e) => updateBacteriologyTest(index, 'identification', e.target.value)}
+                            className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500 font-mono"
+                          />
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          <select
+                            value={test.method}
+                            onChange={(e) => updateBacteriologyTest(index, 'method', e.target.value)}
+                            className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                            disabled={loadingMethodsAndAnalytes}
+                          >
+                            <option value="">Seleccionar método</option>
+                            {availableMethods.map(method => (
+                              <option key={method.id} value={method.id}>
+                                {method.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          <select
+                            value={test.microorganism}
+                            onChange={(e) => updateBacteriologyTest(index, 'microorganism', e.target.value)}
+                            className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                            disabled={loadingMethodsAndAnalytes}
+                          >
+                            <option value="">Seleccionar bacteria</option>
+                            {availableBacteria.map(analyte => (
+                              <option key={analyte.id} value={analyte.id}>
+                                {analyte.scientific_name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          <select
+                            value={test.result}
+                            onChange={(e) => updateBacteriologyTest(index, 'result', e.target.value)}
+                            className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                          >
+                            <option value="">Resultado</option>
+                            <option value="positive">Positivo</option>
+                            <option value="negative">Negativo</option>
+                          </select>
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          {bacteriologyData.tests.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeBacteriologyTest(index)}
+                              className="text-red-600 hover:text-red-900 text-sm"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {loadingMethodsAndAnalytes && (
+                <div className="px-4 py-2 text-sm text-gray-500 text-center">
+                  Cargando métodos y bacterias...
                 </div>
               )}
             </div>
@@ -1053,18 +1343,7 @@ export default function AddResultModal({
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Metodología
-            </label>
-            <input
-              type="text"
-              value={formData.methodology}
-              onChange={(e) => setFormData(prev => ({ ...prev, methodology: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-              placeholder="Metodología utilizada"
-            />
-          </div>
+          
 
           {/* Nematology-specific fields */}
           {formData.result_type === 'negative' && (
@@ -1321,7 +1600,7 @@ export default function AddResultModal({
             tests: mapAnalysisIdsToNames(validTests, 'virology', availableMethods, availableAnalytes, availableMicroorganisms)
           }
         }
-      } else if (isPhytopathology) {
+    } else if (isPhytopathology) {
         // Structure phytopathology data into JSON
         const validTests = phytopathologyData.tests.filter(test => 
           test.microorganism && (test.dilutions['10-1'] || test.dilutions['10-2'] || test.dilutions['10-3'])
@@ -1332,6 +1611,22 @@ export default function AddResultModal({
             tests: mapAnalysisIdsToNames(validTests, 'phytopathology', availableMethods, availableAnalytes, availableMicroorganisms)
           }
         }
+    } else if (selectedAnalysisArea.toLowerCase().includes('bacteriolog')) {
+      // Structure bacteriology data into JSON (similar to virology)
+      const validTests = bacteriologyData.tests.filter(test => 
+        test.method && test.microorganism && test.result
+      )
+      if (validTests.length > 0) {
+        const testsWithNames = validTests.map(test => {
+          const methodName = availableMethods.find(m => m.id == test.method)?.name || test.method
+          const bacteriaName = availableBacteria.find(a => a.id == test.microorganism)?.scientific_name || test.microorganism
+          return { ...test, method: methodName, microorganism: bacteriaName }
+        })
+        findings = {
+          type: 'bacteriologia',
+          tests: testsWithNames
+        }
+      }
       } else if (formData.findings) {
         try {
           findings = JSON.parse(formData.findings)
