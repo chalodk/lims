@@ -147,10 +147,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (sessionError) {
           console.error('Session error:', sessionError)
           await updateAuthState(null)
-          return
+        } else {
+          await updateAuthState(session)
         }
-
-        await updateAuthState(session)
       } catch (error) {
         console.error('Error initializing auth:', error)
         if (mounted) {
@@ -166,20 +165,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
-      
       console.log('Auth state change:', event)
-      
-      if (event === 'SIGNED_OUT') {
-        await updateAuthState(null)
-      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        await updateAuthState(session)
-      } else if (event === 'INITIAL_SESSION') {
-        if (session?.user && session?.access_token) {
-          await updateAuthState(session)
-        } else {
-          await updateAuthState(null)
-        }
-      }
+      await updateAuthState(session || null)
     })
 
     return () => {

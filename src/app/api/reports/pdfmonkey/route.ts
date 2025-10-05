@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 // Types for PDF template configuration
-type AnalysisType = 'virology' | 'phytopatology' | 'nematology' | 'default'
+type AnalysisType = 'virology' | 'phytopatology' | 'bacteriology' | 'nematology' | 'default'
 
 interface ReportData {
   id: string
@@ -41,6 +41,15 @@ interface ResultadoData {
   diagnosis: string | null
   recommendations: string | null
   report_id: string | null
+  samples?: {
+    id: string
+    code: string
+    species: string | null
+    variety: string | null
+    rootstock: string | null
+    planting_year: number | null
+    received_date: string | null
+  } | null
 }
 
 // Analysis defaults for different test types
@@ -65,17 +74,185 @@ const ANALYSIS_DEFAULTS = {
 // PDF Templates mapping - easily extensible for new analysis types
 const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
   virology: {
-    templateId: '0D6C351F-BFFF-4FFF-8960-59763FA3018F', // To be replaced with actual template ID
-    payloadBuilder: (_report, client) => ({
-      // Virology-specific payload structure (to be provided by user)
-      reportNumber: `VIR-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
-      issueDate: new Date().toISOString().split('T')[0],
-      clientName: client?.name || 'Cliente no especificado',
-      clientAddress: client?.address || 'Dirección no especificada',
-      clientContact: client?.contact_email || client?.phone || 'Contacto no especificado',
-      analysisType: 'Análisis Virológico',
-      // Additional virology-specific fields will be added here when payload schemas are provided
-    })
+    templateId: '0D6C351F-BFFF-4FFF-8960-59763FA3018F',
+    payloadBuilder: (report, client, resultado, analystName) => {
+      const currentDate = new Date()
+
+      const formatDate = (dateString: string) => {
+        const date = new Date(dateString)
+        return date.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      }
+
+      let findings = resultado?.findings as unknown
+      if (typeof findings === 'string') {
+        try { findings = JSON.parse(findings) } catch { findings = undefined }
+      }
+      const tests = Array.isArray((findings as Record<string, unknown>)?.tests) ? (findings as Record<string, unknown>).tests as unknown[] : []
+
+      const identificationTechniques: string[] = Array.isArray((findings as Record<string, unknown>)?.identification_techniques)
+        ? (findings as Record<string, unknown>).identification_techniques as string[]
+        : []
+      const methodNames = Array.from(new Set((tests || []).map((t: unknown) => (t as Record<string, unknown>).method as string).filter(Boolean)))
+      const tecnicaUtilizadaDesc = identificationTechniques.length > 0
+        ? identificationTechniques.join(' y ')
+        : (methodNames.length > 0 ? methodNames.join(' y ') : 'No especificado')
+
+      const virusNames = Array.from(new Set((tests || []).map((t: unknown) => (t as Record<string, unknown>).virus as string).filter(Boolean)))
+      const tipoAnalisisDesc = virusNames.length === 1
+        ? `Determinación del virus ${virusNames[0]}`
+        : 'Determinación de virus fitopatógenos'
+
+      const resultados = (tests || []).map((t: unknown, idx: number) => {
+        const test = t as Record<string, unknown>
+        return {
+          muestra: resultado?.sample_id || String(idx + 1),
+          identificacion: (test.identification as string) || `Muestra ${idx + 1}`,
+          tecnicaUtilizada: (test.method as string) || 'No especificado',
+          virusAnalizado: (test.virus as string) || 'No especificado',
+          resultado: test.result === 'positive' ? 'Positivo' : (test.result === 'negative' ? 'Negativo' : 'No conclusivo')
+        }
+      })
+
+      const reportNumber = `${currentDate.getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`
+
+      return {
+        numeroInforme: reportNumber,
+        tituloInforme: 'INFORME ANÁLISIS VIROLÓGICO',
+        informacionSolicitante: {
+          nombreRazonSocial: client?.name || 'Cliente no especificado',
+          contacto: client?.contact_email || '',
+          telefono: client?.phone || '',
+          localidad: client?.address || 'No especificada',
+          rut: client?.rut || '',
+          numeroMuestras: '1',
+          fechaRecepcion: resultado?.performed_at ? formatDate(resultado.performed_at) : formatDate(currentDate.toISOString()),
+          fechaEntrega: resultado?.validation_date ? formatDate(resultado.validation_date) : formatDate(currentDate.toISOString())
+        },
+        tipoAnalisis: { descripcion: tipoAnalisisDesc },
+        tecnicaUtilizada: { descripcion: tecnicaUtilizadaDesc },
+        procedimientoMuestreo: {
+          procedimientoUtilizado: '----------',
+          personaTomoMuestra: resultado?.performed_by ? 'Muestras tomadas por laboratorio' : 'Muestras tomadas por cliente'
+        },
+        informacionGeneral: {
+          especie: (resultado as ResultadoData)?.samples?.species || 'No especificado',
+          cuartel: '',
+          variedadPortainjerto: (resultado as ResultadoData)?.samples?.variety || '',
+          anoPlantacion: (resultado as ResultadoData)?.samples?.planting_year ? String((resultado as ResultadoData).samples!.planting_year) : '',
+          organoAnalizado: ''
+        },
+        resultados,
+        leyendaResultados: {
+          negativo: virusNames.length === 1 ? `Resultado de análisis negativo a ${virusNames[0]}` : 'Resultado de análisis negativo',
+          positivo: virusNames.length === 1 ? `Resultado de análisis positivo a ${virusNames[0]}` : 'Resultado de análisis positivo'
+        },
+        analista: {
+          nombre: analystName || 'Analista',
+          titulo: 'Ing. Agrónomo',
+          departamento: 'Laboratorio Virología',
+          email: ''
+        }
+      }
+    }
+  },
+  
+  bacteriology: {
+    templateId: 'BFFA2B14-DA47-4D06-B593-0CC084D374C6',
+    payloadBuilder: (report, client, resultado, analystName) => {
+      const currentDate = new Date()
+
+      // Helpers
+      const formatDate = (dateString: string) => {
+        const date = new Date(dateString)
+        return date.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      }
+
+      // Findings can be string or object
+      let findings = resultado?.findings as unknown
+      if (typeof findings === 'string') {
+        try {
+          findings = JSON.parse(findings)
+        } catch {
+          findings = undefined
+        }
+      }
+
+      // Collect tests (identification, method, microorganism, result)
+      const tests = Array.isArray((findings as Record<string, unknown>)?.tests) ? (findings as Record<string, unknown>).tests as unknown[] : []
+
+      // numeroInforme: YYYY-<random 3 digits>
+      const reportNumber = `${currentDate.getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`
+
+      // tecnica utilizada: prefer identification_techniques, else distinct methods
+      const identificationTechniques: string[] = Array.isArray((findings as Record<string, unknown>)?.identification_techniques)
+        ? (findings as Record<string, unknown>).identification_techniques as string[]
+        : []
+      const methodNames = Array.from(new Set((tests || []).map((t: unknown) => (t as Record<string, unknown>).method as string).filter(Boolean)))
+      const tecnicaUtilizadaDesc = identificationTechniques.length > 0
+        ? identificationTechniques.join(' y ')
+        : (methodNames.length > 0 ? methodNames.join(' y ') : 'No especificado')
+
+      // tipoAnalisis descripcion: usar bacteria única si posible
+      const bacteriaNames = Array.from(new Set((tests || []).map((t: unknown) => (t as Record<string, unknown>).microorganism as string).filter(Boolean)))
+      const tipoAnalisisDesc = bacteriaNames.length === 1
+        ? `Determinación de ${bacteriaNames[0]}`
+        : 'Determinación de bacterias fitopatógenas'
+
+      // resultados array
+      const resultados = (tests || []).map((t: unknown, idx: number) => {
+        const test = t as Record<string, unknown>
+        return {
+          muestra: resultado?.sample_id || String(idx + 1),
+          identificacion: (test.identification as string) || `Muestra ${idx + 1}`,
+          tecnicaUtilizada: (test.method as string) || 'No especificado',
+          bacteriaAnalizada: (test.microorganism as string) || 'No especificada',
+          resultado: test.result === 'positive' ? 'Positivo' : (test.result === 'negative' ? 'Negativo' : 'No conclusivo')
+        }
+      })
+
+      return {
+        numeroInforme: reportNumber,
+        tituloInforme: 'INFORME ANÁLISIS BACTERIOLÓGICO',
+        informacionSolicitante: {
+          nombreRazonSocial: client?.name || 'Cliente no especificado',
+          contacto: client?.contact_email || '',
+          telefono: client?.phone || '',
+          localidad: client?.address || 'No especificada',
+          rut: client?.rut || '',
+          numeroMuestras: '1',
+          fechaRecepcion: resultado?.performed_at ? formatDate(resultado.performed_at) : formatDate(currentDate.toISOString()),
+          fechaEntrega: resultado?.validation_date ? formatDate(resultado.validation_date) : formatDate(currentDate.toISOString())
+        },
+        tipoAnalisis: {
+          descripcion: tipoAnalisisDesc
+        },
+        tecnicaUtilizada: {
+          descripcion: tecnicaUtilizadaDesc
+        },
+        procedimientoMuestreo: {
+          procedimientoUtilizado: '----------',
+          personaTomoMuestra: resultado?.performed_by ? 'Muestras tomadas por laboratorio' : 'Muestras tomadas por cliente'
+        },
+        informacionGeneral: {
+          especie: resultado?.samples?.species || 'No especificado',
+          cuartel: '',
+          variedadPortainjerto: resultado?.samples?.variety || '',
+          anoPlantacion: resultado?.samples?.planting_year ? String(resultado.samples.planting_year) : '',
+          organoAnalizado: ''
+        },
+        resultados,
+        leyendaResultados: {
+          negativo: 'Resultado de análisis negativo a la(s) bacteria(s) analizada(s)',
+          positivo: 'Resultado de análisis positivo a la(s) bacteria(s) analizada(s)'
+        },
+        analista: {
+          nombre: analystName || 'Analista',
+          titulo: 'Ing. Agrónomo',
+          departamento: 'Laboratorio Bacteriología',
+          email: ''
+        }
+      }
+    }
   },
   
   phytopatology: {
@@ -304,20 +481,29 @@ function resolveTemplateAndPayload(report: ReportData, client: ClientData | null
   // Determine analysis type from report data or resultado data
   let analysisType: AnalysisType = 'default'
   
+  console.log('PDFMonkey: Resolving template and payload...')
+  console.log('PDFMonkey: resultado?.test_area:', resultado?.test_area)
+  console.log('PDFMonkey: report.test_areas:', report.test_areas)
+  console.log('PDFMonkey: report.analysis_type:', report.analysis_type)
+  
   // Option 1: Check resultado test_area first (most specific)
   if (resultado?.test_area) {
     const testArea = resultado.test_area.toLowerCase()
+    console.log('PDFMonkey: Checking resultado test_area:', testArea)
     if (testArea.includes('nematolog')) {
       analysisType = 'nematology'
-    } else if (testArea.includes('virus') || testArea.includes('viral')) {
+    } else if (testArea.includes('virus') || testArea.includes('viral') || testArea.includes('virolog')) {
       analysisType = 'virology'
     } else if (testArea.includes('fitopatolog') || testArea.includes('pathog') || testArea.includes('fung')) {
       analysisType = 'phytopatology'
+    } else if (testArea.includes('bacter') || testArea.includes('bacteriolog')) {
+      analysisType = 'bacteriology'
     }
   }
   // Option 2: Check for future analysis_type field
   else if (report.analysis_type) {
     const reportAnalysisType = report.analysis_type.toLowerCase()
+    console.log('PDFMonkey: Checking report analysis_type:', reportAnalysisType)
     if (reportAnalysisType in PDF_TEMPLATES) {
       analysisType = reportAnalysisType as AnalysisType
     }
@@ -325,17 +511,22 @@ function resolveTemplateAndPayload(report: ReportData, client: ClientData | null
   // Option 3: Infer from test_areas field
   else if (report.test_areas && Array.isArray(report.test_areas)) {
     const testAreasLower = report.test_areas.map(area => area.toLowerCase())
+    console.log('PDFMonkey: Checking report test_areas:', testAreasLower)
     
-    if (testAreasLower.some(area => area.includes('virus') || area.includes('viral'))) {
+    if (testAreasLower.some(area => area.includes('virus') || area.includes('viral') || area.includes('virolog'))) {
       analysisType = 'virology'
     } else if (testAreasLower.some(area => area.includes('fitopatolog') || area.includes('pathog') || area.includes('fung'))) {
       analysisType = 'phytopatology'
     } else if (testAreasLower.some(area => area.includes('nematod') || area.includes('nematolog'))) {
       analysisType = 'nematology'
+    } else if (testAreasLower.some(area => area.includes('bacter') || area.includes('bacteriolog'))) {
+      analysisType = 'bacteriology'
     }
   }
   
+  console.log('PDFMonkey: Final analysis type:', analysisType)
   const templateConfig = PDF_TEMPLATES[analysisType]
+  console.log('PDFMonkey: Using template ID:', templateConfig.templateId)
   
   return {
     templateId: templateConfig.templateId,
@@ -378,7 +569,7 @@ export async function POST(request: NextRequest) {
       // If we have result_id, fetch the result directly and get report/client info from it
       const { data: resultData, error: resultError } = await supabase
         .from('results')
-        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id')
+        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date)')
         .eq('id', result_id)
         .single()
       
@@ -387,7 +578,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Result not found' }, { status: 404 })
       }
       
-      resultado = resultData
+      resultado = (resultData as unknown) as ResultadoData
       
       // Get report info if available
       if (resultData.report_id) {
@@ -426,14 +617,14 @@ export async function POST(request: NextRequest) {
       // Try to fetch result data from results table using report_id
       const { data: resultData, error: resultError } = await supabase
         .from('results')
-        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id')
+        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date)')
         .eq('report_id', report_id)
         .single()
       
       if (resultError) {
         console.warn('PDFMonkey: result not found, using default payload', { report_id, resultError })
       } else {
-        resultado = resultData
+        resultado = (resultData as unknown) as ResultadoData
       }
     }
 
