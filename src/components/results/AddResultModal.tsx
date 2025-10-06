@@ -115,6 +115,17 @@ export default function AddResultModal({
     tests: [{ identification: '', method: '', microorganism: '', result: '' }]
   })
 
+  // Early detection-specific state
+  const [earlyDetectionData, setEarlyDetectionData] = useState({
+    tests: [{ 
+      sample_code: '', 
+      identification: '', 
+      variety: '', 
+      units_evaluated: '', 
+      severity_scale: { '0': '', '1': '', '2': '', '3': '' }
+    }]
+  })
+
   // Phytopathology-specific state
   const [phytopathologyData, setPhytopathologyData] = useState({
     tests: [{ 
@@ -325,6 +336,41 @@ export default function AddResultModal({
     }
   }, [selectedAnalysisArea, fetchMethodsAndAnalytes])
 
+  // Handle detección precoz data fetching
+  useEffect(() => {
+    if (selectedAnalysisArea.toLowerCase().includes('deteccion') || selectedAnalysisArea.toLowerCase().includes('precoz')) {
+      const selectedSample = samples.find(s => s.id === formData.sample_id)
+      
+      // Map suspected pathogen to pathogen type
+      let pathogenType = 'fungus' // Default to fungus for early detection
+      if (selectedSample?.suspected_pathogen) {
+        // Map common pathogen types
+        const pathogen = selectedSample.suspected_pathogen.toLowerCase()
+        if (pathogen.includes('botrytis') || pathogen.includes('fungus') || pathogen.includes('hongo')) {
+          pathogenType = 'fungus'
+        } else if (pathogen.includes('bacteria') || pathogen.includes('bacteri')) {
+          pathogenType = 'bacteria'
+        } else if (pathogen.includes('virus')) {
+          pathogenType = 'virus'
+        } else if (pathogen.includes('nematod')) {
+          pathogenType = 'nematode'
+        } else if (pathogen.includes('insect') || pathogen.includes('insecto')) {
+          pathogenType = 'insect'
+        } else if (pathogen.includes('abiotic') || pathogen.includes('abiótico')) {
+          pathogenType = 'abiotic'
+        } else {
+          pathogenType = 'fungus' // Default to fungus for early detection
+        }
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        pathogen_type: pathogenType,
+        pathogen_identified: selectedSample?.suspected_pathogen || ''
+      }))
+    }
+  }, [selectedAnalysisArea, formData.sample_id, samples])
+
   // Handle nematología data fetching
   useEffect(() => {
     if (selectedAnalysisArea.toLowerCase().includes('nematolog')) {
@@ -374,6 +420,23 @@ export default function AddResultModal({
           ...prev,
           tests: prev.tests.map((test, index) => ({
             ...test,
+            identification: test.identification || `${selectedSample.code}-${index + 1}`
+          }))
+        }))
+      }
+    }
+  }, [selectedAnalysisArea, formData.sample_id, samples])
+
+  // Generate sample code and identification for detección precoz
+  useEffect(() => {
+    if ((selectedAnalysisArea.toLowerCase().includes('deteccion') || selectedAnalysisArea.toLowerCase().includes('precoz')) && formData.sample_id) {
+      const selectedSample = samples.find(s => s.id === formData.sample_id)
+      if (selectedSample?.code) {
+        setEarlyDetectionData(prev => ({
+          ...prev,
+          tests: prev.tests.map((test, index) => ({
+            ...test,
+            sample_code: selectedSample.code || '',
             identification: test.identification || `${selectedSample.code}-${index + 1}`
           }))
         }))
@@ -479,6 +542,32 @@ export default function AddResultModal({
       }
     }
   }, [selectedAnalysisArea, bacteriologyData, availableMethods, availableBacteria])
+
+  // Auto-populate findings JSON for early detection
+  useEffect(() => {
+    if (selectedAnalysisArea.toLowerCase().includes('deteccion') || selectedAnalysisArea.toLowerCase().includes('precoz')) {
+      const validTests = earlyDetectionData.tests.filter(test => 
+        test.sample_code && test.identification && test.variety && test.units_evaluated
+      )
+
+      if (validTests.length > 0) {
+        const earlyDetectionFindings = {
+          type: 'deteccion_precoz',
+          tests: validTests
+        }
+
+        setFormData(prev => ({
+          ...prev,
+          findings: JSON.stringify(earlyDetectionFindings, null, 2)
+        }))
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          findings: ''
+        }))
+      }
+    }
+  }, [selectedAnalysisArea, earlyDetectionData])
 
   // Auto-populate findings JSON for phytopathology
   useEffect(() => {
@@ -649,6 +738,61 @@ export default function AddResultModal({
     })
   }
 
+  // Early detection test management functions
+  const addEarlyDetectionTest = () => {
+    const selectedSample = samples.find(s => s.id === formData.sample_id)
+    const sampleCode = selectedSample?.code || 'SAMPLE'
+    
+    setEarlyDetectionData(prev => ({
+      ...prev,
+      tests: [...prev.tests, { 
+        sample_code: sampleCode,
+        identification: `${sampleCode}-${prev.tests.length + 1}`, 
+        variety: '', 
+        units_evaluated: '', 
+        severity_scale: { '0': '', '1': '', '2': '', '3': '' }
+      }]
+    }))
+  }
+
+  const removeEarlyDetectionTest = (index: number) => {
+    setEarlyDetectionData(prev => {
+      const newTests = prev.tests.filter((_, i) => i !== index)
+      const selectedSample = samples.find(s => s.id === formData.sample_id)
+      const sampleCode = selectedSample?.code || 'SAMPLE'
+      
+      // Regenerate identifications
+      return {
+        ...prev,
+        tests: newTests.map((test, i) => ({
+          ...test,
+          identification: `${sampleCode}-${i + 1}`
+        }))
+      }
+    })
+  }
+
+  const updateEarlyDetectionTest = (index: number, field: string, value: string) => {
+    setEarlyDetectionData(prev => ({
+      ...prev,
+      tests: prev.tests.map((test, i) => 
+        i === index ? { ...test, [field]: value } : test
+      )
+    }))
+  }
+
+  const updateEarlyDetectionSeverityScale = (index: number, scale: string, value: string) => {
+    setEarlyDetectionData(prev => ({
+      ...prev,
+      tests: prev.tests.map((test, i) => 
+        i === index ? { 
+          ...test, 
+          severity_scale: { ...test.severity_scale, [scale]: value }
+        } : test
+      )
+    }))
+  }
+
   const updatePhytopathologyTest = (index: number, field: 'identification' | 'microorganism' | string, value: string) => {
     setPhytopathologyData(prev => ({
       ...prev,
@@ -696,6 +840,7 @@ export default function AddResultModal({
     const isNematology = selectedAnalysisArea.toLowerCase().includes('nematolog')
     const isVirology = selectedAnalysisArea.toLowerCase().includes('virolog')
     const isPhytopathology = selectedAnalysisArea.toLowerCase().includes('fitopatolog')
+    const isEarlyDetection = selectedAnalysisArea.toLowerCase().includes('deteccion') || selectedAnalysisArea.toLowerCase().includes('precoz')
 
     if (isPhytopathology) {
       return (
@@ -1550,6 +1695,232 @@ export default function AddResultModal({
       </>
     )
 
+    // Early Detection UI
+    if (isEarlyDetection) {
+      return (
+        <>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tipo de Resultado
+            </label>
+            <select
+              value={formData.result_type}
+              onChange={(e) => setFormData(prev => ({ ...prev, result_type: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+            >
+              <option value="">Seleccionar tipo</option>
+              <option value="positive">Positivo</option>
+              <option value="negative">Negativo</option>
+              <option value="inconclusive">No conclusivo</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Confianza
+            </label>
+            <select
+              value={formData.confidence}
+              onChange={(e) => setFormData(prev => ({ ...prev, confidence: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+            >
+              <option value="">Seleccionar confianza</option>
+              <option value="low">Baja</option>
+              <option value="medium">Media</option>
+              <option value="high">Alta</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tipo de Patógeno
+            </label>
+            <input
+              type="text"
+              value={formData.pathogen_type === 'fungus' ? 'Hongo' : 
+                     formData.pathogen_type === 'bacteria' ? 'Bacteria' :
+                     formData.pathogen_type === 'virus' ? 'Virus' :
+                     formData.pathogen_type === 'nematode' ? 'Nematodo' :
+                     'Detección Precoz'}
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Severidad
+            </label>
+            <select
+              value={formData.severity}
+              onChange={(e) => setFormData(prev => ({ ...prev, severity: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+            >
+              <option value="">Seleccionar severidad</option>
+              <option value="low">Baja</option>
+              <option value="moderate">Moderada</option>
+              <option value="high">Alta</option>
+              <option value="severe">Severa</option>
+            </select>
+          </div>
+
+          {/* Early Detection Tests Table */}
+          <div className="sm:col-span-2">
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Evaluación de Detección Precoz
+              </label>
+              <button
+                type="button"
+                onClick={addEarlyDetectionTest}
+                className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Agregar
+              </button>
+            </div>
+            
+            <div className="bg-white border rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Código Muestra
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Identificación
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Variedad
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Unidades Evaluadas
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" colSpan={4}>
+                        Escala de Severidad
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Acciones
+                      </th>
+                    </tr>
+                    <tr>
+                      <th></th>
+                      <th></th>
+                      <th></th>
+                      <th></th>
+                      <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-l">
+                        0
+                      </th>
+                      <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        1
+                      </th>
+                      <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        2
+                      </th>
+                      <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        3
+                      </th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {earlyDetectionData.tests.map((test, index) => (
+                      <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 font-mono">
+                          <input
+                            type="text"
+                            value={test.sample_code}
+                            onChange={(e) => updateEarlyDetectionTest(index, 'sample_code', e.target.value)}
+                            className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                            placeholder="Código muestra"
+                          />
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                          <input
+                            type="text"
+                            value={test.identification}
+                            onChange={(e) => updateEarlyDetectionTest(index, 'identification', e.target.value)}
+                            className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                            placeholder="Identificación"
+                          />
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                          <input
+                            type="text"
+                            value={test.variety}
+                            onChange={(e) => updateEarlyDetectionTest(index, 'variety', e.target.value)}
+                            className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                            placeholder="Variedad"
+                          />
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                          <input
+                            type="number"
+                            value={test.units_evaluated}
+                            onChange={(e) => updateEarlyDetectionTest(index, 'units_evaluated', e.target.value)}
+                            className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                            placeholder="Unidades"
+                          />
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-center">
+                          <input
+                            type="number"
+                            value={test.severity_scale['0']}
+                            onChange={(e) => updateEarlyDetectionSeverityScale(index, '0', e.target.value)}
+                            className="w-16 text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500 text-center"
+                            placeholder="0"
+                          />
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-center">
+                          <input
+                            type="number"
+                            value={test.severity_scale['1']}
+                            onChange={(e) => updateEarlyDetectionSeverityScale(index, '1', e.target.value)}
+                            className="w-16 text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500 text-center"
+                            placeholder="0"
+                          />
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-center">
+                          <input
+                            type="number"
+                            value={test.severity_scale['2']}
+                            onChange={(e) => updateEarlyDetectionSeverityScale(index, '2', e.target.value)}
+                            className="w-16 text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500 text-center"
+                            placeholder="0"
+                          />
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-center">
+                          <input
+                            type="number"
+                            value={test.severity_scale['3']}
+                            onChange={(e) => updateEarlyDetectionSeverityScale(index, '3', e.target.value)}
+                            className="w-16 text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500 text-center"
+                            placeholder="0"
+                          />
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          {earlyDetectionData.tests.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeEarlyDetectionTest(index)}
+                              className="text-red-600 hover:text-red-900 text-sm"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </>
+      )
+    }
+
     return baseFields
   }
 
@@ -1571,6 +1942,7 @@ export default function AddResultModal({
       const isNematology = selectedAnalysisArea.toLowerCase().includes('nematolog')
       const isVirology = selectedAnalysisArea.toLowerCase().includes('virolog')
       const isPhytopathology = selectedAnalysisArea.toLowerCase().includes('fitopatolog')
+      const isEarlyDetection = selectedAnalysisArea.toLowerCase().includes('deteccion') || selectedAnalysisArea.toLowerCase().includes('precoz')
       let findings = null
 
       // Structure nematology data into JSON
@@ -1625,6 +1997,17 @@ export default function AddResultModal({
         findings = {
           type: 'bacteriologia',
           tests: testsWithNames
+        }
+      }
+    } else if (isEarlyDetection) {
+      // Structure early detection data into JSON
+      const validTests = earlyDetectionData.tests.filter(test => 
+        test.sample_code && test.identification && test.variety && test.units_evaluated
+      )
+      if (validTests.length > 0) {
+        findings = {
+          type: 'deteccion_precoz',
+          tests: validTests
         }
       }
       } else if (formData.findings) {

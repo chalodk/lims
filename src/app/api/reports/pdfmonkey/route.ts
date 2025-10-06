@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 // Types for PDF template configuration
-type AnalysisType = 'virology' | 'phytopatology' | 'bacteriology' | 'nematology' | 'default'
+type AnalysisType = 'virology' | 'phytopatology' | 'bacteriology' | 'nematology' | 'early_detection' | 'default'
 
 interface ReportData {
   id: string
@@ -49,6 +49,7 @@ interface ResultadoData {
     rootstock: string | null
     planting_year: number | null
     received_date: string | null
+    suspected_pathogen: string | null
   } | null
 }
 
@@ -156,6 +157,93 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
     }
   },
   
+  early_detection: {
+    templateId: '6AD1FA7C-65EE-4E23-9413-DBE68F53C9C9',
+    payloadBuilder: (report, client, resultado, analystName) => {
+      const currentDate = new Date()
+
+      const formatDate = (dateString: string) => {
+        const date = new Date(dateString)
+        return date.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      }
+
+      let findings = resultado?.findings as unknown
+      if (typeof findings === 'string') {
+        try { findings = JSON.parse(findings) } catch { findings = undefined }
+      }
+      const tests = Array.isArray((findings as Record<string, unknown>)?.tests) ? (findings as Record<string, unknown>).tests as unknown[] : []
+
+      // Get sample data for tipoMuestra description
+      const sampleSpecies = (resultado as ResultadoData)?.samples?.species || 'No especificado'
+      const varieties = Array.from(new Set((tests || []).map((t: unknown) => (t as Record<string, unknown>).variety as string).filter(Boolean)))
+      const varietiesText = varieties.length > 0 ? varieties.join(', ') : 'No especificado'
+      
+      const tipoMuestraDesc = `${tests.length} muestras de ${sampleSpecies} de las variedades ${varietiesText}.`
+
+      // Get suspected pathogen for tipoAnalisis
+      const suspectedPathogen = (resultado as ResultadoData)?.samples?.suspected_pathogen || 'patógeno no especificado'
+      const tipoAnalisisDesc = `Detección precoz del ${suspectedPathogen}.`
+
+      // Map results array
+      const resultados = (tests || []).map((t: unknown, idx: number) => {
+        const test = t as Record<string, unknown>
+        return {
+          numeroMuestra: test.sample_code || String(idx + 1),
+          numeroCuartel: test.identification || `Cuartel ${idx + 1}`,
+          variedad: test.variety || 'No especificado',
+          racimosEvaluados: parseInt(test.units_evaluated as string) || 0,
+          escalaSeveridad: {
+            nota0: parseInt((test.severity_scale as Record<string, string>)['0']) || 0,
+            nota1: parseInt((test.severity_scale as Record<string, string>)['1']) || 0,
+            nota2: parseInt((test.severity_scale as Record<string, string>)['2']) || 0,
+            nota3: parseInt((test.severity_scale as Record<string, string>)['3']) || 0
+          }
+        }
+      })
+
+      const reportNumber = `${currentDate.getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`
+
+      return {
+        numeroInforme: reportNumber,
+        tituloInforme: 'INFORME FITOPATOLÓGICO',
+        informacionSolicitante: {
+          productor: client?.name || 'Cliente no especificado',
+          localidad: client?.address || 'No especificada',
+          contacto: client?.contact_email || client?.phone || 'No especificado',
+          fechaRecepcion: resultado?.performed_at ? formatDate(resultado.performed_at) : formatDate(currentDate.toISOString()),
+          fechaMuestreo: resultado?.performed_at ? formatDate(resultado.performed_at) : formatDate(currentDate.toISOString()),
+          fechaInforme: resultado?.validation_date ? formatDate(resultado.validation_date) : formatDate(currentDate.toISOString())
+        },
+        tipoMuestra: {
+          descripcion: tipoMuestraDesc
+        },
+        tipoAnalisis: {
+          descripcion: tipoAnalisisDesc
+        },
+        metodologia: {
+          descripcion: 'Las muestras, constituidas por un número diferente de racimos de uva de las variedades correspondientes, fueron sometidas a un proceso de cámara húmeda. Se colocaron en bandejas plásticas saturadas de humedad a temperatura constante de 24°C. Se aplicó un régimen de luz alternante de 12 horas luz y 12 horas oscuridad durante 10 días. El propósito fue inducir la esporulación rápida del patógeno.'
+        },
+        escalaSeveridad: {
+          descripcion: 'Transcurrido el periodo de incubación en cámara húmeda, los resultados se evaluaron utilizando una escala de notas de severidad de ataque de 0 a 3, donde:',
+          nota0: 'Sin patógeno, racimos sanos',
+          nota1: 'Hasta 25% de patógeno en los racimos',
+          nota2: '25% a 50% de patógeno en los racimos',
+          nota3: 'Sobre 50% de patógeno en los racimos'
+        },
+        resultados,
+        diagnostico: {
+          descripcion: 'Los resultados de los análisis de detección precoz efectuados en las muestras demostraron diferentes niveles de severidad. Se evaluó la presencia del patógeno utilizando la escala de severidad establecida, permitiendo determinar el potencial de inoculo en las muestras analizadas.'
+        },
+        analista: {
+          nombre: analystName || 'Analista',
+          titulo: 'Ingeniero Agrónomo, M.Sc.',
+          departamento: 'Laboratorio Fitopatología',
+          email: 'analista@laboratorio.cl'
+        }
+      }
+    }
+  },
+
   bacteriology: {
     templateId: 'BFFA2B14-DA47-4D06-B593-0CC084D374C6',
     payloadBuilder: (report, client, resultado, analystName) => {
@@ -498,6 +586,8 @@ function resolveTemplateAndPayload(report: ReportData, client: ClientData | null
       analysisType = 'phytopatology'
     } else if (testArea.includes('bacter') || testArea.includes('bacteriolog')) {
       analysisType = 'bacteriology'
+    } else if (testArea.includes('deteccion') || testArea.includes('precoz')) {
+      analysisType = 'early_detection'
     }
   }
   // Option 2: Check for future analysis_type field
@@ -521,6 +611,8 @@ function resolveTemplateAndPayload(report: ReportData, client: ClientData | null
       analysisType = 'nematology'
     } else if (testAreasLower.some(area => area.includes('bacter') || area.includes('bacteriolog'))) {
       analysisType = 'bacteriology'
+    } else if (testAreasLower.some(area => area.includes('deteccion') || area.includes('precoz'))) {
+      analysisType = 'early_detection'
     }
   }
   
@@ -569,7 +661,7 @@ export async function POST(request: NextRequest) {
       // If we have result_id, fetch the result directly and get report/client info from it
       const { data: resultData, error: resultError } = await supabase
         .from('results')
-        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date)')
+        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date, suspected_pathogen)')
         .eq('id', result_id)
         .single()
       
@@ -617,7 +709,7 @@ export async function POST(request: NextRequest) {
       // Try to fetch result data from results table using report_id
       const { data: resultData, error: resultError } = await supabase
         .from('results')
-        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date)')
+        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date, suspected_pathogen)')
         .eq('report_id', report_id)
         .single()
       

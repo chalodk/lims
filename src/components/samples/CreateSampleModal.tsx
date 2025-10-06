@@ -24,6 +24,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
   const [projects, setProjects] = useState<Array<{id: string, name: string}>>([])
   const [isLoadingProjects, setIsLoadingProjects] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [availableAnalytes, setAvailableAnalytes] = useState<Array<{id: string, scientific_name: string}>>([])
   const [formData, setFormData] = useState({
     client_id: '',
     code: '',
@@ -121,13 +122,29 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
     setFormData(prev => ({ ...prev, code: `LIM-${year}-${randomNum}` }))
   }, [])
 
+  // Load analytes for suspected pathogen dropdown
+  const loadAnalytes = useCallback(async () => {
+    try {
+      const { data: analytesData, error: analytesError } = await supabase
+        .from('analytes')
+        .select('id, scientific_name')
+        .order('scientific_name')
+
+      if (analytesError) throw analytesError
+      setAvailableAnalytes(analytesData || [])
+    } catch (error) {
+      console.error('Error loading analytes:', error)
+    }
+  }, [supabase])
+
   useEffect(() => {
     if (isOpen) {
       fetchClients()
       fetchProjects()
       generateSampleCode()
+      loadAnalytes()
     }
-  }, [isOpen, fetchClients, fetchProjects, generateSampleCode])
+  }, [isOpen, fetchClients, fetchProjects, generateSampleCode, loadAnalytes])
 
   const handleAnalysisTypeChange = (type: string, checked: boolean) => {
     setFormData(prev => ({
@@ -530,13 +547,18 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Patógeno sospechoso
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.suspected_pathogen}
                     onChange={(e) => setFormData(prev => ({ ...prev, suspected_pathogen: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="Ej: Phytophthora infestans"
-                  />
+                  >
+                    <option value="">Seleccionar patógeno</option>
+                    {availableAnalytes.map((analyte) => (
+                      <option key={analyte.id} value={analyte.scientific_name}>
+                        {analyte.scientific_name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Analysis Types */}
