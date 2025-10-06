@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { User, Role, RoleName } from '@/types/database'
 import type { User as AuthUser, Session } from '@supabase/supabase-js'
 
@@ -33,10 +33,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session: null,
   })
   
-  const supabase = createClient()
+  const supabase = getSupabaseClient()
+
+  // Check if environment variables are properly configured
+  const isSupabaseConfigured = () => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    return !!(url && key && url !== 'undefined' && key !== 'undefined')
+  }
+
+  // Create fallback user from auth user
+  const createFallbackUser = (authUser: AuthUser): User => ({
+    id: authUser.id,
+    email: authUser.email || '',
+    name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Usuario',
+    company_id: null,
+    client_id: null,
+    specialization: null,
+    avatar: null,
+    created_at: authUser.created_at || new Date().toISOString(),
+    updated_at: authUser.updated_at || new Date().toISOString(),
+    role_id: null
+  })
 
   const updateAuthState = useCallback(async (session: Session | null) => {
+    console.log('updateAuthState called with session:', !!session)
+    
     if (!session?.user || !session?.access_token) {
+      console.log('No valid session, setting unauthenticated state')
       setState({
         user: null,
         authUser: null,
@@ -50,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      // Fetch user data from database
+      // Try to fetch user data from database
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
@@ -58,21 +82,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single()
 
       if (userError) {
-        console.warn('User query failed, using auth user only:', userError.message)
-        // Use auth user data as fallback
+        console.warn('User query failed, using fallback user:', userError.message)
+        // Use fallback user data
         setState({
-          user: {
-            id: session.user.id,
-            email: session.user.email || '',
-            name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuario',
-            company_id: null,
-            client_id: null,
-            specialization: null,
-            avatar: null,
-            created_at: session.user.created_at || new Date().toISOString(),
-            updated_at: session.user.updated_at || new Date().toISOString(),
-            role_id: null
-          },
+          user: createFallbackUser(session.user),
           authUser: session.user,
           role: null,
           userRole: 'consumidor', // Default role
@@ -83,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
+      console.log('Setting authenticated state for user:', userData.email)
       setState({
         user: userData,
         authUser: session.user,
@@ -95,20 +109,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error in updateAuthState:', error)
       
-      // Use auth user data as fallback
+      // Use fallback user data on any error
       setState({
-        user: {
-          id: session.user.id,
-          email: session.user.email || '',
-          name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuario',
-          company_id: null,
-          client_id: null,
-          specialization: null,
-          avatar: null,
-          created_at: session.user.created_at || new Date().toISOString(),
-          updated_at: session.user.updated_at || new Date().toISOString(),
-          role_id: null
-        },
+        user: createFallbackUser(session.user),
         authUser: session.user,
         role: null,
         userRole: 'consumidor', // Default role
@@ -137,41 +140,95 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true
 
+    // Check if Supabase is properly configured
+    if (!isSupabaseConfigured()) {
+      console.error('Supabase environment variables not configured properly')
+      setState({
+        user: null,
+        authUser: null,
+        role: null,
+        userRole: null,
+        isLoading: false,
+        isAuthenticated: false,
+        session: null,
+      })
+      return
+    }
+
+    // Initialize auth state
     const initializeAuth = async () => {
       try {
-        // Get the current session
+        console.log('Initializing auth...')
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
         
         if (!mounted) return
         
         if (sessionError) {
           console.error('Session error:', sessionError)
-          await updateAuthState(null)
+          setState({
+            user: null,
+            authUser: null,
+            role: null,
+            userRole: null,
+            isLoading: false,
+            isAuthenticated: false,
+            session: null,
+          })
         } else {
+          console.log('Session found:', !!session)
           await updateAuthState(session)
         }
       } catch (error) {
         console.error('Error initializing auth:', error)
         if (mounted) {
-          await updateAuthState(null)
+          setState({
+            user: null,
+            authUser: null,
+            role: null,
+            userRole: null,
+            isLoading: false,
+            isAuthenticated: false,
+            session: null,
+          })
         }
       }
     }
 
     initializeAuth()
 
-    // Set up auth state listener
+    // Set up auth state listener - this is the single source of truth
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
-      console.log('Auth state change:', event)
-      await updateAuthState(session || null)
+      console.log('Auth state change:', event, 'Session:', !!session)
+      
+      // Only handle specific events to avoid race conditions
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+        await updateAuthState(session)
+      }
     })
+
+    // Set up heartbeat to detect expired sessions
+    const heartbeatInterval = setInterval(async () => {
+      if (!mounted) return
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          console.log('Heartbeat: Session expired, redirecting to login')
+          window.location.href = '/login'
+        }
+      } catch (error) {
+        console.error('Heartbeat error:', error)
+        // Don't redirect on heartbeat errors, just log
+      }
+    }, 5 * 60 * 1000) // Check every 5 minutes
 
     return () => {
       mounted = false
       subscription.unsubscribe()
+      clearInterval(heartbeatInterval)
     }
   }, [supabase, updateAuthState])
 
@@ -216,7 +273,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         session: null,
       })
       
-      // Force redirect
+      // Redirect to login even on error
       if (typeof window !== 'undefined') {
         window.location.href = '/login'
       }
@@ -229,7 +286,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshSession,
   }
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {

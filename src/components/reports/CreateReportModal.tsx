@@ -59,36 +59,55 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
   const fetchClientResults = useCallback(async () => {
     setIsLoadingResults(true)
     try {
+      // First, get sample IDs for the selected client
+      const { data: samplesData, error: samplesError } = await supabase
+        .from('samples')
+        .select('id')
+        .eq('client_id', selectedClient)
+
+      if (samplesError) throw samplesError
+      
+      const sampleIds = samplesData?.map(s => s.id) || []
+      console.log('Sample IDs for client:', sampleIds)
+
+      if (sampleIds.length === 0) {
+        setResults([])
+        return
+      }
+
+      // Then, get results for those samples
       const { data, error } = await supabase
         .from('results')
         .select(`
-          id,
-          created_at,
-          status,
-          test_area,
-          pathogen_identified,
-          severity,
-          samples!inner (
+          *,
+          samples (
             id,
             code,
             species,
             variety,
-            client_id
+            client_id,
+            clients (id, name)
           )
         `)
-        .eq('samples.client_id', selectedClient)
+        .in('sample_id', sampleIds)
         .eq('status', 'validated')
         .is('report_id', null)
         .order('created_at', { ascending: false })
 
       if (error) throw error
       
-      // Transform the data to match our expected type
-      const transformedData = (data || []).map(item => ({
-        ...item,
-        samples: item.samples ? item.samples[0] : null
-      }))
+      console.log('Raw results data:', data)
       
+      // Transform the data to match our expected type
+      const transformedData = (data || []).map(item => {
+        console.log('Processing item:', item, 'samples:', item.samples)
+        return {
+          ...item,
+          samples: item.samples || null
+        }
+      })
+      
+      console.log('Transformed results data:', transformedData)
       setResults(transformedData)
     } catch (error) {
       console.error('Error fetching results:', error)
@@ -116,11 +135,38 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
   }, [selectedClient, fetchClientResults])
 
   const toggleResultSelection = (resultId: string) => {
-    setSelectedResults(prev =>
-      prev.includes(resultId)
-        ? prev.filter(id => id !== resultId)
-        : [...prev, resultId]
-    )
+    const result = results.find(r => r.id === resultId)
+    if (!result) return
+
+    setSelectedResults(prev => {
+      if (prev.includes(resultId)) {
+        // Removing result - no validation needed
+        return prev.filter(id => id !== resultId)
+      } else {
+        // Adding result - check validations
+        if (prev.length === 0) {
+          // First selection - always allowed
+          return [...prev, resultId]
+        } else {
+          // Check if the new result has the same test_area as existing selections
+          const existingResult = results.find(r => prev.includes(r.id))
+          if (existingResult && existingResult.test_area === result.test_area) {
+            // Check if the new result has the same client as existing selections
+            const existingClientId = existingResult.samples?.client_id
+            const newClientId = result.samples?.client_id
+            if (existingClientId && newClientId && existingClientId !== newClientId) {
+              alert(`No se pueden mezclar resultados de diferentes clientes. Todos los resultados deben ser del mismo cliente.`)
+              return prev
+            }
+            return [...prev, resultId]
+          } else {
+            // Different type - show warning and don't add
+            alert(`No se pueden mezclar resultados de diferentes tipos de análisis. Ya tienes seleccionados resultados de "${existingResult?.test_area || 'tipo desconocido'}" y estás intentando agregar uno de "${result.test_area || 'tipo desconocido'}".`)
+            return prev
+          }
+        }
+      }
+    })
   }
 
   const handleCreateReport = async () => {
@@ -151,15 +197,24 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
 
       if (reportError) throw reportError
 
-      // Create PDF in PDFMonkey using the first selected result
+      // Associate selected results with the report
+      if (selectedResults.length > 0) {
+        const { error: updateError } = await supabase
+          .from('results')
+          .update({ report_id: reportData.id })
+          .in('id', selectedResults)
+
+        if (updateError) throw updateError
+      }
+
+      // Create PDF in PDFMonkey using all selected results
       try {
-        const firstResultId = selectedResults[0]
-        if (firstResultId) {
+        if (selectedResults.length > 0) {
           await fetch('/api/reports/pdfmonkey', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-              result_id: firstResultId,
+              result_ids: selectedResults, // Send all selected result IDs
               report_id: reportData.id 
             })
           })
@@ -167,14 +222,6 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
       } catch (e) {
         console.error('Failed to request PDF creation:', e)
       }
-
-      // Update results to link them to the report
-      const { error: updateError } = await supabase
-        .from('results')
-        .update({ report_id: reportData.id })
-        .in('id', selectedResults)
-
-      if (updateError) throw updateError
 
       onSuccess()
       onClose()
@@ -242,7 +289,10 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
                   {filteredClients.map((client) => (
                     <button
                       key={client.id}
-                      onClick={() => setSelectedClient(client.id)}
+                      onClick={() => {
+                        setSelectedClient(client.id)
+                        setSelectedResults([]) // Clear results when changing client
+                      }}
                       className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
                         selectedClient === client.id ? 'bg-indigo-50' : ''
                       }`}
@@ -299,7 +349,8 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
                           </div>
                           <div className="ml-3 flex-1">
                             <div className="font-medium text-gray-900">
-                              Muestra: {result.samples?.code}
+                              Muestra: {result.samples?.code || 'N/A'}
+                              {!result.samples && <span className="text-red-500 text-xs ml-2">(No sample data)</span>}
                             </div>
                             <div className="text-sm text-gray-500">
                               {result.samples?.species} {result.samples?.variety && `- ${result.samples.variety}`}
@@ -321,8 +372,13 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
               )}
               
               {selectedResults.length > 0 && (
-                <div className="mt-3 text-sm text-gray-600">
-                  {selectedResults.length} resultado(s) seleccionado(s)
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="text-sm text-blue-800">
+                    <strong>{selectedResults.length} resultado(s) seleccionado(s)</strong>
+                  </div>
+                  <div className="text-xs text-blue-600 mt-1">
+                    Tipo de análisis: {results.find(r => selectedResults.includes(r.id))?.test_area || 'N/A'}
+                  </div>
                 </div>
               )}
             </div>

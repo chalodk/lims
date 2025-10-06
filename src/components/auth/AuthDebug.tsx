@@ -4,33 +4,49 @@ import { useAuth } from '@/hooks/useAuth'
 import { useState } from 'react'
 
 export default function AuthDebug() {
-  const { user, authUser, session, isLoading, isAuthenticated } = useAuth()
-  const [showDebug, setShowDebug] = useState(false)
+  const { user, authUser, role, userRole, isLoading, isAuthenticated, session, signOut, refreshSession } = useAuth()
+  const [isOpen, setIsOpen] = useState(false)
 
   if (process.env.NODE_ENV !== 'development') {
     return null
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="fixed bottom-4 right-4 z-[9999]">
       <button
-        onClick={() => setShowDebug(!showDebug)}
-        className="bg-red-500 text-white px-3 py-2 rounded text-xs"
+        onClick={() => setIsOpen(!isOpen)}
+        className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-full shadow-lg flex items-center"
       >
-        Auth Debug
+        Auth Debug {isOpen ? '▲' : '▼'}
       </button>
-      
-      {showDebug && (
-        <div className="absolute bottom-12 right-0 bg-black text-white p-4 rounded text-xs max-w-md">
-          <div className="space-y-2">
-            <div><strong>Loading:</strong> {isLoading ? 'Yes' : 'No'}</div>
-            <div><strong>Authenticated:</strong> {isAuthenticated ? 'Yes' : 'No'}</div>
-            <div><strong>User ID:</strong> {user?.id || 'None'}</div>
-            <div><strong>Auth User ID:</strong> {authUser?.id || 'None'}</div>
-            <div><strong>Session:</strong> {session ? 'Active' : 'None'}</div>
-            <div><strong>User Email:</strong> {user?.email || authUser?.email || 'None'}</div>
-            <div><strong>User Name:</strong> {user?.name || 'None'}</div>
-            <div><strong>Company ID:</strong> {user?.company_id || 'None'}</div>
+
+      {isOpen && (
+        <div className="bg-gray-800 text-white p-4 rounded-lg shadow-xl mt-2 w-80 max-h-96 overflow-y-auto text-xs">
+          <h3 className="font-bold text-sm mb-2">Auth State</h3>
+          <pre className="whitespace-pre-wrap break-all">
+            {JSON.stringify({
+              isLoading,
+              isAuthenticated,
+              userRole,
+              authUser: authUser ? { id: authUser.id, email: authUser.email, role: authUser.role } : null,
+              user: user ? { id: user.id, email: user.email, name: user.name, company_id: user.company_id, role_id: user.role_id } : null,
+              role: role,
+              session: session ? { expires_at: session.expires_at, expires_in: session.expires_in, token_type: session.token_type, user_id: session.user.id } : null,
+            }, null, 2)}
+          </pre>
+          <div className="mt-4 space-y-2">
+            <button
+              onClick={signOut}
+              className="w-full bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded text-xs"
+            >
+              Sign Out
+            </button>
+            <button
+              onClick={refreshSession}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-1 px-2 rounded text-xs"
+            >
+              Refresh Session
+            </button>
           </div>
         </div>
       )}

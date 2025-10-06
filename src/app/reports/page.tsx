@@ -6,13 +6,13 @@ import { createClient } from '@/lib/supabase/client'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import CreateReportModal from '@/components/reports/CreateReportModal'
 import ViewReportModal from '@/components/reports/ViewReportModal'
+import SamplesDisplay from '@/components/reports/SamplesDisplay'
 import { 
   FileText,
   Download,
   Send,
   Search,
   Filter,
-  TestTube,
   Loader2,
   Eye,
   Edit,
@@ -411,23 +411,13 @@ export default function ReportsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="space-y-1">
-                          {report.results && report.results.length > 0 ? (
-                            report.results.map((result) => (
-                              <div key={result.id} className="flex items-center">
-                                <TestTube className="h-4 w-4 text-gray-400 mr-2" />
-                                <span className="text-sm text-gray-900">
-                                  {result.samples?.code || 'N/A'}
-                                  {result.samples?.species && (
-                                    <span className="text-gray-500 ml-1">({result.samples.species})</span>
-                                  )}
-                                </span>
-                              </div>
-                            ))
-                          ) : (
-                            <span className="text-sm text-gray-500">Sin muestras</span>
-                          )}
-                        </div>
+                        <SamplesDisplay 
+                          samples={report.results?.map(result => ({
+                            code: result.samples?.code || 'N/A',
+                            species: result.samples?.species || '',
+                            variety: result.samples?.variety
+                          })) || []}
+                        />
                       </td>
                       <td className="px-6 py-4">
                         {getTemplateBadge(report.template)}
