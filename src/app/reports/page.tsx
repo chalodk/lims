@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { createClient } from '@/lib/supabase/client'
+import { getSupabaseClient } from '@/lib/supabase/singleton'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import CreateReportModal from '@/components/reports/CreateReportModal'
 import ViewReportModal from '@/components/reports/ViewReportModal'
@@ -58,7 +58,7 @@ export default function ReportsPage() {
   const [paymentData, setPaymentData] = useState<{[key: string]: { payment: boolean, invoice_number: string }}>({})
   const [savingPayment, setSavingPayment] = useState<string | null>(null)
   
-  const supabase = createClient()
+  const supabase = getSupabaseClient()
 
   const fetchReports = useCallback(async () => {
     try {

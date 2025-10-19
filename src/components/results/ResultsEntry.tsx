@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { 
   TestCatalog, 
   Method,
@@ -73,7 +73,7 @@ export function ResultsEntry({ sampleId, onSave }: ResultsEntryProps) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const supabase = createClient()
+  const supabase = getSupabaseClient()
 
   const fetchSampleData = useCallback(async () => {
     try {

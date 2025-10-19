@@ -22,13 +22,16 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
+    console.log('🔍 Middleware checking:', pathname, 'isPublicRoute:', isPublicRoute)
     const supabase = await createClient()
     const { data: { session }, error } = await supabase.auth.getSession()
+    console.log('📋 Session result:', { session: !!session, error: !!error })
 
     // If there's an error getting the session, redirect to login for protected routes
     if (error) {
-      console.error('Middleware session error:', error)
+      console.error('❌ Middleware session error:', error)
       if (!isPublicRoute) {
+        console.log('🔄 Redirecting to login due to session error')
         return NextResponse.redirect(new URL('/login', request.url))
       }
       return NextResponse.next()
@@ -36,19 +39,23 @@ export async function middleware(request: NextRequest) {
 
     // If user is not authenticated and trying to access protected route
     if (!session && !isPublicRoute) {
+      console.log('🔄 No session, redirecting to login')
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
     // If user is authenticated and trying to access auth pages
     if (session && isPublicRoute) {
+      console.log('🔄 Authenticated user accessing auth page, redirecting to dashboard')
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
 
+    console.log('✅ Middleware allowing access')
     return NextResponse.next()
   } catch (error) {
-    console.error('Middleware error:', error)
+    console.error('❌ Middleware error:', error)
     // On error, redirect to login for protected routes
     if (!isPublicRoute) {
+      console.log('🔄 Redirecting to login due to error')
       return NextResponse.redirect(new URL('/login', request.url))
     }
     return NextResponse.next()

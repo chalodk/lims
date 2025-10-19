@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { getSupabaseClient } from '@/lib/supabase/singleton'
 
 export default function TestDbPage() {
   const [results, setResults] = useState<string[]>([])
@@ -9,7 +9,7 @@ export default function TestDbPage() {
 
   useEffect(() => {
     async function testDatabase() {
-      const supabase = createClient()
+      const supabase = getSupabaseClient()
       const logs: string[] = []
 
       try {

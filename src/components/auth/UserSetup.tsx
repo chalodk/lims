@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { FlaskConical, Building, User, Mail, Loader2 } from 'lucide-react'
 
 interface UserSetupProps {
@@ -23,7 +23,7 @@ export default function UserSetup({ authUser }: UserSetupProps) {
   const [error, setError] = useState('')
   
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = getSupabaseClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

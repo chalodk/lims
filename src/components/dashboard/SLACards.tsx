@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { 
   Clock, 
   AlertTriangle, 
@@ -26,7 +26,7 @@ export function SLACards() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const supabase = createClient()
+  const supabase = getSupabaseClient()
 
   const fetchSLAStats = useCallback(async () => {
     try {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { createClient } from '@/lib/supabase/client'
+import { getSupabaseClient } from '@/lib/supabase/singleton'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { Client } from '@/types/database'
 import { 
@@ -33,7 +33,7 @@ export default function ClientsPage() {
     client_type: 'farmer'
   })
   
-  const supabase = createClient()
+  const supabase = getSupabaseClient()
 
   const fetchClients = useCallback(async () => {
     try {

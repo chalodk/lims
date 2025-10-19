@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { useAuth } from '@/hooks/useAuth'
 import { 
   Client, 
@@ -105,7 +105,7 @@ export default function EnhancedSampleForm({
     reception_observations: ''
   })
   
-  const supabase = createClient()
+  const supabase = getSupabaseClient()
 
   const loadCatalogData = useCallback(async () => {
     try {

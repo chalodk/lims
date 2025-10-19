@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { useAuth } from '@/contexts/AuthContext'
 import { X, Search, CheckSquare, Square, Loader2 } from 'lucide-react'
 import { Client } from '@/types/database'
@@ -37,7 +37,7 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
   const [isCreating, setIsCreating] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   
-  const supabase = createClient()
+  const supabase = getSupabaseClient()
 
   const fetchClients = useCallback(async () => {
     setIsLoadingClients(true)

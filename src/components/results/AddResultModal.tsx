@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { useAuth } from '@/hooks/useAuth'
 import { SampleWithClient, SampleTest, TestCatalog, Method } from '@/types/database'
 import { 
@@ -146,7 +146,7 @@ export default function AddResultModal({
   const [availableBacteria, setAvailableBacteria] = useState<Array<{id: string, scientific_name: string}>>([])
   const [loadingMethodsAndAnalytes, setLoadingMethodsAndAnalytes] = useState(false)
 
-  const supabase = createClient()
+  const supabase = getSupabaseClient()
 
   const fetchSamples = useCallback(async () => {
     if (!user?.company_id) return

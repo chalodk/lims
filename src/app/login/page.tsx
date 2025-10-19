@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { Eye, EyeOff, Loader2, Mail, Lock } from 'lucide-react'
 import Image from 'next/image'
+import { AuthApiError, AuthInvalidCredentialsError } from '@supabase/supabase-js'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -15,7 +16,7 @@ export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false)
   
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = getSupabaseClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -33,7 +34,11 @@ export default function LoginPage() {
         })
         
         if (error) {
-          setError(error.message)
+          if (error instanceof AuthApiError) {
+            setError('Error del servidor. Intenta nuevamente.')
+          } else {
+            setError(error.message)
+          }
         } else {
           alert('Check your email for the confirmation link!')
         }
@@ -44,13 +49,20 @@ export default function LoginPage() {
         })
         
         if (error) {
-          setError(error.message)
+          if (error instanceof AuthInvalidCredentialsError) {
+            setError('Credenciales incorrectas. Verifica tu email y contraseña.')
+          } else if (error instanceof AuthApiError) {
+            setError('Error del servidor. Intenta nuevamente.')
+          } else {
+            setError('Error inesperado. Intenta nuevamente.')
+          }
         } else {
           router.push('/dashboard')
         }
       }
-    } catch {
-      setError('An unexpected error occurred')
+    } catch (error) {
+      console.error('Login error:', error)
+      setError('Error inesperado. Intenta nuevamente.')
     } finally {
       setIsLoading(false)
     }

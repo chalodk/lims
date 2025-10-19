@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     authUser: null,
     role: null,
     userRole: null,
-    isLoading: true,
+    isLoading: false,
     isAuthenticated: false,
     session: null,
   })
@@ -57,10 +57,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   })
 
   const updateAuthState = useCallback(async (session: Session | null) => {
-    console.log('updateAuthState called with session:', !!session)
+    console.log('🔍 updateAuthState called with session:', !!session)
+    console.log('📋 Session details:', { 
+      user: session?.user?.email, 
+      access_token: !!session?.access_token 
+    })
     
     if (!session?.user || !session?.access_token) {
-      console.log('No valid session, setting unauthenticated state')
+      console.log('❌ No valid session, setting unauthenticated state')
       setState({
         user: null,
         authUser: null,
@@ -74,6 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
+      console.log('🔍 Trying to fetch user data from database for:', session.user.id)
       // Try to fetch user data from database
       const { data: userData, error: userError } = await supabase
         .from('users')
@@ -82,21 +87,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single()
 
       if (userError) {
-        console.warn('User query failed, using fallback user:', userError.message)
-        // Use fallback user data
+        console.error('❌ User query failed, user not found in database:', userError.message)
+        // No fallback user - user must exist in database
         setState({
-          user: createFallbackUser(session.user),
-          authUser: session.user,
+          user: null,
+          authUser: null,
           role: null,
-          userRole: 'consumidor', // Default role
+          userRole: null,
           isLoading: false,
-          isAuthenticated: true,
-          session,
+          isAuthenticated: false,
+          session: null,
         })
         return
       }
 
-      console.log('Setting authenticated state for user:', userData.email)
+      console.log('✅ Setting authenticated state for user:', userData.email)
       setState({
         user: userData,
         authUser: session.user,
@@ -107,17 +112,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         session,
       })
     } catch (error) {
-      console.error('Error in updateAuthState:', error)
+      console.error('❌ Error in updateAuthState:', error)
       
-      // Use fallback user data on any error
+      // No fallback user - user must exist in database
       setState({
-        user: createFallbackUser(session.user),
-        authUser: session.user,
+        user: null,
+        authUser: null,
         role: null,
-        userRole: 'consumidor', // Default role
+        userRole: null,
         isLoading: false,
-        isAuthenticated: true,
-        session,
+        isAuthenticated: false,
+        session: null,
       })
     }
   }, [supabase])
@@ -209,26 +214,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })
 
-    // Set up heartbeat to detect expired sessions
-    const heartbeatInterval = setInterval(async () => {
-      if (!mounted) return
-      
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) {
-          console.log('Heartbeat: Session expired, redirecting to login')
-          window.location.href = '/login'
-        }
-      } catch (error) {
-        console.error('Heartbeat error:', error)
-        // Don't redirect on heartbeat errors, just log
-      }
-    }, 5 * 60 * 1000) // Check every 5 minutes
-
     return () => {
       mounted = false
       subscription.unsubscribe()
-      clearInterval(heartbeatInterval)
     }
   }, [supabase, updateAuthState])
 

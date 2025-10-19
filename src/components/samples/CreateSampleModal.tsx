@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { useAuth } from '@/hooks/useAuth'
 import { Client } from '@/types/database'
 import { SPECIES_CATEGORIES } from '@/constants/species'
@@ -46,7 +46,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
     analysis_types: [] as string[]
   })
   
-  const supabase = createClient()
+  const supabase = getSupabaseClient()
 
   const fetchClients = useCallback(async () => {
     try {

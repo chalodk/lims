@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { createClient } from '@/lib/supabase/client'
+import { getSupabaseClient } from '@/lib/supabase/singleton'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import CreateSampleModal from '@/components/samples/CreateSampleModal'
 import ViewSampleModal from '@/components/samples/ViewSampleModal'
@@ -36,7 +36,7 @@ export default function SamplesPage() {
   const [showViewModal, setShowViewModal] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   
-  const supabase = createClient()
+  const supabase = getSupabaseClient()
 
   const fetchSamples = useCallback(async () => {
     try {
