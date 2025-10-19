@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client'
+import { getSupabaseClient } from '@/lib/supabase/singleton'
 import type { 
   ReportTemplateRow, 
   Report, 
@@ -7,7 +7,7 @@ import type {
 } from '@/types/database'
 
 export class ReportService {
-  private supabase = createClient()
+  private supabase = getSupabaseClient()
 
   async getTemplates(active: boolean = true): Promise<ReportTemplateRow[]> {
     const { data, error } = await this.supabase

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client'
+import { getSupabaseClient } from '@/lib/supabase/singleton'
 import type { 
   InterpretationRule, 
   AppliedInterpretation, 
@@ -13,7 +13,7 @@ interface ThresholdConfig {
 }
 
 export class InterpretationService {
-  private supabase = createClient()
+  private supabase = getSupabaseClient()
 
   /**
    * Evaluate all interpretation rules for a sample and apply matching ones

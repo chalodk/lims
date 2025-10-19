@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client'
+import { getSupabaseClient } from '@/lib/supabase/singleton'
 import type { SLAType, SLAStatus } from '@/types/database'
 
 interface SampleWithClientArray {
@@ -11,7 +11,7 @@ interface SampleWithClientArray {
 }
 
 export class SLAService {
-  private supabase = createClient()
+  private supabase = getSupabaseClient()
 
   /**
    * Calculate due date based on received date and SLA type

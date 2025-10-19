@@ -1,7 +1,7 @@
-import { createClient } from '@/lib/supabase/client'
+import { getSupabaseClient } from '@/lib/supabase/singleton'
 
 export const checkSamplesSchema = async () => {
-  const supabase = createClient()
+  const supabase = getSupabaseClient()
   
   try {
     // Try to get schema information
