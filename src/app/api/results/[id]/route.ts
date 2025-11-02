@@ -92,6 +92,10 @@ export async function PUT(
     
     // Extract updatable fields
     const {
+      sample_id,
+      sample_test_id,
+      report_id,
+      test_area,
       methodology,
       findings,
       conclusion,
@@ -103,7 +107,10 @@ export async function PUT(
       result_type,
       recommendations,
       status,
-      validated_by
+      performed_by,
+      performed_at,
+      validated_by,
+      validation_date
     } = body
 
     // First, get the current result to check access
@@ -127,32 +134,54 @@ export async function PUT(
 
     const updateData: Record<string, unknown> = {}
 
-    // Only include fields that are provided
-    if (methodology !== undefined) updateData.methodology = methodology
+    // Required fields
+    if (sample_id !== undefined) {
+      if (!sample_id) {
+        return NextResponse.json({ error: 'sample_id is required' }, { status: 400 })
+      }
+      updateData.sample_id = sample_id
+    }
+
+    // Optional fields
+    if (sample_test_id !== undefined) updateData.sample_test_id = sample_test_id || null
+    if (report_id !== undefined) updateData.report_id = report_id || null
+    if (test_area !== undefined) updateData.test_area = test_area || null
+    if (methodology !== undefined) updateData.methodology = methodology || null
     if (findings !== undefined) updateData.findings = findings
-    if (conclusion !== undefined) updateData.conclusion = conclusion
-    if (diagnosis !== undefined) updateData.diagnosis = diagnosis
-    if (pathogen_identified !== undefined) updateData.pathogen_identified = pathogen_identified
-    if (pathogen_type !== undefined) updateData.pathogen_type = pathogen_type
-    if (severity !== undefined) updateData.severity = severity
-    if (confidence !== undefined) updateData.confidence = confidence
-    if (result_type !== undefined) updateData.result_type = result_type
-    if (recommendations !== undefined) updateData.recommendations = recommendations
+    if (conclusion !== undefined) updateData.conclusion = conclusion || null
+    if (diagnosis !== undefined) updateData.diagnosis = diagnosis || null
+    if (pathogen_identified !== undefined) updateData.pathogen_identified = pathogen_identified || null
+    if (pathogen_type !== undefined) updateData.pathogen_type = pathogen_type || null
+    if (severity !== undefined) updateData.severity = severity || null
+    if (confidence !== undefined) updateData.confidence = confidence || null
+    if (result_type !== undefined) updateData.result_type = result_type || null
+    if (recommendations !== undefined) updateData.recommendations = recommendations || null
+    if (performed_by !== undefined) updateData.performed_by = performed_by || null
+    if (performed_at !== undefined) updateData.performed_at = performed_at || null
     
     // Handle status and validation
     if (status !== undefined) {
       updateData.status = status
-      if (status === 'validated' && !currentResult.validated_by) {
+      // If status is validated and validated_by is not set, use current user
+      if (status === 'validated' && !currentResult.validated_by && validated_by === undefined) {
         updateData.validated_by = user.id
         updateData.validation_date = new Date().toISOString()
       }
     }
 
+    // Handle validation fields
     if (validated_by !== undefined) {
-      updateData.validated_by = validated_by
-      updateData.validation_date = validated_by ? new Date().toISOString() : null
+      updateData.validated_by = validated_by || null
+      // If validated_by is set and validation_date is not provided, set current date
+      if (validated_by && validation_date === undefined) {
+        updateData.validation_date = new Date().toISOString()
+      }
+    }
+    if (validation_date !== undefined) {
+      updateData.validation_date = validation_date || null
     }
 
+    // Always update updated_at
     updateData.updated_at = new Date().toISOString()
 
     const { data, error } = await supabase

@@ -5,7 +5,6 @@ import { useAuth } from '@/hooks/useAuth'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import ViewResultModal from '@/components/results/ViewResultModal'
 import AddResultModal from '@/components/results/AddResultModal'
-import EditResultModal from '@/components/results/EditResultModal'
 import { ResultWithRelations } from '@/types/database'
 import { formatDate } from '@/lib/utils/formatters'
 import { getResultStatusBadge, getResultTypeBadge, getSeverityBadge } from '@/lib/utils/badges'
@@ -28,8 +27,8 @@ export default function ResultsPage() {
   const [testAreaFilter, setTestAreaFilter] = useState<string>('all')
   const [selectedResultId, setSelectedResultId] = useState<string | null>(null)
   const [showViewModal, setShowViewModal] = useState(false)
-  const [showEditModal, setShowEditModal] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [editingResultId, setEditingResultId] = useState<string | null>(null)
 
   const fetchResults = useCallback(async () => {
     try {
@@ -261,8 +260,8 @@ export default function ResultsPage() {
                           {canEditResults && (
                             <button
                               onClick={() => {
-                                setSelectedResultId(result.id)
-                                setShowEditModal(true)
+                                setEditingResultId(result.id)
+                                setShowCreateModal(true)
                               }}
                               className="text-blue-600 hover:text-blue-900"
                               title="Editar"
@@ -293,25 +292,16 @@ export default function ResultsPage() {
 
       <AddResultModal
         isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
+        onClose={() => {
+          setShowCreateModal(false)
+          setEditingResultId(null)
+        }}
         onSuccess={() => {
           fetchResults()
           setShowCreateModal(false)
+          setEditingResultId(null)
         }}
-      />
-
-      <EditResultModal
-        isOpen={showEditModal}
-        onClose={() => {
-          setShowEditModal(false)
-          setSelectedResultId(null)
-        }}
-        onSuccess={() => {
-          fetchResults()
-          setShowEditModal(false)
-          setSelectedResultId(null)
-        }}
-        resultId={selectedResultId}
+        resultId={editingResultId}
       />
     </DashboardLayout>
   )

@@ -16,21 +16,25 @@ interface CreateSampleModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
+  sampleId?: string | null // Para modo edición
 }
 
-export default function CreateSampleModal({ isOpen, onClose, onSuccess }: CreateSampleModalProps) {
+export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId }: CreateSampleModalProps) {
   const { user } = useAuth()
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<Array<{id: string, name: string}>>([])
   const [isLoadingProjects, setIsLoadingProjects] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoadingSample, setIsLoadingSample] = useState(false)
   const [availableAnalytes, setAvailableAnalytes] = useState<Array<{id: string, scientific_name: string}>>([])
+  const [validationError, setValidationError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     client_id: '',
     code: '',
     received_date: new Date().toISOString().split('T')[0],
     sla_type: 'normal',
     project: '',
+    project_id: '',
     species: '',
     variety: '',
     rootstock: '',
@@ -43,6 +47,13 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
     taken_by: 'client',
     delivery_method: '',
     suspected_pathogen: '',
+    region: '',
+    locality: '',
+    sampling_observations: '',
+    reception_observations: '',
+    due_date: '',
+    sla_status: 'on_time',
+    status: 'received',
     analysis_types: [] as string[]
   })
   
@@ -137,14 +148,116 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
     }
   }, [supabase])
 
+  // Load sample data when in edit mode
+  const loadSampleData = useCallback(async () => {
+    if (!sampleId) return
+
+    try {
+      setIsLoadingSample(true)
+      setValidationError(null)
+      
+      // Fetch sample data
+      const response = await fetch(`/api/samples/${sampleId}`)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to fetch sample')
+      }
+      
+      const sample = await response.json()
+      console.log('Loaded sample data:', sample)
+      
+      // Ensure projects are loaded before setting project_id
+      await fetchProjects()
+      
+      // Populate form data with all fields from the sample
+      setFormData(prev => ({
+        ...prev,
+        client_id: sample.client_id || '',
+        code: sample.code || '',
+        received_date: sample.received_date ? sample.received_date.split('T')[0] : new Date().toISOString().split('T')[0],
+        sla_type: sample.sla_type || 'normal',
+        project: sample.project_id || '',
+        project_id: sample.project_id || '',
+        species: sample.species || '',
+        variety: sample.variety || '',
+        rootstock: sample.rootstock || '',
+        planting_year: sample.planting_year?.toString() || '',
+        previous_crop: sample.previous_crop || '',
+        next_crop: sample.next_crop || '',
+        fallow: sample.fallow || false,
+        client_notes: sample.client_notes || '',
+        reception_notes: sample.reception_notes || '',
+        taken_by: sample.taken_by || 'client',
+        delivery_method: sample.delivery_method || '',
+        suspected_pathogen: sample.suspected_pathogen || '',
+        region: sample.region || '',
+        locality: sample.locality || '',
+        sampling_observations: sample.sampling_observations || '',
+        reception_observations: sample.reception_observations || '',
+        due_date: sample.due_date ? sample.due_date.split('T')[0] : '',
+        sla_status: sample.sla_status || 'on_time',
+        status: sample.status || 'received',
+        analysis_types: [] // Analysis types are not editable in edit mode
+      }))
+    } catch (error) {
+      console.error('Error loading sample data:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+      setValidationError(`Error al cargar los datos de la muestra: ${errorMessage}`)
+    } finally {
+      setIsLoadingSample(false)
+    }
+  }, [sampleId, fetchProjects])
+
   useEffect(() => {
     if (isOpen) {
+      // Always fetch dropdowns data first
       fetchClients()
       fetchProjects()
-      generateSampleCode()
       loadAnalytes()
+      
+      if (sampleId) {
+        // Load sample data for editing - this will populate all fields
+        loadSampleData()
+      } else {
+        // Generate code for new sample
+        generateSampleCode()
+        // Reset form for new sample
+        setFormData({
+          client_id: '',
+          code: '',
+          received_date: new Date().toISOString().split('T')[0],
+          sla_type: 'normal',
+          project: '',
+          project_id: '',
+          species: '',
+          variety: '',
+          rootstock: '',
+          planting_year: '',
+          previous_crop: '',
+          next_crop: '',
+          fallow: false,
+          client_notes: '',
+          reception_notes: '',
+          taken_by: 'client',
+          delivery_method: '',
+          suspected_pathogen: '',
+          region: '',
+          locality: '',
+          sampling_observations: '',
+          reception_observations: '',
+          due_date: '',
+          sla_status: 'on_time',
+          status: 'received',
+          analysis_types: []
+        })
+        setValidationError(null)
+      }
+    } else {
+      // Reset when modal closes
+      setValidationError(null)
+      setIsLoadingSample(false)
     }
-  }, [isOpen, fetchClients, fetchProjects, generateSampleCode, loadAnalytes])
+  }, [isOpen, fetchClients, fetchProjects, generateSampleCode, loadAnalytes, sampleId, loadSampleData])
 
   const handleAnalysisTypeChange = (type: string, checked: boolean) => {
     setFormData(prev => ({
@@ -157,77 +270,119 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setValidationError(null)
     setIsSubmitting(true)
 
     try {
-      if (formData.analysis_types.length === 0) {
-        alert('Debe seleccionar al menos un tipo de análisis')
+      // Validation for new samples
+      if (!sampleId && formData.analysis_types.length === 0) {
+        setValidationError('Debe seleccionar al menos un tipo de análisis')
+        setIsSubmitting(false)
         return
       }
 
+      const requestBody: any = {
+        client_id: formData.client_id,
+        code: formData.code.trim(),
+        received_date: formData.received_date,
+        sla_type: formData.sla_type,
+        project_id: formData.project_id || formData.project || null,
+        species: formData.species.trim(),
+        variety: formData.variety.trim() || null,
+        rootstock: formData.rootstock.trim() || null,
+        planting_year: formData.planting_year ? parseInt(formData.planting_year) : null,
+        previous_crop: formData.previous_crop || null,
+        next_crop: formData.next_crop || null,
+        fallow: formData.fallow,
+        client_notes: formData.client_notes.trim() || null,
+        reception_notes: formData.reception_notes.trim() || null,
+        taken_by: formData.taken_by,
+        delivery_method: formData.delivery_method.trim() || null,
+        suspected_pathogen: formData.suspected_pathogen.trim() || null,
+        region: formData.region.trim() || null,
+        locality: formData.locality.trim() || null,
+        sampling_observations: formData.sampling_observations.trim() || null,
+        reception_observations: formData.reception_observations.trim() || null,
+      }
 
-      const response = await fetch('/api/samples', {
-        method: 'POST',
+      // Add fields only for edit mode
+      if (sampleId) {
+        requestBody.due_date = formData.due_date || null
+        requestBody.sla_status = formData.sla_status
+        requestBody.status = formData.status
+      } else {
+        // Add analysis_types only for new samples
+        requestBody.analysis_selections = {
+          analysis_types: formData.analysis_types
+        }
+      }
+
+      const url = sampleId ? `/api/samples/${sampleId}` : '/api/samples'
+      const method = sampleId ? 'PATCH' : 'POST'
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          client_id: formData.client_id,
-          code: formData.code,
-          received_date: formData.received_date,
-          sla_type: formData.sla_type,
-          project_id: formData.project || null,
-          species: formData.species,
-          variety: formData.variety || null,
-          rootstock: formData.rootstock || null,
-          planting_year: formData.planting_year ? parseInt(formData.planting_year) : null,
-          previous_crop: formData.previous_crop || null,
-          next_crop: formData.next_crop || null,
-          fallow: formData.fallow,
-          client_notes: formData.client_notes || null,
-          reception_notes: formData.reception_notes || null,
-          taken_by: formData.taken_by,
-          delivery_method: formData.delivery_method || null,
-          suspected_pathogen: formData.suspected_pathogen || null,
-          analysis_selections: {
-            analysis_types: formData.analysis_types
-          },
-        })
+        body: JSON.stringify(requestBody)
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to create sample')
+        const errorMessage = errorData.error || (sampleId ? 'Failed to update sample' : 'Failed to create sample')
+        
+        // Parse common database errors
+        if (errorMessage.includes('NOT NULL')) {
+          setValidationError('Uno o más campos obligatorios están vacíos')
+        } else if (errorMessage.includes('FOREIGN KEY')) {
+          setValidationError('Uno de los valores seleccionados no existe en la base de datos')
+        } else if (errorMessage.includes('CHECK')) {
+          setValidationError('Uno de los valores seleccionados no es válido según las restricciones')
+        } else {
+          setValidationError(errorMessage)
+        }
+        setIsSubmitting(false)
+        return
       }
 
       onSuccess()
       onClose()
       
-      // Reset form
-      setFormData({
-        client_id: '',
-        code: '',
-        received_date: new Date().toISOString().split('T')[0],
-        sla_type: 'normal',
-        project: '',
-        species: '',
-        variety: '',
-        rootstock: '',
-        planting_year: '',
-        previous_crop: '',
-        next_crop: '',
-        fallow: false,
-        client_notes: '',
-        reception_notes: '',
-        taken_by: 'client',
-        delivery_method: '',
-        suspected_pathogen: '',
-        analysis_types: []
-      })
+      // Reset form only if creating new sample
+      if (!sampleId) {
+        setFormData({
+          client_id: '',
+          code: '',
+          received_date: new Date().toISOString().split('T')[0],
+          sla_type: 'normal',
+          project: '',
+          project_id: '',
+          species: '',
+          variety: '',
+          rootstock: '',
+          planting_year: '',
+          previous_crop: '',
+          next_crop: '',
+          fallow: false,
+          client_notes: '',
+          reception_notes: '',
+          taken_by: 'client',
+          delivery_method: '',
+          suspected_pathogen: '',
+          region: '',
+          locality: '',
+          sampling_observations: '',
+          reception_observations: '',
+          due_date: '',
+          sla_status: 'on_time',
+          status: 'received',
+          analysis_types: []
+        })
+      }
     } catch (error: unknown) {
-      console.error('Error creating sample:', error)
-      alert('Error al crear la muestra: ' + (error instanceof Error ? error.message : 'Error desconocido'))
-    } finally {
+      console.error(`Error ${sampleId ? 'updating' : 'creating'} sample:`, error)
+      setValidationError(`Error al ${sampleId ? 'actualizar' : 'crear'} la muestra: ` + (error instanceof Error ? error.message : 'Error desconocido'))
       setIsSubmitting(false)
     }
   }
@@ -274,22 +429,36 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
                   </div>
                   <div className="ml-4">
                     <h3 className="text-lg leading-6 font-medium text-gray-900">
-                      Nueva Muestra
+                      {sampleId ? 'Editar Muestra' : 'Nueva Muestra'}
                     </h3>
                     <p className="text-sm text-gray-500">
-                      Registra una nueva muestra para análisis
+                      {sampleId ? 'Modifica la información de la muestra' : 'Registra una nueva muestra para análisis'}
                     </p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-md text-gray-400 hover:text-gray-600"
+                  disabled={isSubmitting || isLoadingSample}
+                  className="rounded-md text-gray-400 hover:text-gray-600 disabled:opacity-50"
                 >
                   <X className="h-6 w-6" />
                 </button>
               </div>
 
+              {/* Validation Error Display */}
+              {validationError && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-800">{validationError}</p>
+                </div>
+              )}
+
+              {isLoadingSample ? (
+                <div className="flex justify-center items-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+                  <span className="ml-2 text-gray-600">Cargando datos de la muestra...</span>
+                </div>
+              ) : (
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {/* Basic Info */}
                 <div className="sm:col-span-2 lg:col-span-3">
@@ -324,9 +493,33 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
                     required
                     value={formData.code}
                     onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    disabled={!!sampleId || isLoadingSample}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
                   />
                 </div>
+
+                {/* Status - Only in edit mode */}
+                {sampleId && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Estado
+                    </label>
+                    <select
+                      value={formData.status || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value="received">Recibida</option>
+                      <option value="processing">Procesando</option>
+                      <option value="microscopy">Microscopía</option>
+                      <option value="isolation">Aislamiento</option>
+                      <option value="identification">Identificación</option>
+                      <option value="molecular_analysis">Análisis Molecular</option>
+                      <option value="validation">Validación</option>
+                      <option value="completed">Completada</option>
+                    </select>
+                  </div>
+                )}
 
                 {/* Received Date */}
                 <div>
@@ -342,10 +535,25 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
                   />
                 </div>
 
+                {/* Due Date - Only in edit mode */}
+                {sampleId && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Fecha de vencimiento
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.due_date}
+                      onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                  </div>
+                )}
+
                 {/* SLA Type */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Prioridad
+                    Prioridad (SLA)
                   </label>
                   <select
                     value={formData.sla_type}
@@ -357,14 +565,32 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
                   </select>
                 </div>
 
+                {/* SLA Status - Only in edit mode */}
+                {sampleId && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Estado SLA
+                    </label>
+                    <select
+                      value={formData.sla_status || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, sla_status: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value="on_time">A Tiempo</option>
+                      <option value="at_risk">En Riesgo</option>
+                      <option value="breached">Incumplido</option>
+                    </select>
+                  </div>
+                )}
+
                 {/* Project */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Proyecto
                   </label>
                   <select
-                    value={formData.project}
-                    onChange={(e) => setFormData(prev => ({ ...prev, project: e.target.value }))}
+                    value={formData.project_id || formData.project}
+                    onChange={(e) => setFormData(prev => ({ ...prev, project: e.target.value, project_id: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     disabled={isLoadingProjects}
                   >
@@ -503,6 +729,43 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
                   </label>
                 </div>
 
+                {/* Location Section - Only in edit mode */}
+                {sampleId && (
+                  <>
+                    <div className="sm:col-span-2 lg:col-span-3">
+                      <h4 className="text-md font-medium text-gray-900 mb-4 mt-6">Ubicación</h4>
+                    </div>
+
+                    {/* Region */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Región
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.region}
+                        onChange={(e) => setFormData(prev => ({ ...prev, region: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="Ej: Región Metropolitana"
+                      />
+                    </div>
+
+                    {/* Locality */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Localidad
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.locality}
+                        onChange={(e) => setFormData(prev => ({ ...prev, locality: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="Ej: Maipú, Santiago"
+                      />
+                    </div>
+                  </>
+                )}
+
                 {/* Delivery Info Section */}
                 <div className="sm:col-span-2 lg:col-span-3">
                   <h4 className="text-md font-medium text-gray-900 mb-4 mt-6">Información de entrega</h4>
@@ -561,25 +824,27 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
                   </select>
                 </div>
 
-                {/* Analysis Types */}
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Tipo de análisis *
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-                    {analysisOptions.types.map(type => (
-                      <label key={type} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={formData.analysis_types.includes(type)}
-                          onChange={(e) => handleAnalysisTypeChange(type, e.target.checked)}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className="ml-2 text-sm text-gray-700">{type}</span>
-                      </label>
-                    ))}
+                {/* Analysis Types - Only in create mode */}
+                {!sampleId && (
+                  <div className="sm:col-span-2 lg:col-span-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Tipo de análisis *
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+                      {analysisOptions.types.map(type => (
+                        <label key={type} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={formData.analysis_types.includes(type)}
+                            onChange={(e) => handleAnalysisTypeChange(type, e.target.checked)}
+                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span className="ml-2 text-sm text-gray-700">{type}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
 
                 {/* Notes Section */}
@@ -614,7 +879,40 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
                     placeholder="Observaciones del laboratorio al recibir la muestra..."
                   />
                 </div>
+
+                {/* Sampling Observations - Only in edit mode */}
+                {sampleId && (
+                  <div className="sm:col-span-2 lg:col-span-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Observaciones de muestreo
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={formData.sampling_observations}
+                      onChange={(e) => setFormData(prev => ({ ...prev, sampling_observations: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      placeholder="Observaciones sobre el proceso de muestreo..."
+                    />
+                  </div>
+                )}
+
+                {/* Reception Observations - Only in edit mode */}
+                {sampleId && (
+                  <div className="sm:col-span-2 lg:col-span-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Observaciones de recepción
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={formData.reception_observations}
+                      onChange={(e) => setFormData(prev => ({ ...prev, reception_observations: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      placeholder="Observaciones adicionales al recibir la muestra..."
+                    />
+                  </div>
+                )}
               </div>
+              )}
             </div>
 
             <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
@@ -624,9 +922,12 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
                 className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
               >
                 {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    {sampleId ? 'Guardando...' : 'Creando...'}
+                  </>
                 ) : (
-                  'Crear muestra'
+                  sampleId ? 'Guardar cambios' : 'Crear muestra'
                 )}
               </button>
               <button

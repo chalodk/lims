@@ -5,8 +5,9 @@ import { useAuth } from '@/hooks/useAuth'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import CreateSampleModal from '@/components/samples/CreateSampleModal'
+import CreateClientModal from '@/components/clients/CreateClientModal'
+import CreateProjectModal from '@/components/projects/CreateProjectModal'
 import ViewSampleModal from '@/components/samples/ViewSampleModal'
-import EditSampleModal from '@/components/samples/EditSampleModal'
 import DeleteConfirmModal from '@/components/samples/DeleteConfirmModal'
 import { SampleWithClient } from '@/types/database'
 import { formatDate } from '@/lib/utils/formatters'
@@ -31,8 +32,10 @@ export default function SamplesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showCreateClientModal, setShowCreateClientModal] = useState(false)
+  const [showCreateProjectModal, setShowCreateProjectModal] = useState(false)
   const [selectedSample, setSelectedSample] = useState<SampleWithClient | null>(null)
-  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingSampleId, setEditingSampleId] = useState<string | null>(null)
   const [showViewModal, setShowViewModal] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   
@@ -120,8 +123,8 @@ export default function SamplesPage() {
   }
 
   const handleEditSample = (sample: SampleWithClient) => {
-    setSelectedSample(sample)
-    setShowEditModal(true)
+    setEditingSampleId(sample.id)
+    setShowCreateModal(true)
   }
 
   const handleDeleteSample = (sample: SampleWithClient) => {
@@ -190,13 +193,29 @@ export default function SamplesPage() {
               <h1 className="text-2xl font-bold text-gray-900">Gestión de Muestras</h1>
               <p className="text-gray-600">Administra y realiza seguimiento de todas las muestras</p>
             </div>
-            <button 
-              onClick={() => setShowCreateModal(true)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Nueva muestra</span>
-            </button>
+            <div className="flex items-center space-x-3">
+              <button 
+                onClick={() => setShowCreateClientModal(true)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Crear Cliente</span>
+              </button>
+              <button 
+                onClick={() => setShowCreateProjectModal(true)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Crear Proyecto</span>
+              </button>
+              <button 
+                onClick={() => setShowCreateModal(true)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Nueva muestra</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -363,11 +382,41 @@ export default function SamplesPage() {
           )}
         </div>
 
-        {/* Create Sample Modal */}
+        {/* Create Client Modal */}
+        <CreateClientModal
+          isOpen={showCreateClientModal}
+          onClose={() => setShowCreateClientModal(false)}
+          onSuccess={() => {
+            // Refresh samples to potentially update client information
+            // The CreateSampleModal will refresh clients list internally
+            fetchSamples()
+          }}
+        />
+
+        {/* Create Project Modal */}
+        <CreateProjectModal
+          isOpen={showCreateProjectModal}
+          onClose={() => setShowCreateProjectModal(false)}
+          onSuccess={() => {
+            // Refresh samples list
+            fetchSamples()
+            // Projects will be reloaded when CreateSampleModal opens
+          }}
+        />
+
+        {/* Create/Edit Sample Modal */}
         <CreateSampleModal 
           isOpen={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={fetchSamples}
+          onClose={() => {
+            setShowCreateModal(false)
+            setEditingSampleId(null)
+          }}
+          onSuccess={() => {
+            fetchSamples()
+            setShowCreateModal(false)
+            setEditingSampleId(null)
+          }}
+          sampleId={editingSampleId}
         />
 
         {/* View Sample Modal */}
@@ -382,18 +431,6 @@ export default function SamplesPage() {
           />
         )}
 
-        {/* Edit Sample Modal */}
-        {selectedSample && (
-          <EditSampleModal
-            isOpen={showEditModal}
-            onClose={() => {
-              setShowEditModal(false)
-              setSelectedSample(null)
-            }}
-            sample={selectedSample}
-            onSuccess={fetchSamples}
-          />
-        )}
 
         {/* Delete Confirmation Modal */}
         {selectedSample && (

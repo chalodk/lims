@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
 import DashboardLayout from '@/components/layout/DashboardLayout'
+import CreateClientModal from '@/components/clients/CreateClientModal'
+import EditClientModal from '@/components/clients/EditClientModal'
+import DeleteClientConfirmModal from '@/components/clients/DeleteClientConfirmModal'
 import { Client } from '@/types/database'
 import { 
   Plus,
@@ -23,15 +26,10 @@ export default function ClientsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [formData, setFormData] = useState({
-    name: '',
-    rut: '',
-    contact_email: '',
-    phone: '',
-    address: '',
-    client_type: 'farmer'
-  })
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   
   const supabase = getSupabaseClient()
 
@@ -90,44 +88,79 @@ export default function ClientsPage() {
     return colors[type as keyof typeof colors] || 'bg-gray-100 text-gray-800'
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
+  const handleEditClient = (client: Client) => {
+    setSelectedClient(client)
+    setShowEditModal(true)
+  }
+
+  const handleDeleteClient = (client: Client) => {
+    setSelectedClient(client)
+    setShowDeleteConfirm(true)
+  }
+
+  const confirmDeleteClient = async () => {
+    if (!selectedClient) return
+
+    setIsDeleting(true)
 
     try {
-      const { error } = await supabase
+      // First, check if there are related records (samples) to inform the user
+      // This is informational only - we'll still allow deletion
+      const { data: relatedSamples, error: checkError } = await supabase
+        .from('samples')
+        .select('id')
+        .eq('client_id', selectedClient.id)
+        .limit(1)
+
+      if (checkError && !checkError.message.includes('does not exist')) {
+        console.warn('Error checking related samples:', checkError)
+      }
+
+      // Delete the client
+      // Note: Supabase will enforce foreign key constraints if ON DELETE RESTRICT is set
+      // If the constraint allows, the deletion will proceed
+      // Historical records will maintain the client_id reference
+      const { error: deleteError } = await supabase
         .from('clients')
-        .insert([
-          {
-            ...formData,
-            company_id: user?.company_id,
-            rut: formData.rut || null,
-            contact_email: formData.contact_email || null,
-            phone: formData.phone || null,
-            address: formData.address || null,
-          }
-        ])
+        .delete()
+        .eq('id', selectedClient.id)
+        .eq('company_id', user?.company_id) // Additional security: ensure user can only delete their company's clients
 
-      if (error) throw error
+      if (deleteError) {
+        // Handle foreign key constraint violations
+        if (deleteError.message.includes('foreign key') || 
+            deleteError.message.includes('violates foreign key constraint') ||
+            deleteError.code === '23503') {
+          alert(
+            `No se puede eliminar el cliente "${selectedClient.name}" porque tiene registros asociados ` +
+            `(muestras u otros datos). Para mantener la integridad de los datos históricos, ` +
+            `los clientes con registros asociados no pueden ser eliminados.`
+          )
+          return
+        }
+        throw deleteError
+      }
 
-      // Reset form and close modal
-      setFormData({
-        name: '',
-        rut: '',
-        contact_email: '',
-        phone: '',
-        address: '',
-        client_type: 'farmer'
-      })
-      setShowAddModal(false)
+      // Success
+      setShowDeleteConfirm(false)
+      setSelectedClient(null)
       
       // Refresh clients list
       await fetchClients()
+
+      // Inform user if there were related records (these are preserved)
+      if (relatedSamples && relatedSamples.length > 0) {
+        alert(
+          `Cliente eliminado exitosamente. ` +
+          `Los registros históricos (muestras) mantienen la referencia al cliente eliminado.`
+        )
+      }
     } catch (error: unknown) {
-      console.error('Error creating client:', error)
-      alert('Error al crear el cliente: ' + (error instanceof Error ? error.message : 'Error desconocido'))
+      console.error('Error deleting client:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+      alert('Error al eliminar el cliente: ' + errorMessage)
     } finally {
-      setIsSubmitting(false)
+      setIsDeleting(false)
     }
   }
 
@@ -206,10 +239,24 @@ export default function ClientsPage() {
                     </span>
                   </div>
                   <div className="flex space-x-1">
-                    <button className="p-1 text-gray-400 hover:text-green-600 transition-colors">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleEditClient(client)
+                      }}
+                      className="p-1 text-gray-400 hover:text-green-600 transition-colors"
+                      title="Editar cliente"
+                    >
                       <Edit className="h-4 w-4" />
                     </button>
-                    <button className="p-1 text-gray-400 hover:text-red-600 transition-colors">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeleteClient(client)
+                      }}
+                      className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      title="Eliminar cliente"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
@@ -252,153 +299,40 @@ export default function ClientsPage() {
         )}
 
         {/* Add Client Modal */}
-        {showAddModal && (
-          <div className="fixed inset-0 z-50 overflow-y-auto">
-            <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-              <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowAddModal(false)} />
-              
-              <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-                <form onSubmit={handleSubmit}>
-                  <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                    <div className="sm:flex sm:items-start mb-4">
-                                <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100 sm:mx-0 sm:h-10 sm:w-10">
-            <Users className="h-6 w-6 text-green-600" />
-                      </div>
-                      <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                        <h3 className="text-lg leading-6 font-medium text-gray-900">
-                          Nuevo Cliente
-                        </h3>
-                        <div className="mt-2">
-                          <p className="text-sm text-gray-500">
-                            Agrega un nuevo cliente al sistema
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+        <CreateClientModal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          onSuccess={fetchClients}
+        />
 
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      {/* Name */}
-                      <div className="sm:col-span-2">
-                        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                          Nombre *
-                        </label>
-                        <input
-                          type="text"
-                          id="name"
-                          required
-                          value={formData.name}
-                          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                          placeholder="Nombre del cliente"
-                        />
-                      </div>
+        {/* Edit Client Modal */}
+        <EditClientModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false)
+            setSelectedClient(null)
+          }}
+          onSuccess={() => {
+            fetchClients()
+            setShowEditModal(false)
+            setSelectedClient(null)
+          }}
+          client={selectedClient}
+        />
 
-                      {/* RUT */}
-                      <div>
-                        <label htmlFor="rut" className="block text-sm font-medium text-gray-700 mb-1">
-                          RUT
-                        </label>
-                        <input
-                          type="text"
-                          id="rut"
-                          value={formData.rut}
-                          onChange={(e) => setFormData(prev => ({ ...prev, rut: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                          placeholder="12.345.678-9"
-                        />
-                      </div>
-
-                      {/* Client Type */}
-                      <div>
-                        <label htmlFor="client_type" className="block text-sm font-medium text-gray-700 mb-1">
-                          Tipo de cliente
-                        </label>
-                        <select
-                          id="client_type"
-                          value={formData.client_type}
-                          onChange={(e) => setFormData(prev => ({ ...prev, client_type: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                        >
-                          <option value="farmer">Agricultor</option>
-                          <option value="agricultural_company">Empresa Agrícola</option>
-                          <option value="research_institution">Institución de Investigación</option>
-                          <option value="government_agency">Agencia Gubernamental</option>
-                          <option value="consultant">Consultor</option>
-                        </select>
-                      </div>
-
-                      {/* Email */}
-                      <div>
-                        <label htmlFor="contact_email" className="block text-sm font-medium text-gray-700 mb-1">
-                          Email de contacto
-                        </label>
-                        <input
-                          type="email"
-                          id="contact_email"
-                          value={formData.contact_email}
-                          onChange={(e) => setFormData(prev => ({ ...prev, contact_email: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                          placeholder="cliente@ejemplo.com"
-                        />
-                      </div>
-
-                      {/* Phone */}
-                      <div>
-                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                          Teléfono
-                        </label>
-                        <input
-                          type="tel"
-                          id="phone"
-                          value={formData.phone}
-                          onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                          placeholder="+56 9 1234 5678"
-                        />
-                      </div>
-
-                      {/* Address */}
-                      <div className="sm:col-span-2">
-                        <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                          Dirección
-                        </label>
-                        <textarea
-                          id="address"
-                          rows={2}
-                          value={formData.address}
-                          onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                          placeholder="Dirección completa del cliente"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
-                    >
-                      {isSubmitting ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        'Crear cliente'
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddModal(false)}
-                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Delete Client Confirmation Modal */}
+        <DeleteClientConfirmModal
+          isOpen={showDeleteConfirm}
+          onClose={() => {
+            if (!isDeleting) {
+              setShowDeleteConfirm(false)
+              setSelectedClient(null)
+            }
+          }}
+          onConfirm={confirmDeleteClient}
+          clientName={selectedClient?.name || ''}
+          isDeleting={isDeleting}
+        />
       </div>
     </DashboardLayout>
   )
