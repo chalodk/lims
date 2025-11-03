@@ -1,8 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAuth } from '@/hooks/useAuth'
-import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { 
   FlaskConical, 
@@ -62,7 +60,6 @@ interface RecentSample {
 }
 
 export default function DashboardPage() {
-  const router = useRouter()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [recentSamples, setRecentSamples] = useState<RecentSample[]>([])
   const [isLoadingStats, setIsLoadingStats] = useState(true)

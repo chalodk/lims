@@ -302,7 +302,7 @@ export default function AddResultModal({
         confidence: result.confidence || '',
         result_type: result.result_type || '',
         recommendations: result.recommendations || '',
-        report_id: (result as any).report_id || '',
+        report_id: (result as { report_id?: string | null }).report_id || '',
         performed_by: result.performed_by || '',
         performed_at: result.performed_at ? new Date(result.performed_at).toISOString().slice(0, 16) : '',
         validated_by: result.validated_by || '',
@@ -437,6 +437,7 @@ export default function AddResultModal({
         setFormData({
           sample_id: preselectedSampleId || '',
           sample_test_id: '',
+          report_id: '',
           methodology: '',
           methodologies: [],
           identification_techniques: [],
@@ -448,7 +449,12 @@ export default function AddResultModal({
           severity: '',
           confidence: '',
           result_type: '',
-          recommendations: ''
+          recommendations: '',
+          performed_by: '',
+          performed_at: '',
+          validated_by: '',
+          validation_date: '',
+          status: 'pending'
         })
         setSelectedAnalysisArea('')
         setNematologyData({
@@ -2827,7 +2833,7 @@ export default function AddResultModal({
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || (resultId && isValidated)}
+                disabled={isSubmitting || !!(resultId && isValidated)}
                 className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (

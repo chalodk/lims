@@ -10,8 +10,7 @@ import {
   TestTube,
   Calendar,
   Clock,
-  CheckCircle,
-  AlertCircle
+  CheckCircle
 } from 'lucide-react'
 
 export default function EstadisticasPage() {

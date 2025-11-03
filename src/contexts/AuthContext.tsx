@@ -42,19 +42,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return !!(url && key && url !== 'undefined' && key !== 'undefined')
   }
 
-  // Create fallback user from auth user
-  const createFallbackUser = (authUser: AuthUser): User => ({
-    id: authUser.id,
-    email: authUser.email || '',
-    name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Usuario',
-    company_id: null,
-    client_id: null,
-    specialization: null,
-    avatar: null,
-    created_at: authUser.created_at || new Date().toISOString(),
-    updated_at: authUser.updated_at || new Date().toISOString(),
-    role_id: null
-  })
 
   const updateAuthState = useCallback(async (session: Session | null) => {
     console.log('🔍 updateAuthState called with session:', !!session)

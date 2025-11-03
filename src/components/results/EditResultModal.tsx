@@ -8,11 +8,8 @@ import {
   FlaskConical,
   X,
   Loader2,
-  TestTube,
   AlertCircle,
-  CheckCircle,
-  User,
-  Calendar
+  CheckCircle
 } from 'lucide-react'
 
 interface EditResultModalProps {
@@ -114,7 +111,26 @@ export default function EditResultModal({
         .order('code', { ascending: true })
 
       if (error) throw error
-      setSamples((data || []) as Sample[])
+      
+      // Transform data to match Sample interface
+      // Supabase returns clients as an array, but we need it as a single object
+      type SupabaseSampleResponse = {
+        id: string
+        code: string
+        species: string | null
+        clients: Array<{ id: string; name: string }> | null
+      }
+      
+      const transformedData: Sample[] = (data || []).map((sample: SupabaseSampleResponse) => ({
+        id: sample.id,
+        code: sample.code,
+        species: sample.species,
+        clients: Array.isArray(sample.clients) && sample.clients.length > 0
+          ? { id: sample.clients[0].id, name: sample.clients[0].name }
+          : null
+      }))
+      
+      setSamples(transformedData)
     } catch (error) {
       console.error('Error fetching samples:', error)
     }
@@ -136,7 +152,26 @@ export default function EditResultModal({
         .eq('sample_id', sampleId)
 
       if (error) throw error
-      setSampleTests((data || []) as SampleTest[])
+      
+      // Transform data to match SampleTest interface
+      // Supabase returns test_catalog as an array, but we need it as a single object
+      type SupabaseSampleTestResponse = {
+        id: string
+        test_catalog: Array<{ id: number; name: string; area: string | null }> | null
+      }
+      
+      const transformedData: SampleTest[] = (data || []).map((test: SupabaseSampleTestResponse) => ({
+        id: test.id,
+        test_catalog: Array.isArray(test.test_catalog) && test.test_catalog.length > 0
+          ? {
+              id: test.test_catalog[0].id,
+              name: test.test_catalog[0].name,
+              area: test.test_catalog[0].area
+            }
+          : null
+      }))
+      
+      setSampleTests(transformedData)
     } catch (error) {
       console.error('Error fetching sample tests:', error)
       setSampleTests([])
@@ -211,7 +246,7 @@ export default function EditResultModal({
       setFormData({
         sample_id: data.sample_id || '',
         sample_test_id: data.sample_test_id || '',
-        report_id: (data as any).report_id || '',
+        report_id: (data as { report_id?: string | null }).report_id || '',
         test_area: data.test_area || '',
         methodology: data.methodology || '',
         findings: data.findings ? JSON.stringify(data.findings, null, 2) : '',
@@ -462,361 +497,6 @@ export default function EditResultModal({
                       ))}
                     </select>
                   </div>
-
-                  {/* Sample Test ID */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Test de Muestra
-                    </label>
-                    <select
-                      value={formData.sample_test_id}
-                      onChange={(e) => setFormData(prev => ({ ...prev, sample_test_id: e.target.value }))}
-                      disabled={!formData.sample_id || loadingOptions}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                    >
-                      <option value="">Sin test específico</option>
-                      {sampleTests.map(test => (
-                        <option key={test.id} value={test.id}>
-                          {test.test_catalog?.name || 'Test'} {test.test_catalog?.area ? `(${test.test_catalog.area})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Report ID */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Informe
-                    </label>
-                    <select
-                      value={formData.report_id}
-                      onChange={(e) => setFormData(prev => ({ ...prev, report_id: e.target.value }))}
-                      disabled={loadingOptions}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                    >
-                      <option value="">Sin informe</option>
-                      {reports.map(report => (
-                        <option key={report.id} value={report.id}>
-                          {report.id_display || report.id.slice(0, 8)} {report.generated_at ? `(${new Date(report.generated_at).toLocaleDateString()})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Test Area */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Área de Análisis
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.test_area}
-                      onChange={(e) => setFormData(prev => ({ ...prev, test_area: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Ej: Nematología, Fitopatología"
-                    />
-                  </div>
-
-                  {/* Status - REQUIRED */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Estado *
-                    </label>
-                    <select
-                      required
-                      value={formData.status}
-                      onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="pending">Pendiente</option>
-                      <option value="completed">Completado</option>
-                      {canValidate && <option value="validated">Validado</option>}
-                    </select>
-                  </div>
-
-                  {/* Result Type */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Tipo de Resultado
-                    </label>
-                    <select
-                      value={formData.result_type}
-                      onChange={(e) => setFormData(prev => ({ ...prev, result_type: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Seleccionar tipo</option>
-                      <option value="positive">Positivo</option>
-                      <option value="negative">Negativo</option>
-                      <option value="inconclusive">No conclusivo</option>
-                    </select>
-                  </div>
-
-                  {/* Confidence */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Confianza
-                    </label>
-                    <select
-                      value={formData.confidence}
-                      onChange={(e) => setFormData(prev => ({ ...prev, confidence: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Seleccionar confianza</option>
-                      <option value="low">Baja</option>
-                      <option value="medium">Media</option>
-                      <option value="high">Alta</option>
-                    </select>
-                  </div>
-
-                  {/* Pathogen Identified */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Patógeno Identificado
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.pathogen_identified}
-                      onChange={(e) => setFormData(prev => ({ ...prev, pathogen_identified: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Nombre del patógeno"
-                    />
-                  </div>
-
-                  {/* Pathogen Type */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Tipo de Patógeno
-                    </label>
-                    <select
-                      value={formData.pathogen_type}
-                      onChange={(e) => setFormData(prev => ({ ...prev, pathogen_type: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Seleccionar tipo</option>
-                      <option value="fungus">Hongo</option>
-                      <option value="bacteria">Bacteria</option>
-                      <option value="virus">Virus</option>
-                      <option value="nematode">Nematodo</option>
-                      <option value="insect">Insecto</option>
-                      <option value="abiotic">Abiótico</option>
-                      <option value="unknown">Desconocido</option>
-                    </select>
-                  </div>
-
-                  {/* Severity */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Severidad
-                    </label>
-                    <select
-                      value={formData.severity}
-                      onChange={(e) => setFormData(prev => ({ ...prev, severity: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Seleccionar severidad</option>
-                      <option value="low">Baja</option>
-                      <option value="moderate">Moderada</option>
-                      <option value="high">Alta</option>
-                      <option value="severe">Severa</option>
-                    </select>
-                  </div>
-
-                  {/* Methodology */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Metodología
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.methodology}
-                      onChange={(e) => setFormData(prev => ({ ...prev, methodology: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Metodología utilizada"
-                    />
-                  </div>
-
-                  {/* Performed By */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Realizado Por
-                    </label>
-                    <select
-                      value={formData.performed_by}
-                      onChange={(e) => setFormData(prev => ({ ...prev, performed_by: e.target.value }))}
-                      disabled={loadingOptions}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                    >
-                      <option value="">Sin asignar</option>
-                      {users.map(userOpt => (
-                        <option key={userOpt.id} value={userOpt.id}>
-                          {userOpt.name} ({userOpt.email})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Performed At */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Fecha de Realización
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={formData.performed_at}
-                      onChange={(e) => setFormData(prev => ({ ...prev, performed_at: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-
-                  {/* Validated By */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Validado Por
-                    </label>
-                    <select
-                      value={formData.validated_by}
-                      onChange={(e) => setFormData(prev => ({ 
-                        ...prev, 
-                        validated_by: e.target.value,
-                        validation_date: e.target.value ? (formData.validation_date || new Date().toISOString().slice(0, 16)) : ''
-                      }))}
-                      disabled={loadingOptions || !canValidate}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                    >
-                      <option value="">Sin validar</option>
-                      {users.map(userOpt => (
-                        <option key={userOpt.id} value={userOpt.id}>
-                          {userOpt.name} ({userOpt.email})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Validation Date */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Fecha de Validación
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={formData.validation_date}
-                      onChange={(e) => setFormData(prev => ({ ...prev, validation_date: e.target.value }))}
-                      disabled={!formData.validated_by}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                    />
-                    {!formData.validated_by && (
-                      <p className="text-xs text-gray-500 mt-1">Asigne un validador primero</p>
-                    )}
-                  </div>
-
-                  {/* Text Areas */}
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Diagnóstico
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={formData.diagnosis}
-                      onChange={(e) => setFormData(prev => ({ ...prev, diagnosis: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Diagnóstico detallado del análisis..."
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Conclusión
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={formData.conclusion}
-                      onChange={(e) => setFormData(prev => ({ ...prev, conclusion: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Conclusiones del análisis..."
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Recomendaciones
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={formData.recommendations}
-                      onChange={(e) => setFormData(prev => ({ ...prev, recommendations: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Recomendaciones para el cliente..."
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Hallazgos Técnicos (JSON)
-                    </label>
-                    <textarea
-                      rows={6}
-                      value={formData.findings}
-                      onChange={(e) => setFormData(prev => ({ ...prev, findings: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                      placeholder='{"observaciones": "...", "mediciones": "...", "notas": "..."}'
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Formato JSON opcional para datos estructurados
-                    </p>
-                  </div>
-                </div>
-
-                {/* Validation Warning */}
-                {formData.status === 'validated' && (
-                  <div className="mt-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
-                    <div className="flex items-center">
-                      <AlertCircle className="h-5 w-5 text-amber-400 mr-3" />
-                      <div>
-                        <h4 className="text-sm font-medium text-amber-800">Validación de Resultado</h4>
-                        <p className="text-sm text-amber-700 mt-1">
-                          Al marcar este resultado como validado, no podrá ser editado posteriormente por usuarios regulares.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Form Actions */}
-                <div className="mt-8 flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    disabled={isSubmitting}
-                    className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Actualizando...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Actualizar Resultado
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
 
                   {/* Sample Test ID */}
                   <div>

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { useAuth } from '@/hooks/useAuth'
-import { SampleWithClient, Client, SLAStatus } from '@/types/database'
+import { SampleWithClient, Client, SLAStatus, SampleStatus, SLAType, SampleTakenBy, AreaType } from '@/types/database'
 import { SPECIES_CATEGORIES } from '@/constants/species'
 import { PROJECT_OPTIONS } from '@/constants/projects'
 import { 
@@ -12,20 +12,10 @@ import {
   X
 } from 'lucide-react'
 
-interface ExtendedSample extends SampleWithClient {
-  project_id?: string | null
-  region?: string | null
-  locality?: string | null
-  sampling_observations?: string | null
-  reception_observations?: string | null
-  due_date?: string | null
-  sla_status?: SLAStatus | null
-}
-
 interface EditSampleModalProps {
   isOpen: boolean
   onClose: () => void
-  sample: ExtendedSample
+  sample: SampleWithClient
   onSuccess: () => void
 }
 
@@ -41,14 +31,14 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
   const [isCheckingValidated, setIsCheckingValidated] = useState(false)
   
   const supabase = getSupabaseClient()
-
+  
   // Initialize form data with all fields from sample
   const [formData, setFormData] = useState({
     client_id: sample.client_id || '',
     code: sample.code || '',
     received_date: sample.received_date ? sample.received_date.split('T')[0] : new Date().toISOString().split('T')[0],
     sla_type: sample.sla_type || 'normal',
-    project_id: (sample as ExtendedSample).project_id || '',
+    project_id: (sample as SampleWithClient).project_id || '',
     species: sample.species || '',
     variety: sample.variety || '',
     rootstock: sample.rootstock || '',
@@ -61,12 +51,12 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
     taken_by: sample.taken_by || 'client',
     delivery_method: sample.delivery_method || '',
     suspected_pathogen: sample.suspected_pathogen || '',
-    region: (sample as ExtendedSample).region || '',
-    locality: (sample as ExtendedSample).locality || '',
-    sampling_observations: (sample as ExtendedSample).sampling_observations || '',
-    reception_observations: (sample as ExtendedSample).reception_observations || '',
-    due_date: (sample as ExtendedSample).due_date ? (sample as ExtendedSample).due_date.split('T')[0] : '',
-    sla_status: (sample as ExtendedSample).sla_status || 'on_time',
+    region: (sample as SampleWithClient).region || '',
+    locality: (sample as SampleWithClient).locality || '',
+    sampling_observations: (sample as SampleWithClient).sampling_observations || '',
+    reception_observations: (sample as SampleWithClient).reception_observations || '',
+    due_date: (sample as SampleWithClient).due_date?.split('T')[0] || '',
+    sla_status: (sample as SampleWithClient).sla_status || 'on_time',
     status: sample.status || 'received'
   })
 
@@ -78,7 +68,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
           code: sample.code || '',
           received_date: sample.received_date ? sample.received_date.split('T')[0] : new Date().toISOString().split('T')[0],
           sla_type: sample.sla_type || 'normal',
-          project_id: (sample as ExtendedSample).project_id || '',
+          project_id: (sample as SampleWithClient).project_id || '',
           species: sample.species || '',
           variety: sample.variety || '',
           rootstock: sample.rootstock || '',
@@ -91,12 +81,12 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
           taken_by: sample.taken_by || 'client',
           delivery_method: sample.delivery_method || '',
           suspected_pathogen: sample.suspected_pathogen || '',
-          region: (sample as ExtendedSample).region || '',
-          locality: (sample as ExtendedSample).locality || '',
-          sampling_observations: (sample as ExtendedSample).sampling_observations || '',
-          reception_observations: (sample as ExtendedSample).reception_observations || '',
-          due_date: (sample as ExtendedSample).due_date ? (sample as ExtendedSample).due_date.split('T')[0] : '',
-          sla_status: (sample as ExtendedSample).sla_status || 'on_time',
+          region: (sample as SampleWithClient).region || '',
+          locality: (sample as SampleWithClient).locality || '',
+          sampling_observations: (sample as SampleWithClient).sampling_observations || '',
+          reception_observations: (sample as SampleWithClient).reception_observations || '',
+          due_date: (sample as SampleWithClient).due_date?.split('T')[0] || '',
+          sla_status: (sample as SampleWithClient).sla_status || 'on_time',
           status: sample.status || 'received'
         })
       setValidationError(null)
@@ -357,8 +347,8 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
             <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
-                  <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-                    <TestTube className="h-6 w-6 text-green-600" />
+                          <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+          <TestTube className="h-6 w-6 text-green-600" />
                   </div>
                   <div className="ml-4">
                     <h3 className="text-lg leading-6 font-medium text-gray-900">
@@ -439,7 +429,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                   </label>
                   <select
                     value={formData.status || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as SampleStatus }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
                     disabled={hasValidatedResults}
                   >
@@ -485,7 +475,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                   </label>
                   <select
                     value={formData.sla_type || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, sla_type: e.target.value }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, sla_type: e.target.value as SLAType }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
                     disabled={hasValidatedResults}
                   >
@@ -501,7 +491,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                   </label>
                   <select
                     value={formData.sla_status || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, sla_status: e.target.value }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, sla_status: e.target.value as SLAStatus }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
                     disabled={hasValidatedResults}
                   >
@@ -674,7 +664,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Región
                   </label>
-                  <input
+                        <input
                     type="text"
                     value={formData.region}
                     onChange={(e) => setFormData(prev => ({ ...prev, region: e.target.value }))}
@@ -688,7 +678,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Localidad
-                  </label>
+                      </label>
                   <input
                     type="text"
                     value={formData.locality}
@@ -711,7 +701,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                   </label>
                   <select
                     value={formData.taken_by}
-                    onChange={(e) => setFormData(prev => ({ ...prev, taken_by: e.target.value }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, taken_by: e.target.value as SampleTakenBy }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
                     disabled={hasValidatedResults}
                   >
@@ -725,7 +715,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Método de entrega
                   </label>
-                  <input
+                        <input
                     type="text"
                     value={formData.delivery_method}
                     onChange={(e) => setFormData(prev => ({ ...prev, delivery_method: e.target.value }))}
@@ -739,7 +729,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Patógeno sospechado
-                  </label>
+                      </label>
                   <select
                     value={formData.suspected_pathogen}
                     onChange={(e) => setFormData(prev => ({ ...prev, suspected_pathogen: e.target.value }))}
@@ -772,18 +762,18 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     
                     // Get unique areas from sample_tests
                     let analysisTypes: string[] = []
-                    const extendedSample = sample as ExtendedSample
+                    const extendedSample = sample as SampleWithClient
                     if (extendedSample?.sample_tests && Array.isArray(extendedSample.sample_tests) && extendedSample.sample_tests.length > 0) {
                       const uniqueAreas = new Set(
                         extendedSample.sample_tests
-                          .map((st: { test_catalog?: { area?: string } }) => st.test_catalog?.area)
-                          .filter((area: string | undefined) => area && areaMap[area])
+                          .map((st) => st.test_catalog?.area)
+                          .filter((area): area is AreaType => !!area && !!areaMap[area])
                       )
                       
                       // Map to display names
                       analysisTypes = Array.from(uniqueAreas)
-                        .map((area: string) => areaMap[area])
-                        .filter(Boolean)
+                        .map((area: AreaType) => areaMap[area])
+                        .filter((name): name is string => typeof name === 'string')
                     }
                     
                     // All possible types for display
@@ -800,8 +790,8 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
                           {allTypes.map(type => (
                             <label key={type} className="flex items-center">
-                              <input
-                                type="checkbox"
+                        <input
+                          type="checkbox"
                                 checked={analysisTypes.includes(type)}
                                 disabled={true}
                                 className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
@@ -809,9 +799,9 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                               <span className={`ml-2 text-sm ${analysisTypes.includes(type) ? 'text-gray-700' : 'text-gray-400'}`}>
                                 {type}
                               </span>
-                            </label>
-                          ))}
-                        </div>
+                      </label>
+                    ))}
+                  </div>
                         <p className="text-xs text-gray-500 mt-2">
                           {analysisTypes.length > 0 
                             ? 'Los tipos de análisis no se pueden modificar después de crear la muestra'
