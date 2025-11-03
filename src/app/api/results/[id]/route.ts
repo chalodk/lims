@@ -132,6 +132,14 @@ export async function PUT(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    // Check if result is validated - prevent editing
+    if (currentResult.status === 'validated') {
+      return NextResponse.json(
+        { error: 'Este resultado no puede ser editado porque ya está validado.' },
+        { status: 403 }
+      )
+    }
+
     const updateData: Record<string, unknown> = {}
 
     // Required fields

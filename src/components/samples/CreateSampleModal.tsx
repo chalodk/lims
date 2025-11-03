@@ -6,6 +6,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { Client } from '@/types/database'
 import { SPECIES_CATEGORIES } from '@/constants/species'
 import { PROJECT_OPTIONS } from '@/constants/projects'
+import CreateClientModal from '@/components/clients/CreateClientModal'
+import CreateProjectModal from '@/components/projects/CreateProjectModal'
 import { 
   TestTube, 
   Loader2,
@@ -16,18 +18,18 @@ interface CreateSampleModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
-  sampleId?: string | null // Para modo edición
 }
 
-export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId }: CreateSampleModalProps) {
+export default function CreateSampleModal({ isOpen, onClose, onSuccess }: CreateSampleModalProps) {
   const { user } = useAuth()
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<Array<{id: string, name: string}>>([])
   const [isLoadingProjects, setIsLoadingProjects] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isLoadingSample, setIsLoadingSample] = useState(false)
   const [availableAnalytes, setAvailableAnalytes] = useState<Array<{id: string, scientific_name: string}>>([])
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [showCreateClientModal, setShowCreateClientModal] = useState(false)
+  const [showCreateProjectModal, setShowCreateProjectModal] = useState(false)
   const [formData, setFormData] = useState({
     client_id: '',
     code: '',
@@ -148,116 +150,44 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId
     }
   }, [supabase])
 
-  // Load sample data when in edit mode
-  const loadSampleData = useCallback(async () => {
-    if (!sampleId) return
-
-    try {
-      setIsLoadingSample(true)
-      setValidationError(null)
-      
-      // Fetch sample data
-      const response = await fetch(`/api/samples/${sampleId}`)
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || 'Failed to fetch sample')
-      }
-      
-      const sample = await response.json()
-      console.log('Loaded sample data:', sample)
-      
-      // Ensure projects are loaded before setting project_id
-      await fetchProjects()
-      
-      // Populate form data with all fields from the sample
-      setFormData(prev => ({
-        ...prev,
-        client_id: sample.client_id || '',
-        code: sample.code || '',
-        received_date: sample.received_date ? sample.received_date.split('T')[0] : new Date().toISOString().split('T')[0],
-        sla_type: sample.sla_type || 'normal',
-        project: sample.project_id || '',
-        project_id: sample.project_id || '',
-        species: sample.species || '',
-        variety: sample.variety || '',
-        rootstock: sample.rootstock || '',
-        planting_year: sample.planting_year?.toString() || '',
-        previous_crop: sample.previous_crop || '',
-        next_crop: sample.next_crop || '',
-        fallow: sample.fallow || false,
-        client_notes: sample.client_notes || '',
-        reception_notes: sample.reception_notes || '',
-        taken_by: sample.taken_by || 'client',
-        delivery_method: sample.delivery_method || '',
-        suspected_pathogen: sample.suspected_pathogen || '',
-        region: sample.region || '',
-        locality: sample.locality || '',
-        sampling_observations: sample.sampling_observations || '',
-        reception_observations: sample.reception_observations || '',
-        due_date: sample.due_date ? sample.due_date.split('T')[0] : '',
-        sla_status: sample.sla_status || 'on_time',
-        status: sample.status || 'received',
-        analysis_types: [] // Analysis types are not editable in edit mode
-      }))
-    } catch (error) {
-      console.error('Error loading sample data:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
-      setValidationError(`Error al cargar los datos de la muestra: ${errorMessage}`)
-    } finally {
-      setIsLoadingSample(false)
-    }
-  }, [sampleId, fetchProjects])
 
   useEffect(() => {
     if (isOpen) {
-      // Always fetch dropdowns data first
       fetchClients()
       fetchProjects()
       loadAnalytes()
-      
-      if (sampleId) {
-        // Load sample data for editing - this will populate all fields
-        loadSampleData()
-      } else {
-        // Generate code for new sample
-        generateSampleCode()
-        // Reset form for new sample
-        setFormData({
-          client_id: '',
-          code: '',
-          received_date: new Date().toISOString().split('T')[0],
-          sla_type: 'normal',
-          project: '',
-          project_id: '',
-          species: '',
-          variety: '',
-          rootstock: '',
-          planting_year: '',
-          previous_crop: '',
-          next_crop: '',
-          fallow: false,
-          client_notes: '',
-          reception_notes: '',
-          taken_by: 'client',
-          delivery_method: '',
-          suspected_pathogen: '',
-          region: '',
-          locality: '',
-          sampling_observations: '',
-          reception_observations: '',
-          due_date: '',
-          sla_status: 'on_time',
-          status: 'received',
-          analysis_types: []
-        })
-        setValidationError(null)
-      }
-    } else {
-      // Reset when modal closes
+      generateSampleCode()
+      setFormData({
+        client_id: '',
+        code: '',
+        received_date: new Date().toISOString().split('T')[0],
+        sla_type: 'normal',
+        project: '',
+        project_id: '',
+        species: '',
+        variety: '',
+        rootstock: '',
+        planting_year: '',
+        previous_crop: '',
+        next_crop: '',
+        fallow: false,
+        client_notes: '',
+        reception_notes: '',
+        taken_by: 'client',
+        delivery_method: '',
+        suspected_pathogen: '',
+        region: '',
+        locality: '',
+        sampling_observations: '',
+        reception_observations: '',
+        due_date: '',
+        sla_status: 'on_time',
+        status: 'received',
+        analysis_types: []
+      })
       setValidationError(null)
-      setIsLoadingSample(false)
     }
-  }, [isOpen, fetchClients, fetchProjects, generateSampleCode, loadAnalytes, sampleId, loadSampleData])
+  }, [isOpen, fetchClients, fetchProjects, generateSampleCode, loadAnalytes])
 
   const handleAnalysisTypeChange = (type: string, checked: boolean) => {
     setFormData(prev => ({
@@ -274,14 +204,14 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId
     setIsSubmitting(true)
 
     try {
-      // Validation for new samples
-      if (!sampleId && formData.analysis_types.length === 0) {
+      // Validation
+      if (formData.analysis_types.length === 0) {
         setValidationError('Debe seleccionar al menos un tipo de análisis')
         setIsSubmitting(false)
         return
       }
 
-      const requestBody: any = {
+      const requestBody: Record<string, unknown> = {
         client_id: formData.client_id,
         code: formData.code.trim(),
         received_date: formData.received_date,
@@ -305,20 +235,13 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId
         reception_observations: formData.reception_observations.trim() || null,
       }
 
-      // Add fields only for edit mode
-      if (sampleId) {
-        requestBody.due_date = formData.due_date || null
-        requestBody.sla_status = formData.sla_status
-        requestBody.status = formData.status
-      } else {
-        // Add analysis_types only for new samples
-        requestBody.analysis_selections = {
-          analysis_types: formData.analysis_types
-        }
+      // Add analysis_types for new samples
+      requestBody.analysis_selections = {
+        analysis_types: formData.analysis_types
       }
 
-      const url = sampleId ? `/api/samples/${sampleId}` : '/api/samples'
-      const method = sampleId ? 'PATCH' : 'POST'
+      const url = '/api/samples'
+      const method = 'POST'
 
       const response = await fetch(url, {
         method,
@@ -330,7 +253,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId
 
       if (!response.ok) {
         const errorData = await response.json()
-        const errorMessage = errorData.error || (sampleId ? 'Failed to update sample' : 'Failed to create sample')
+        const errorMessage = errorData.error || 'Failed to create sample'
         
         // Parse common database errors
         if (errorMessage.includes('NOT NULL')) {
@@ -349,40 +272,38 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId
       onSuccess()
       onClose()
       
-      // Reset form only if creating new sample
-      if (!sampleId) {
-        setFormData({
-          client_id: '',
-          code: '',
-          received_date: new Date().toISOString().split('T')[0],
-          sla_type: 'normal',
-          project: '',
-          project_id: '',
-          species: '',
-          variety: '',
-          rootstock: '',
-          planting_year: '',
-          previous_crop: '',
-          next_crop: '',
-          fallow: false,
-          client_notes: '',
-          reception_notes: '',
-          taken_by: 'client',
-          delivery_method: '',
-          suspected_pathogen: '',
-          region: '',
-          locality: '',
-          sampling_observations: '',
-          reception_observations: '',
-          due_date: '',
-          sla_status: 'on_time',
-          status: 'received',
-          analysis_types: []
-        })
-      }
+      setFormData({
+        client_id: '',
+        code: '',
+        received_date: new Date().toISOString().split('T')[0],
+        sla_type: 'normal',
+        project: '',
+        project_id: '',
+        species: '',
+        variety: '',
+        rootstock: '',
+        planting_year: '',
+        previous_crop: '',
+        next_crop: '',
+        fallow: false,
+        client_notes: '',
+        reception_notes: '',
+        taken_by: 'client',
+        delivery_method: '',
+        suspected_pathogen: '',
+        region: '',
+        locality: '',
+        sampling_observations: '',
+        reception_observations: '',
+        due_date: '',
+        sla_status: 'on_time',
+        status: 'received',
+        analysis_types: []
+      })
+      setValidationError(null)
     } catch (error: unknown) {
-      console.error(`Error ${sampleId ? 'updating' : 'creating'} sample:`, error)
-      setValidationError(`Error al ${sampleId ? 'actualizar' : 'crear'} la muestra: ` + (error instanceof Error ? error.message : 'Error desconocido'))
+      console.error('Error creating sample:', error)
+      setValidationError('Error al crear la muestra: ' + (error instanceof Error ? error.message : 'Error desconocido'))
       setIsSubmitting(false)
     }
   }
@@ -429,17 +350,17 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId
                   </div>
                   <div className="ml-4">
                     <h3 className="text-lg leading-6 font-medium text-gray-900">
-                      {sampleId ? 'Editar Muestra' : 'Nueva Muestra'}
+                      Nueva Muestra
                     </h3>
                     <p className="text-sm text-gray-500">
-                      {sampleId ? 'Modifica la información de la muestra' : 'Registra una nueva muestra para análisis'}
+                      Registra una nueva muestra para análisis
                     </p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={onClose}
-                  disabled={isSubmitting || isLoadingSample}
+                  disabled={isSubmitting}
                   className="rounded-md text-gray-400 hover:text-gray-600 disabled:opacity-50"
                 >
                   <X className="h-6 w-6" />
@@ -453,12 +374,6 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId
                 </div>
               )}
 
-              {isLoadingSample ? (
-                <div className="flex justify-center items-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-                  <span className="ml-2 text-gray-600">Cargando datos de la muestra...</span>
-                </div>
-              ) : (
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {/* Basic Info */}
                 <div className="sm:col-span-2 lg:col-span-3">
@@ -473,13 +388,23 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId
                   <select
                     required
                     value={formData.client_id}
-                    onChange={(e) => setFormData(prev => ({ ...prev, client_id: e.target.value }))}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      if (value === '__create_client__') {
+                        setShowCreateClientModal(true)
+                      } else {
+                        setFormData(prev => ({ ...prev, client_id: value }))
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   >
                     <option value="">Seleccionar cliente</option>
                     {clients.map(client => (
                       <option key={client.id} value={client.id}>{client.name}</option>
                     ))}
+                    <option value="__create_client__" className="text-indigo-600 font-medium">
+                      ➕ Crear Cliente
+                    </option>
                   </select>
                 </div>
 
@@ -493,33 +418,10 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId
                     required
                     value={formData.code}
                     onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
-                    disabled={!!sampleId || isLoadingSample}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
                   />
                 </div>
 
-                {/* Status - Only in edit mode */}
-                {sampleId && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Estado
-                    </label>
-                    <select
-                      value={formData.status || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    >
-                      <option value="received">Recibida</option>
-                      <option value="processing">Procesando</option>
-                      <option value="microscopy">Microscopía</option>
-                      <option value="isolation">Aislamiento</option>
-                      <option value="identification">Identificación</option>
-                      <option value="molecular_analysis">Análisis Molecular</option>
-                      <option value="validation">Validación</option>
-                      <option value="completed">Completada</option>
-                    </select>
-                  </div>
-                )}
 
                 {/* Received Date */}
                 <div>
@@ -529,26 +431,12 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId
                   <input
                     type="date"
                     required
-                    value={formData.received_date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, received_date: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                </div>
-
-                {/* Due Date - Only in edit mode */}
-                {sampleId && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Fecha de vencimiento
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.due_date}
-                      onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
+                      value={formData.received_date}
+                      onChange={(e) => setFormData(prev => ({ ...prev, received_date: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     />
-                  </div>
-                )}
+                </div>
+
 
                 {/* SLA Type */}
                 <div>
@@ -565,23 +453,6 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId
                   </select>
                 </div>
 
-                {/* SLA Status - Only in edit mode */}
-                {sampleId && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Estado SLA
-                    </label>
-                    <select
-                      value={formData.sla_status || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, sla_status: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    >
-                      <option value="on_time">A Tiempo</option>
-                      <option value="at_risk">En Riesgo</option>
-                      <option value="breached">Incumplido</option>
-                    </select>
-                  </div>
-                )}
 
                 {/* Project */}
                 <div>
@@ -590,7 +461,14 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId
                   </label>
                   <select
                     value={formData.project_id || formData.project}
-                    onChange={(e) => setFormData(prev => ({ ...prev, project: e.target.value, project_id: e.target.value }))}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      if (value === '__create_project__') {
+                        setShowCreateProjectModal(true)
+                      } else {
+                        setFormData(prev => ({ ...prev, project: value, project_id: value }))
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     disabled={isLoadingProjects}
                   >
@@ -600,6 +478,9 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId
                     {projects.map(project => (
                       <option key={project.id} value={project.id}>{project.name}</option>
                     ))}
+                    <option value="__create_project__" className="text-indigo-600 font-medium">
+                      ➕ Crear Proyecto
+                    </option>
                   </select>
                 </div>
 
@@ -729,42 +610,6 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId
                   </label>
                 </div>
 
-                {/* Location Section - Only in edit mode */}
-                {sampleId && (
-                  <>
-                    <div className="sm:col-span-2 lg:col-span-3">
-                      <h4 className="text-md font-medium text-gray-900 mb-4 mt-6">Ubicación</h4>
-                    </div>
-
-                    {/* Region */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Región
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.region}
-                        onChange={(e) => setFormData(prev => ({ ...prev, region: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        placeholder="Ej: Región Metropolitana"
-                      />
-                    </div>
-
-                    {/* Locality */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Localidad
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.locality}
-                        onChange={(e) => setFormData(prev => ({ ...prev, locality: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        placeholder="Ej: Maipú, Santiago"
-                      />
-                    </div>
-                  </>
-                )}
 
                 {/* Delivery Info Section */}
                 <div className="sm:col-span-2 lg:col-span-3">
@@ -776,11 +621,11 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Recolectada por
                   </label>
-                  <select
-                    value={formData.taken_by}
-                    onChange={(e) => setFormData(prev => ({ ...prev, taken_by: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  >
+                    <select
+                      value={formData.taken_by}
+                      onChange={(e) => setFormData(prev => ({ ...prev, taken_by: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    >
                     <option value="client">Cliente</option>
                     <option value="lab">Laboratorio</option>
                   </select>
@@ -824,27 +669,27 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId
                   </select>
                 </div>
 
-                {/* Analysis Types - Only in create mode */}
-                {!sampleId && (
-                  <div className="sm:col-span-2 lg:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
-                      Tipo de análisis *
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-                      {analysisOptions.types.map(type => (
-                        <label key={type} className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={formData.analysis_types.includes(type)}
-                            onChange={(e) => handleAnalysisTypeChange(type, e.target.checked)}
-                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                          />
-                          <span className="ml-2 text-sm text-gray-700">{type}</span>
-                        </label>
-                      ))}
-                    </div>
+                {/* Analysis Types - Show in create mode and edit mode (read-only in edit) */}
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Tipo de análisis *
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+                    {analysisOptions.types.map(type => (
+                      <label key={type} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={formData.analysis_types.includes(type)}
+                          onChange={(e) => handleAnalysisTypeChange(type, e.target.checked)}
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">
+                          {type}
+                        </span>
+                      </label>
+                    ))}
                   </div>
-                )}
+                </div>
 
 
                 {/* Notes Section */}
@@ -879,55 +724,22 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId
                     placeholder="Observaciones del laboratorio al recibir la muestra..."
                   />
                 </div>
-
-                {/* Sampling Observations - Only in edit mode */}
-                {sampleId && (
-                  <div className="sm:col-span-2 lg:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Observaciones de muestreo
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={formData.sampling_observations}
-                      onChange={(e) => setFormData(prev => ({ ...prev, sampling_observations: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      placeholder="Observaciones sobre el proceso de muestreo..."
-                    />
-                  </div>
-                )}
-
-                {/* Reception Observations - Only in edit mode */}
-                {sampleId && (
-                  <div className="sm:col-span-2 lg:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Observaciones de recepción
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={formData.reception_observations}
-                      onChange={(e) => setFormData(prev => ({ ...prev, reception_observations: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      placeholder="Observaciones adicionales al recibir la muestra..."
-                    />
-                  </div>
-                )}
               </div>
-              )}
             </div>
 
             <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    {sampleId ? 'Guardando...' : 'Creando...'}
+                    Creando...
                   </>
                 ) : (
-                  sampleId ? 'Guardar cambios' : 'Crear muestra'
+                  'Crear muestra'
                 )}
               </button>
               <button
@@ -941,6 +753,48 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess, sampleId
           </form>
         </div>
       </div>
+
+      {/* Create Client Modal - z-[60] to appear above sample modal (z-50) */}
+      <CreateClientModal
+        isOpen={showCreateClientModal}
+        onClose={() => {
+          setShowCreateClientModal(false)
+          // Reset dropdown to empty value only if no client was selected before
+          if (!formData.client_id) {
+            setFormData(prev => ({ ...prev, client_id: '' }))
+          }
+        }}
+        onSuccess={async (clientId) => {
+          // Refresh clients list
+          await fetchClients()
+          // Select the newly created client
+          if (clientId) {
+            setFormData(prev => ({ ...prev, client_id: clientId }))
+          }
+          setShowCreateClientModal(false)
+        }}
+      />
+
+      {/* Create Project Modal - z-[60] to appear above sample modal (z-50) */}
+      <CreateProjectModal
+        isOpen={showCreateProjectModal}
+        onClose={() => {
+          setShowCreateProjectModal(false)
+          // Reset dropdown to empty value only if no project was selected before
+          if (!formData.project_id && !formData.project) {
+            setFormData(prev => ({ ...prev, project: '', project_id: '' }))
+          }
+        }}
+        onSuccess={async (projectId) => {
+          // Refresh projects list
+          await fetchProjects()
+          // Select the newly created project
+          if (projectId) {
+            setFormData(prev => ({ ...prev, project: projectId, project_id: projectId }))
+          }
+          setShowCreateProjectModal(false)
+        }}
+      />
     </div>
   )
 }

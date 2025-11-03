@@ -313,6 +313,25 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    // Check if sample has validated results - if so, prevent editing
+    const { data: validatedResults, error: resultsCheckError } = await supabase
+      .from('results')
+      .select('id')
+      .eq('sample_id', resolvedParams.id)
+      .eq('status', 'validated')
+      .limit(1)
+
+    if (resultsCheckError) {
+      console.error('Error checking validated results:', resultsCheckError)
+    }
+
+    if (validatedResults && validatedResults.length > 0) {
+      return NextResponse.json(
+        { error: 'Esta muestra no puede ser editada porque tiene resultados validados.' },
+        { status: 403 }
+      )
+    }
+
     // Calculate due date based on SLA
     const receivedAt = new Date(received_date)
     const dueDate = new Date(receivedAt)

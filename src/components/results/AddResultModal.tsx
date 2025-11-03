@@ -79,14 +79,18 @@ export default function AddResultModal({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoadingResult, setIsLoadingResult] = useState(false)
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [isValidated, setIsValidated] = useState(false)
   const [samples, setSamples] = useState<SampleWithClient[]>([])
   const [sampleTests, setSampleTests] = useState<(SampleTest & { test_catalog?: TestCatalog, methods?: Method })[]>([])
+  const [reports, setReports] = useState<Array<{id: string, id_display?: string | null}>>([])
+  const [users, setUsers] = useState<Array<{id: string, name: string, email: string}>>([])
   const [loadingSamples, setLoadingSamples] = useState(false)
   const [loadingTests, setLoadingTests] = useState(false)
   
   const [formData, setFormData] = useState({
     sample_id: preselectedSampleId || '',
     sample_test_id: '',
+    report_id: '',
     methodology: '',
     methodologies: [] as string[],
     identification_techniques: [] as string[],
@@ -98,7 +102,12 @@ export default function AddResultModal({
     severity: '',
     confidence: '',
     result_type: '',
-    recommendations: ''
+    recommendations: '',
+    performed_by: '',
+    performed_at: '',
+    validated_by: '',
+    validation_date: '',
+    status: 'pending'
   })
 
   const [selectedAnalysisArea, setSelectedAnalysisArea] = useState<string>('')
@@ -209,6 +218,41 @@ export default function AddResultModal({
     }
   }, [supabase])
 
+  const fetchReports = useCallback(async () => {
+    if (!user?.company_id) return
+
+    try {
+      const { data, error } = await supabase
+        .from('reports')
+        .select('id, id_display, generated_at')
+        .eq('company_id', user.company_id)
+        .order('generated_at', { ascending: false })
+        .limit(100)
+
+      if (error) throw error
+      setReports(data || [])
+    } catch (error) {
+      console.error('Error fetching reports:', error)
+    }
+  }, [supabase, user?.company_id])
+
+  const fetchUsers = useCallback(async () => {
+    if (!user?.company_id) return
+
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .eq('company_id', user.company_id)
+        .order('name', { ascending: true })
+
+      if (error) throw error
+      setUsers(data || [])
+    } catch (error) {
+      console.error('Error fetching users:', error)
+    }
+  }, [supabase, user?.company_id])
+
   // Load result data when in edit mode
   const loadResultData = useCallback(async () => {
     if (!resultId) return
@@ -226,10 +270,22 @@ export default function AddResultModal({
       const result = await response.json()
       console.log('Loaded result data:', result)
       
+      // Check if result is validated
+      if (result.status === 'validated') {
+        setIsValidated(true)
+        setValidationError('Este resultado no puede ser editado porque ya está validado.')
+      } else {
+        setIsValidated(false)
+      }
+      
       // Ensure samples are loaded before setting sample_id
       await fetchSamples()
       
-      // Set basic form data
+      // Set basic form data (only if not validated)
+      if (result.status === 'validated') {
+        // Still load the data to display it, but fields will be disabled
+      }
+      
       setFormData(prev => ({
         ...prev,
         sample_id: result.sample_id || '',
@@ -245,13 +301,22 @@ export default function AddResultModal({
         severity: result.severity || '',
         confidence: result.confidence || '',
         result_type: result.result_type || '',
-        recommendations: result.recommendations || ''
+        recommendations: result.recommendations || '',
+        report_id: (result as any).report_id || '',
+        performed_by: result.performed_by || '',
+        performed_at: result.performed_at ? new Date(result.performed_at).toISOString().slice(0, 16) : '',
+        validated_by: result.validated_by || '',
+        validation_date: result.validation_date ? new Date(result.validation_date).toISOString().slice(0, 16) : '',
+        status: result.status || 'pending'
       }))
       
       // Set selected analysis area from test_area
       if (result.test_area) {
         setSelectedAnalysisArea(result.test_area)
       }
+      
+      // Load reports and users for selectors
+      await Promise.all([fetchReports(), fetchUsers()])
       
       // Parse findings JSON and populate specific data structures
       if (result.findings && typeof result.findings === 'object') {
@@ -352,11 +417,14 @@ export default function AddResultModal({
     } finally {
       setIsLoadingResult(false)
     }
-  }, [resultId, fetchSamples, fetchSampleTests])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resultId])
 
   useEffect(() => {
     if (isOpen) {
       fetchSamples()
+      fetchReports()
+      fetchUsers()
       if (preselectedSampleId) {
         fetchSampleTests(preselectedSampleId)
       }
@@ -420,7 +488,8 @@ export default function AddResultModal({
       setValidationError(null)
       setIsLoadingResult(false)
     }
-  }, [isOpen, fetchSamples, fetchSampleTests, preselectedSampleId, resultId, loadResultData])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, preselectedSampleId, resultId])
 
   useEffect(() => {
     if (formData.sample_id) {
@@ -428,7 +497,8 @@ export default function AddResultModal({
     } else {
       setSampleTests([])
     }
-  }, [formData.sample_id, fetchSampleTests])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.sample_id])
 
   useEffect(() => {
     if (formData.sample_test_id) {
@@ -1060,7 +1130,8 @@ export default function AddResultModal({
             <select
               value={formData.result_type}
               onChange={(e) => setFormData(prev => ({ ...prev, result_type: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+              disabled={isValidated}
             >
               <option value="">Seleccionar tipo</option>
               <option value="positive">Positivo</option>
@@ -1076,7 +1147,8 @@ export default function AddResultModal({
             <select
               value={formData.confidence}
               onChange={(e) => setFormData(prev => ({ ...prev, confidence: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+              disabled={isValidated}
             >
               <option value="">Seleccionar confianza</option>
               <option value="low">Baja</option>
@@ -1092,7 +1164,8 @@ export default function AddResultModal({
             <select
               value={formData.pathogen_type}
               onChange={(e) => setFormData(prev => ({ ...prev, pathogen_type: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+              disabled={isValidated}
             >
               <option value="">Seleccionar tipo</option>
               <option value="fungus">Hongo</option>
@@ -1108,7 +1181,8 @@ export default function AddResultModal({
             <select
               value={formData.severity}
               onChange={(e) => setFormData(prev => ({ ...prev, severity: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+              disabled={isValidated}
             >
               <option value="">Seleccionar severidad</option>
               <option value="low">Baja</option>
@@ -1190,7 +1264,8 @@ export default function AddResultModal({
                             type="text"
                             value={test.identification}
                             onChange={(e) => updatePhytopathologyTest(index, 'identification', e.target.value)}
-                            className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500 font-mono"
+                            className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500 font-mono disabled:bg-gray-100"
+                            disabled={isValidated}
                           />
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
@@ -1273,7 +1348,8 @@ export default function AddResultModal({
             <select
               value={formData.result_type}
               onChange={(e) => setFormData(prev => ({ ...prev, result_type: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+              disabled={isValidated}
             >
               <option value="">Seleccionar tipo</option>
               <option value="positive">Positivo</option>
@@ -1289,7 +1365,8 @@ export default function AddResultModal({
             <select
               value={formData.confidence}
               onChange={(e) => setFormData(prev => ({ ...prev, confidence: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+              disabled={isValidated}
             >
               <option value="">Seleccionar confianza</option>
               <option value="low">Baja</option>
@@ -1317,7 +1394,8 @@ export default function AddResultModal({
             <select
               value={formData.severity}
               onChange={(e) => setFormData(prev => ({ ...prev, severity: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+              disabled={isValidated}
             >
               <option value="">Seleccionar severidad</option>
               <option value="low">Baja</option>
@@ -1458,7 +1536,8 @@ export default function AddResultModal({
             <select
               value={formData.result_type}
               onChange={(e) => setFormData(prev => ({ ...prev, result_type: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+              disabled={isValidated}
             >
               <option value="">Seleccionar tipo</option>
               <option value="positive">Positivo</option>
@@ -1474,7 +1553,8 @@ export default function AddResultModal({
             <select
               value={formData.confidence}
               onChange={(e) => setFormData(prev => ({ ...prev, confidence: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+              disabled={isValidated}
             >
               <option value="">Seleccionar confianza</option>
               <option value="low">Baja</option>
@@ -1502,7 +1582,8 @@ export default function AddResultModal({
             <select
               value={formData.severity}
               onChange={(e) => setFormData(prev => ({ ...prev, severity: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+              disabled={isValidated}
             >
               <option value="">Seleccionar severidad</option>
               <option value="low">Baja</option>
@@ -1642,7 +1723,8 @@ export default function AddResultModal({
             <select
               value={formData.result_type}
               onChange={(e) => setFormData(prev => ({ ...prev, result_type: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+              disabled={isValidated}
             >
               <option value="">Seleccionar tipo</option>
               <option value="positive">Positivo</option>
@@ -1658,7 +1740,8 @@ export default function AddResultModal({
             <select
               value={formData.confidence}
               onChange={(e) => setFormData(prev => ({ ...prev, confidence: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+              disabled={isValidated}
             >
               <option value="">Seleccionar confianza</option>
               <option value="low">Baja</option>
@@ -1686,7 +1769,8 @@ export default function AddResultModal({
             <select
               value={formData.severity}
               onChange={(e) => setFormData(prev => ({ ...prev, severity: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+              disabled={isValidated}
             >
               <option value="">Seleccionar severidad</option>
               <option value="low">Baja</option>
@@ -1914,7 +1998,8 @@ export default function AddResultModal({
             <select
               value={formData.result_type}
               onChange={(e) => setFormData(prev => ({ ...prev, result_type: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+              disabled={isValidated}
             >
               <option value="">Seleccionar tipo</option>
               <option value="positive">Positivo</option>
@@ -1930,7 +2015,8 @@ export default function AddResultModal({
             <select
               value={formData.confidence}
               onChange={(e) => setFormData(prev => ({ ...prev, confidence: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+              disabled={isValidated}
             >
               <option value="">Seleccionar confianza</option>
               <option value="low">Baja</option>
@@ -1962,7 +2048,8 @@ export default function AddResultModal({
             <select
               value={formData.severity}
               onChange={(e) => setFormData(prev => ({ ...prev, severity: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+              disabled={isValidated}
             >
               <option value="">Seleccionar severidad</option>
               <option value="low">Baja</option>
@@ -2134,6 +2221,13 @@ export default function AddResultModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Prevent editing if result is validated
+    if (resultId && isValidated) {
+      setValidationError('Este resultado no puede ser editado porque ya está validado.')
+      return
+    }
+    
     setIsSubmitting(true)
 
     try {
@@ -2232,7 +2326,8 @@ export default function AddResultModal({
 
       const requestBody: Record<string, unknown> = {
         sample_id: formData.sample_id,
-        sample_test_id: formData.sample_test_id,
+        sample_test_id: formData.sample_test_id || null,
+        report_id: formData.report_id || null,
         methodology: formData.methodology || null,
         methodologies: formData.methodologies,
         identification_techniques: formData.identification_techniques,
@@ -2244,7 +2339,23 @@ export default function AddResultModal({
         severity: formData.severity || null,
         confidence: formData.confidence || null,
         result_type: formData.result_type || null,
-        recommendations: formData.recommendations || null
+        recommendations: formData.recommendations || null,
+        performed_by: formData.performed_by || null,
+        performed_at: formData.performed_at ? new Date(formData.performed_at).toISOString() : null,
+        validated_by: formData.validated_by || null,
+        validation_date: formData.validation_date ? new Date(formData.validation_date).toISOString() : null,
+        status: formData.status || 'pending'
+      }
+
+      // If status is validated and validated_by is not set, use current user
+      if (requestBody.status === 'validated' && !requestBody.validated_by && user?.id) {
+        requestBody.validated_by = user.id
+        requestBody.validation_date = new Date().toISOString()
+      }
+
+      // If validated_by is cleared, clear validation_date
+      if (!requestBody.validated_by) {
+        requestBody.validation_date = null
       }
 
       // Only include test_area for new results (it's set during creation)
@@ -2284,7 +2395,13 @@ export default function AddResultModal({
           severity: '',
           confidence: '',
           result_type: '',
-          recommendations: ''
+          recommendations: '',
+          report_id: '',
+          performed_by: '',
+          performed_at: '',
+          validated_by: '',
+          validation_date: '',
+          status: 'pending'
         })
         
         // Reset nematology data
@@ -2384,8 +2501,8 @@ export default function AddResultModal({
                     required
                     value={formData.sample_id}
                     onChange={(e) => setFormData(prev => ({ ...prev, sample_id: e.target.value, sample_test_id: '' }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                    disabled={!!preselectedSampleId || !!resultId || isLoadingResult}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+                    disabled={!!preselectedSampleId || !!resultId || isLoadingResult || isValidated}
                   >
                     <option value="">Seleccionar muestra</option>
                     {loadingSamples ? (
@@ -2408,8 +2525,8 @@ export default function AddResultModal({
                     required
                     value={formData.sample_test_id}
                     onChange={(e) => setFormData(prev => ({ ...prev, sample_test_id: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                    disabled={!formData.sample_id}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+                    disabled={!formData.sample_id || isValidated}
                   >
                     <option value="">Seleccionar análisis</option>
                     {loadingTests ? (
@@ -2478,7 +2595,8 @@ export default function AddResultModal({
                           type="checkbox"
                           checked={formData.methodologies.includes(methodology)}
                           onChange={(e) => handleMethodologyChange(methodology, e.target.checked)}
-                          className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                          className="rounded border-gray-300 text-green-600 focus:ring-green-500 disabled:opacity-50"
+                          disabled={isValidated}
                         />
                         <span className="ml-2 text-sm text-gray-700">{methodology}</span>
                       </label>
@@ -2498,7 +2616,8 @@ export default function AddResultModal({
                           type="checkbox"
                           checked={formData.identification_techniques.includes(technique)}
                           onChange={(e) => handleIdentificationTechniqueChange(technique, e.target.checked)}
-                          className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                          className="rounded border-gray-300 text-green-600 focus:ring-green-500 disabled:opacity-50"
+                          disabled={isValidated}
                         />
                         <span className="ml-2 text-sm text-gray-700">{technique}</span>
                       </label>
@@ -2517,8 +2636,9 @@ export default function AddResultModal({
                     rows={3}
                     value={formData.diagnosis}
                     onChange={(e) => setFormData(prev => ({ ...prev, diagnosis: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
                     placeholder="Diagnóstico detallado del análisis..."
+                    disabled={isValidated}
                   />
                 </div>
 
@@ -2530,8 +2650,9 @@ export default function AddResultModal({
                     rows={3}
                     value={formData.conclusion}
                     onChange={(e) => setFormData(prev => ({ ...prev, conclusion: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
                     placeholder="Conclusiones del análisis..."
+                    disabled={isValidated}
                   />
                 </div>
 
@@ -2543,8 +2664,9 @@ export default function AddResultModal({
                     rows={3}
                     value={formData.recommendations}
                     onChange={(e) => setFormData(prev => ({ ...prev, recommendations: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
                     placeholder="Recomendaciones para el cliente..."
+                    disabled={isValidated}
                   />
                 </div>
 
@@ -2556,9 +2678,9 @@ export default function AddResultModal({
                     rows={4}
                     value={formData.findings}
                     onChange={(e) => setFormData(prev => ({ ...prev, findings: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 font-mono text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 font-mono text-sm disabled:bg-gray-100"
                     placeholder='{"observaciones": "...", "mediciones": "...", "notas": "..."}'
-                    readOnly={selectedAnalysisArea.toLowerCase().includes('nematolog') || selectedAnalysisArea.toLowerCase().includes('virolog') || selectedAnalysisArea.toLowerCase().includes('fitopatolog')}
+                    readOnly={selectedAnalysisArea.toLowerCase().includes('nematolog') || selectedAnalysisArea.toLowerCase().includes('virolog') || selectedAnalysisArea.toLowerCase().includes('fitopatolog') || isValidated}
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     {selectedAnalysisArea.toLowerCase().includes('nematolog') 
@@ -2571,6 +2693,126 @@ export default function AddResultModal({
                     }
                   </p>
                 </div>
+
+                {/* Additional Fields for Edit Mode */}
+                {resultId && (
+                  <>
+                    <div className="sm:col-span-2 lg:col-span-3">
+                      <h4 className="text-md font-medium text-gray-900 mb-4 mt-6">Información Adicional</h4>
+                    </div>
+
+                    {/* Report ID */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Informe
+                      </label>
+                      <select
+                        value={formData.report_id}
+                        onChange={(e) => setFormData(prev => ({ ...prev, report_id: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      >
+                        <option value="">Sin informe asignado</option>
+                        {reports.map(report => (
+                          <option key={report.id} value={report.id}>
+                            {report.id_display || report.id}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Status */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Estado
+                      </label>
+                      <select
+                        value={formData.status}
+                        onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+                        disabled={isValidated}
+                      >
+                        <option value="pending">Pendiente</option>
+                        <option value="completed">Completado</option>
+                        <option value="validated">Validado</option>
+                      </select>
+                    </div>
+
+                    {/* Performed By */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Realizado Por
+                      </label>
+                      <select
+                        value={formData.performed_by}
+                        onChange={(e) => setFormData(prev => ({ ...prev, performed_by: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+                        disabled={isValidated}
+                      >
+                        <option value="">Sin asignar</option>
+                        {users.map(userOpt => (
+                          <option key={userOpt.id} value={userOpt.id}>
+                            {userOpt.name} ({userOpt.email})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Performed At */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Fecha de Realización
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.performed_at}
+                        onChange={(e) => setFormData(prev => ({ ...prev, performed_at: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+                        disabled={isValidated}
+                      />
+                    </div>
+
+                    {/* Validated By */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Validado Por
+                      </label>
+                      <select
+                        value={formData.validated_by}
+                        onChange={(e) => setFormData(prev => ({ 
+                          ...prev, 
+                          validated_by: e.target.value,
+                          validation_date: e.target.value ? (formData.validation_date || new Date().toISOString().slice(0, 16)) : ''
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+                        disabled={isValidated}
+                      >
+                        <option value="">Sin validar</option>
+                        {users.map(userOpt => (
+                          <option key={userOpt.id} value={userOpt.id}>
+                            {userOpt.name} ({userOpt.email})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Validation Date */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Fecha de Validación
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.validation_date}
+                        onChange={(e) => setFormData(prev => ({ ...prev, validation_date: e.target.value }))}
+                        disabled={!formData.validated_by || isValidated}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+                      />
+                      {!formData.validated_by && !isValidated && (
+                        <p className="text-xs text-gray-500 mt-1">Asigne un validador primero</p>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
             )}
@@ -2585,13 +2827,15 @@ export default function AddResultModal({
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || (resultId && isValidated)}
                 className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : null}
-                {isSubmitting ? 'Creando...' : 'Crear Resultado'}
+                {isSubmitting 
+                  ? (resultId ? 'Actualizando...' : 'Creando...') 
+                  : (resultId ? 'Actualizar Resultado' : 'Crear Resultado')}
               </button>
             </div>
           </form>

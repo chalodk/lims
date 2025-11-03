@@ -12,7 +12,7 @@ import {
 interface CreateClientModalProps {
   isOpen: boolean
   onClose: () => void
-  onSuccess: () => void
+  onSuccess: (clientId?: string) => void // Ahora puede retornar el ID del cliente creado
 }
 
 export default function CreateClientModal({ isOpen, onClose, onSuccess }: CreateClientModalProps) {
@@ -24,7 +24,8 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
     contact_email: '',
     phone: '',
     address: '',
-    client_type: 'farmer'
+    client_type: 'farmer',
+    observation: false
   })
   
   const supabase = getSupabaseClient()
@@ -44,10 +45,25 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
             contact_email: formData.contact_email || null,
             phone: formData.phone || null,
             address: formData.address || null,
+            observation: formData.observation
           }
         ])
 
       if (error) throw error
+
+      // Get the created client ID
+      const { data: createdClient, error: fetchError } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('name', formData.name)
+        .eq('company_id', user?.company_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (fetchError) {
+        console.error('Error fetching created client:', fetchError)
+      }
 
       // Reset form and close modal
       setFormData({
@@ -56,12 +72,13 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
         contact_email: '',
         phone: '',
         address: '',
-        client_type: 'farmer'
+        client_type: 'farmer',
+        observation: false
       })
       onClose()
       
-      // Notify parent component to refresh
-      onSuccess()
+      // Notify parent component to refresh and pass client ID
+      onSuccess(createdClient?.id)
     } catch (error: unknown) {
       console.error('Error creating client:', error)
       alert('Error al crear el cliente: ' + (error instanceof Error ? error.message : 'Error desconocido'))
@@ -73,7 +90,7 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-[60] overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
         
@@ -201,6 +218,25 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                     placeholder="Dirección completa del cliente"
                   />
+                </div>
+
+                {/* Observation Checkbox */}
+                <div className="sm:col-span-2">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="observation"
+                      checked={formData.observation}
+                      onChange={(e) => setFormData(prev => ({ ...prev, observation: e.target.checked }))}
+                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="observation" className="ml-2 block text-sm font-medium text-gray-700">
+                      En observación
+                    </label>
+                  </div>
+                  <p className="ml-6 mt-1 text-xs text-gray-500">
+                    Marca esta opción si el cliente está en observación
+                  </p>
                 </div>
               </div>
             </div>

@@ -12,7 +12,7 @@ import {
 interface CreateProjectModalProps {
   isOpen: boolean
   onClose: () => void
-  onSuccess: () => void
+  onSuccess: (projectId?: string) => void // Ahora puede retornar el ID del proyecto creado
 }
 
 export default function CreateProjectModal({ isOpen, onClose, onSuccess }: CreateProjectModalProps) {
@@ -48,6 +48,20 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
 
       if (error) throw error
 
+      // Get the created project ID
+      const { data: createdProject, error: fetchError } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('name', formData.name)
+        .eq('company_id', user?.company_id || null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (fetchError) {
+        console.error('Error fetching created project:', fetchError)
+      }
+
       // Reset form and close modal
       setFormData({
         name: '',
@@ -58,8 +72,8 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
       })
       onClose()
       
-      // Notify parent component to refresh
-      onSuccess()
+      // Notify parent component to refresh and pass project ID
+      onSuccess(createdProject?.id)
     } catch (error: unknown) {
       console.error('Error creating project:', error)
       alert('Error al crear el proyecto: ' + (error instanceof Error ? error.message : 'Error desconocido'))
@@ -71,7 +85,7 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }: Creat
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-[60] overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
         

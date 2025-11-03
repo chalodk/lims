@@ -130,6 +130,7 @@ export interface Database {
           phone: string | null
           address: string | null
           client_type: ClientType | null
+          observation: boolean | null
           created_at: string | null
         }
         Insert: {
@@ -141,6 +142,7 @@ export interface Database {
           phone?: string | null
           address?: string | null
           client_type?: ClientType | null
+          observation?: boolean | null
           created_at?: string | null
         }
         Update: Partial<Database['public']['Tables']['clients']['Insert']>

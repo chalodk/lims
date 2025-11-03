@@ -26,7 +26,8 @@ export default function EditClientModal({ isOpen, onClose, onSuccess, client }: 
     contact_email: '',
     phone: '',
     address: '',
-    client_type: 'farmer'
+    client_type: 'farmer',
+    observation: false
   })
   
   const supabase = getSupabaseClient()
@@ -40,7 +41,8 @@ export default function EditClientModal({ isOpen, onClose, onSuccess, client }: 
         contact_email: client.contact_email || '',
         phone: client.phone || '',
         address: client.address || '',
-        client_type: client.client_type || 'farmer'
+        client_type: client.client_type || 'farmer',
+        observation: client.observation || false
       })
     }
   }, [isOpen, client])
@@ -65,7 +67,8 @@ export default function EditClientModal({ isOpen, onClose, onSuccess, client }: 
           contact_email: formData.contact_email.trim() || null,
           phone: formData.phone.trim() || null,
           address: formData.address.trim() || null,
-          client_type: formData.client_type
+          client_type: formData.client_type,
+          observation: formData.observation
         })
         .eq('id', client?.id)
         .eq('company_id', user?.company_id) // Additional security: ensure user can only update their company's clients
@@ -224,6 +227,25 @@ export default function EditClientModal({ isOpen, onClose, onSuccess, client }: 
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                     placeholder="Dirección completa del cliente"
                   />
+                </div>
+
+                {/* Observation Checkbox */}
+                <div className="sm:col-span-2">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="edit-observation"
+                      checked={formData.observation}
+                      onChange={(e) => setFormData(prev => ({ ...prev, observation: e.target.checked }))}
+                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="edit-observation" className="ml-2 block text-sm font-medium text-gray-700">
+                      En observación
+                    </label>
+                  </div>
+                  <p className="ml-6 mt-1 text-xs text-gray-500">
+                    Marca esta opción si el cliente está en observación
+                  </p>
                 </div>
               </div>
             </div>
