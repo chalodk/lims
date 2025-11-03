@@ -5,8 +5,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import CreateSampleModal from '@/components/samples/CreateSampleModal'
-import ViewSampleModal from '@/components/samples/ViewSampleModal'
 import EditSampleModal from '@/components/samples/EditSampleModal'
+import ViewSampleModal from '@/components/samples/ViewSampleModal'
 import DeleteConfirmModal from '@/components/samples/DeleteConfirmModal'
 import { SampleWithClient } from '@/types/database'
 import { formatDate } from '@/lib/utils/formatters'
@@ -32,6 +32,7 @@ export default function SamplesPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedSample, setSelectedSample] = useState<SampleWithClient | null>(null)
+  const [editingSample, setEditingSample] = useState<SampleWithClient | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showViewModal, setShowViewModal] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -120,7 +121,7 @@ export default function SamplesPage() {
   }
 
   const handleEditSample = (sample: SampleWithClient) => {
-    setSelectedSample(sample)
+    setEditingSample(sample)
     setShowEditModal(true)
   }
 
@@ -190,13 +191,15 @@ export default function SamplesPage() {
               <h1 className="text-2xl font-bold text-gray-900">Gestión de Muestras</h1>
               <p className="text-gray-600">Administra y realiza seguimiento de todas las muestras</p>
             </div>
-            <button 
-              onClick={() => setShowCreateModal(true)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Nueva muestra</span>
-            </button>
+            <div className="flex items-center space-x-3">
+              <button 
+                onClick={() => setShowCreateModal(true)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Nueva muestra</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -366,9 +369,31 @@ export default function SamplesPage() {
         {/* Create Sample Modal */}
         <CreateSampleModal 
           isOpen={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={fetchSamples}
+          onClose={() => {
+            setShowCreateModal(false)
+          }}
+          onSuccess={() => {
+            fetchSamples()
+            setShowCreateModal(false)
+          }}
         />
+
+        {/* Edit Sample Modal */}
+        {editingSample && (
+          <EditSampleModal
+            isOpen={showEditModal}
+            onClose={() => {
+              setShowEditModal(false)
+              setEditingSample(null)
+            }}
+            onSuccess={() => {
+              fetchSamples()
+              setShowEditModal(false)
+              setEditingSample(null)
+            }}
+            sample={editingSample}
+          />
+        )}
 
         {/* View Sample Modal */}
         {selectedSample && (
@@ -382,18 +407,6 @@ export default function SamplesPage() {
           />
         )}
 
-        {/* Edit Sample Modal */}
-        {selectedSample && (
-          <EditSampleModal
-            isOpen={showEditModal}
-            onClose={() => {
-              setShowEditModal(false)
-              setSelectedSample(null)
-            }}
-            sample={selectedSample}
-            onSuccess={fetchSamples}
-          />
-        )}
 
         {/* Delete Confirmation Modal */}
         {selectedSample && (

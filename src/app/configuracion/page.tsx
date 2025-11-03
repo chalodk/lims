@@ -3,14 +3,10 @@
 import { useState } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { 
-  Settings, 
   User, 
   Bell, 
   Shield, 
-  Database,
-  Mail,
-  Key,
-  Globe
+  Database
 } from 'lucide-react'
 
 export default function ConfiguracionPage() {
