@@ -21,19 +21,30 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Skip middleware for 404 pages - let Next.js handle them
+  // This prevents session loss when navigating to non-existent routes
+  if (pathname.includes('404') || pathname.includes('_error')) {
+    return NextResponse.next()
+  }
+
   try {
     console.log('🔍 Middleware checking:', pathname, 'isPublicRoute:', isPublicRoute)
     const supabase = await createClient()
     const { data: { session }, error } = await supabase.auth.getSession()
     console.log('📋 Session result:', { session: !!session, error: !!error })
 
-    // If there's an error getting the session, redirect to login for protected routes
+    // If there's an error getting the session, be more lenient
+    // Only redirect to login if it's a critical error, not a temporary one
     if (error) {
       console.error('❌ Middleware session error:', error)
-      if (!isPublicRoute) {
-        console.log('🔄 Redirecting to login due to session error')
-        return NextResponse.redirect(new URL('/login', request.url))
+      // Only redirect for critical auth errors, not temporary network issues
+      if (error.message?.includes('Invalid JWT') || error.message?.includes('expired')) {
+        if (!isPublicRoute) {
+          console.log('🔄 Redirecting to login due to critical session error')
+          return NextResponse.redirect(new URL('/login', request.url))
+        }
       }
+      // For other errors, allow the request to continue
       return NextResponse.next()
     }
 

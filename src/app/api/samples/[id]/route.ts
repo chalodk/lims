@@ -118,9 +118,11 @@ export async function PUT(
       code,
       received_date,
       sla_type,
+      sla_status,
       project_id,
       species,
       variety,
+      rootstock,
       planting_year,
       previous_crop,
       next_crop,
@@ -179,9 +181,11 @@ export async function PUT(
       updateData.due_date = dueDate.toISOString().split('T')[0]
     }
     if (sla_type !== undefined) updateData.sla_type = sla_type
+    if (sla_status !== undefined) updateData.sla_status = sla_status
     if (project_id !== undefined) updateData.project_id = project_id
     if (species !== undefined) updateData.species = species
     if (variety !== undefined) updateData.variety = variety
+    if (rootstock !== undefined) updateData.rootstock = rootstock
     if (planting_year !== undefined) updateData.planting_year = planting_year ? parseInt(planting_year) : null
     if (previous_crop !== undefined) updateData.previous_crop = previous_crop
     if (next_crop !== undefined) updateData.next_crop = next_crop
@@ -265,9 +269,11 @@ export async function PATCH(
       code,
       received_date,
       sla_type,
+      sla_status,
       project_id,
       species,
       variety,
+      rootstock,
       planting_year,
       previous_crop,
       next_crop,
@@ -307,6 +313,25 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    // Check if sample has validated results - if so, prevent editing
+    const { data: validatedResults, error: resultsCheckError } = await supabase
+      .from('results')
+      .select('id')
+      .eq('sample_id', resolvedParams.id)
+      .eq('status', 'validated')
+      .limit(1)
+
+    if (resultsCheckError) {
+      console.error('Error checking validated results:', resultsCheckError)
+    }
+
+    if (validatedResults && validatedResults.length > 0) {
+      return NextResponse.json(
+        { error: 'Esta muestra no puede ser editada porque tiene resultados validados.' },
+        { status: 403 }
+      )
+    }
+
     // Calculate due date based on SLA
     const receivedAt = new Date(received_date)
     const dueDate = new Date(receivedAt)
@@ -329,10 +354,12 @@ export async function PATCH(
       received_date,
       received_at: new Date(received_date).toISOString(),
       sla_type: sla_type || 'normal',
+      sla_status: sla_status || 'on_time',
       due_date: dueDate.toISOString().split('T')[0],
       project_id: project_id || null,
       species,
       variety: variety || null,
+      rootstock: rootstock || null,
       planting_year: planting_year ? parseInt(planting_year) : null,
       previous_crop: previous_crop || null,
       next_crop: next_crop || null,
