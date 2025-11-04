@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { Settings, Users, Loader2, Search, X, RefreshCw, Eye, Pencil, Trash2, Shield, UserPlus } from 'lucide-react'
+import { Settings, Users, Loader2, Search, X, RefreshCw, Eye, Pencil, Trash2, Shield, UserPlus, Link2 } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils/formatters'
 import EditProfileModal from '@/components/settings/EditProfileModal'
 import CreateUserModal from '@/components/settings/CreateUserModal'
+import LinkUserClientsModal from '@/components/settings/LinkUserClientsModal'
 
 interface UserProfile {
   id: string
@@ -15,6 +16,8 @@ interface UserProfile {
   email: string
   role: string
   role_id?: number | null
+  client_id?: string | null
+  client_name?: string | null
   created_at: string
   isUnauthorized?: boolean
 }
@@ -29,6 +32,8 @@ export default function SettingsPage() {
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [linkingUser, setLinkingUser] = useState<UserProfile | null>(null)
+  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false)
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -84,6 +89,14 @@ export default function SettingsPage() {
 
   const handleEditSuccess = () => {
     fetchUsers() // Recargar la lista de usuarios
+  }
+
+  const handleLinkClient = (userId: string) => {
+    const user = users.find(u => u.id === userId)
+    if (user && user.role === 'consumidor') {
+      setLinkingUser(user)
+      setIsLinkModalOpen(true)
+    }
   }
 
   const handleDeleteProfile = async (userId: string, userName: string) => {
@@ -293,6 +306,9 @@ export default function SettingsPage() {
                         Rol
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Cliente Vinculado
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Fecha de Creación
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -332,6 +348,22 @@ export default function SettingsPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {user.role === 'consumidor' ? (
+                            user.client_name ? (
+                              <div>
+                                <span className="font-medium text-gray-900">{user.client_name}</span>
+                                {user.client_id && (
+                                  <span className="text-xs text-gray-500 block">ID: {user.client_id.substring(0, 8)}...</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-500 italic">Sin vincular</span>
+                            )
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                           {formatDateTime(user.created_at)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -348,6 +380,15 @@ export default function SettingsPage() {
                               >
                                 <Eye className="h-5 w-5" />
                               </button>
+                              {user.role === 'consumidor' && (
+                                <button
+                                  onClick={() => handleLinkClient(user.id)}
+                                  className="text-purple-600 hover:text-purple-900 focus:outline-none focus:ring-2 focus:ring-purple-500 rounded p-1"
+                                  title="Vincular cliente"
+                                >
+                                  <Link2 className="h-5 w-5" />
+                                </button>
+                              )}
                               <button
                                 onClick={() => handleEditProfile(user.id)}
                                 className="text-green-600 hover:text-green-900 focus:outline-none focus:ring-2 focus:ring-green-500 rounded p-1"
@@ -391,6 +432,17 @@ export default function SettingsPage() {
         <CreateUserModal
           isOpen={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
+          onSuccess={handleEditSuccess}
+        />
+
+        {/* Modal de Vincular Clientes */}
+        <LinkUserClientsModal
+          isOpen={isLinkModalOpen}
+          onClose={() => {
+            setIsLinkModalOpen(false)
+            setLinkingUser(null)
+          }}
+          user={linkingUser}
           onSuccess={handleEditSuccess}
         />
       </DashboardLayout>

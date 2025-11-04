@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
@@ -14,7 +14,8 @@ import {
   Menu,
   X,
   Bell,
-  FlaskConical
+  FlaskConical,
+  Loader2
 } from 'lucide-react'
 import Image from 'next/image'
 import UserProfileDropdown from '@/components/UserProfileDropdown'
@@ -25,8 +26,45 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const { userRole } = useAuth()
+  const { user, isAuthenticated, isLoading, userRole } = useAuth()
   const pathname = usePathname()
+
+  // Verificar si hay usuario autenticado, si no redirigir inmediatamente al login
+  useEffect(() => {
+    // Si ya terminó de cargar y no hay usuario, redirigir inmediatamente
+    // Solo redirigir si no estamos ya en la página de login para evitar loops
+    if (!isLoading && (!isAuthenticated || !user)) {
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        // Usar replace para evitar agregar al historial
+        window.location.replace('/login')
+      }
+    }
+  }, [isAuthenticated, user, isLoading])
+
+  // Si no hay usuario autenticado, redirigir inmediatamente al login
+  // Esto maneja el caso donde el usuario hace logout y el estado cambia
+  if (!isAuthenticated || !user) {
+    // Redirigir usando window.location.replace para evitar loops y agregar al historial
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      window.location.replace('/login')
+      // Retornar null mientras se redirige
+      return null
+    }
+    // Si ya estamos en login, no mostrar nada
+    return null
+  }
+
+  // Mostrar loading mientras se verifica la autenticación (solo en la carga inicial)
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-green-600 mx-auto mb-4" />
+          <p className="text-gray-600">Verificando autenticación...</p>
+        </div>
+      </div>
+    )
+  }
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home, roles: ['admin', 'validador', 'comun'] },

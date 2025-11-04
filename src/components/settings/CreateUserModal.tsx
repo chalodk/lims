@@ -203,4 +203,3 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
     </div>
   )
 }
-
