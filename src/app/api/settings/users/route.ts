@@ -48,9 +48,15 @@ export async function GET(request: NextRequest) {
         email,
         created_at,
         role_id,
+        client_id,
         roles (
           id,
           name
+        ),
+        clients (
+          id,
+          name,
+          rut
         )
       `)
       // No aplicar ningún filtro que excluya usuarios sin role_id
@@ -110,15 +116,9 @@ export async function GET(request: NextRequest) {
       }
       
       // También buscar usuarios sin rol si el término de búsqueda podría referirse a "sin rol"
-      const sinRolTerms = ['sin rol', 'sin rol', 'sin roles', 'sinrole', 'sinroles', 'no rol', 'sin asignar']
+      const sinRolTerms = ['sin rol', 'sin roles', 'sinrole', 'sinroles', 'no rol', 'sin asignar']
       if (sinRolTerms.some(term => normalizedQuery.includes(term))) {
         conditions.push('role_id.is.null')
-      }
-      
-      // Buscar "sin autorizar" o términos relacionados
-      const sinAutorizarTerms = ['sin autorizar', 'sin autoriz', 'no autorizado', 'pendiente', 'unauthorized']
-      if (sinAutorizarTerms.some(term => normalizedQuery.includes(term))) {
-        // Esto se manejará después al filtrar usuarios no autorizados
       }
       
       // Aplicar filtro OR combinado
@@ -214,7 +214,9 @@ export async function GET(request: NextRequest) {
       name?: string
       email?: string
       role_id: number | null | undefined
+      client_id?: string | null
       roles?: { id: number; name: string } | { id: number; name: string }[] | null
+      clients?: { id: string; name: string; rut?: string } | { id: string; name: string; rut?: string }[] | null
       created_at?: string
     }
     const publicUsers = (usersData || []).map((user: UserData) => {
@@ -237,12 +239,24 @@ export async function GET(request: NextRequest) {
       }
       // Si role_id es null o undefined, mantener "Sin rol" (ya está asignado por defecto)
 
+      // Extraer información del cliente vinculado
+      // Manejar tanto array como objeto para la relación clients
+      let clientName: string | null = null
+      if (user.client_id && user.clients) {
+        const clientData = Array.isArray(user.clients) ? user.clients[0] : user.clients
+        if (clientData && typeof clientData === 'object' && 'name' in clientData) {
+          clientName = clientData.name || null
+        }
+      }
+
       return {
         id: user.id,
         name: user.name || 'Sin nombre',
         email: user.email || 'Sin email',
         role: roleName, // Devolver el nombre del rol como está en la BD (admin, validador, etc.)
         role_id: roleId, // Incluir role_id para referencia
+        client_id: user.client_id || null,
+        client_name: clientName,
         created_at: user.created_at || new Date().toISOString(),
         isUnauthorized: false
       }
@@ -254,6 +268,7 @@ export async function GET(request: NextRequest) {
       name: user.name || 'Sin nombre',
       email: user.email || 'Sin email',
       role: 'Sin autorizar',
+      role_id: null,
       created_at: user.created_at || new Date().toISOString(),
       isUnauthorized: true
     }))
@@ -291,7 +306,7 @@ export async function GET(request: NextRequest) {
     
     console.log(`Total de usuarios obtenidos: ${allUsers.length}`)
     console.log(`Usuarios autorizados: ${publicUsers.length}`)
-    console.log(`Usuarios no autorizados: ${unauthorizedFormatted.length}`)
+    console.log(`Usuarios no autorizados: ${filteredUnauthorized.length}`)
     console.log(`Usuarios sin rol: ${allUsers.filter(u => u.role === 'Sin rol').length}`)
 
     return NextResponse.json({ users: allUsers })
@@ -303,3 +318,107 @@ export async function GET(request: NextRequest) {
   }
 }
 
+export async function POST(request: NextRequest) {
+  try {
+    // Verificar autenticación
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
+    // Verificar que el usuario es admin
+    const { data: currentUser, error: userError } = await supabase
+      .from('users')
+      .select('role_id, roles(name)')
+      .eq('id', user.id)
+      .single()
+
+    if (userError || !currentUser) {
+      return NextResponse.json({ error: 'Error al obtener información del usuario' }, { status: 500 })
+    }
+
+    // Verificar rol admin
+    type RoleData = { id: number; name: string } | { id: number; name: string }[]
+    const roleData = currentUser.roles as RoleData
+    const role = Array.isArray(roleData) 
+      ? roleData[0]?.name 
+      : roleData?.name
+
+    if (role !== 'admin') {
+      return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 })
+    }
+
+    // Obtener datos del body
+    const body = await request.json()
+    const { name, email, password, role_id } = body
+
+    if (!name || !email || !password) {
+      return NextResponse.json({ error: 'Nombre, email y contraseña son requeridos' }, { status: 400 })
+    }
+
+    // Crear cliente admin para crear usuario en auth.users
+    const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+
+    // Crear usuario en auth.users
+    const { data: authUser, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
+      email: email,
+      password: password,
+      email_confirm: true,
+      user_metadata: {
+        name: name
+      }
+    })
+
+    if (createAuthError || !authUser.user) {
+      return NextResponse.json({ 
+        error: 'Error al crear usuario',
+        details: createAuthError?.message || 'Error desconocido'
+      }, { status: 500 })
+    }
+
+    // Crear perfil en public.users
+    const { data: newUser, error: createProfileError } = await supabase
+      .from('users')
+      .insert({
+        id: authUser.user.id,
+        name: name,
+        email: email,
+        role_id: role_id || null,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single()
+
+    if (createProfileError) {
+      // Si falla la creación del perfil, eliminar el usuario de auth
+      console.error('Error al crear perfil:', createProfileError)
+      await supabaseAdmin.auth.admin.deleteUser(authUser.user.id)
+      return NextResponse.json({ 
+        error: 'Error al crear perfil de usuario',
+        details: createProfileError.message 
+      }, { status: 500 })
+    }
+
+    return NextResponse.json({ 
+      message: 'Usuario creado exitosamente',
+      user: newUser 
+    }, { status: 201 })
+  } catch (error) {
+    console.error('Error en POST /api/settings/users:', error)
+    return NextResponse.json({ 
+      error: 'Error interno del servidor',
+      details: error instanceof Error ? error.message : 'Error desconocido'
+    }, { status: 500 })
+  }
+}

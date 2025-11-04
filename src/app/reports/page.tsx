@@ -46,7 +46,7 @@ interface Report {
 }
 
 export default function ReportsPage() {
-  const { userRole } = useAuth()
+  const { userRole, user } = useAuth()
   const [reports, setReports] = useState<Report[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -82,6 +82,11 @@ export default function ReportsPage() {
         `)
         .order('created_at', { ascending: false })
 
+      // Si el usuario es consumidor, solo mostrar informes de su cliente vinculado
+      if (userRole === 'consumidor' && user?.client_id) {
+        query = query.eq('client_id', user.client_id)
+      }
+
       if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter)
       }
@@ -95,7 +100,7 @@ export default function ReportsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [statusFilter, supabase])
+  }, [statusFilter, supabase, userRole, user?.client_id])
 
   useEffect(() => {
     fetchReports()
@@ -310,7 +315,16 @@ export default function ReportsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Informes</h1>
-              <p className="text-gray-600">Gestiona y genera informes de análisis</p>
+              <p className="text-gray-600">
+                {userRole === 'consumidor' 
+                  ? 'Informes de análisis de tus muestras' 
+                  : 'Gestiona y genera informes de análisis'}
+              </p>
+              {userRole === 'consumidor' && user?.client_id && (
+                <p className="text-sm text-blue-600 mt-1">
+                  📋 Mostrando solo informes vinculados a tu cuenta
+                </p>
+              )}
             </div>
             {(userRole === 'admin' || userRole === 'comun') && (
               <div className="flex space-x-3">
@@ -504,12 +518,14 @@ export default function ReportsPage() {
                               }`}>
                                 {report.payment ? 'Pagado' : 'Pendiente'}
                               </span>
-                              <button
-                                onClick={() => handleEditPayment(report.id, report.payment || false, report.invoice_number || '')}
-                                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                              >
-                                Editar
-                              </button>
+                              {(userRole === 'admin' || userRole === 'validador' || userRole === 'comun') && (
+                                <button
+                                  onClick={() => handleEditPayment(report.id, report.payment || false, report.invoice_number || '')}
+                                  className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                                >
+                                  Editar
+                                </button>
+                              )}
                             </div>
                             {report.invoice_number && (
                               <div className="text-xs text-gray-600">
