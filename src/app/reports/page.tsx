@@ -19,12 +19,15 @@ import {
   Plus,
   Trash2,
   Save,
-  X
+  X,
+  Check
 } from 'lucide-react'
 
 interface Report {
   id: string
   status: string
+  completed?: boolean | null
+  responsible_id?: string | null
   created_at: string
   template: string
   download_url?: string
@@ -57,6 +60,7 @@ export default function ReportsPage() {
   const [editingPayment, setEditingPayment] = useState<string | null>(null)
   const [paymentData, setPaymentData] = useState<{[key: string]: { payment: boolean, invoice_number: string }}>({})
   const [savingPayment, setSavingPayment] = useState<string | null>(null)
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null)
   
   const supabase = getSupabaseClient()
 
@@ -82,13 +86,19 @@ export default function ReportsPage() {
         `)
         .order('created_at', { ascending: false })
 
-      // Si el usuario es consumidor, solo mostrar informes de su cliente vinculado
+      // Si el usuario es consumidor, solo mostrar informes de su cliente vinculado Y que estén validados
       if (userRole === 'consumidor' && user?.client_id) {
         query = query.eq('client_id', user.client_id)
+        query = query.eq('completed', true) // Solo mostrar informes validados
       }
 
       if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter)
+        if (statusFilter === 'validated') {
+          // Para validados, filtramos por completed = true
+          query = query.eq('completed', true)
+        } else {
+          query = query.eq('status', statusFilter)
+        }
       }
 
       const { data, error } = await query
@@ -195,6 +205,72 @@ export default function ReportsPage() {
     setPaymentData(updatedData)
   }
 
+  const handleValidateReport = async (reportId: string) => {
+    setUpdatingStatus(reportId)
+    try {
+      const response = await fetch(`/api/reports/status/${reportId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'validated' })
+      })
+
+      const responseData = await response.json()
+
+      if (!response.ok) {
+        console.error('Error response:', responseData)
+        throw new Error(responseData.error || 'Error al validar el informe')
+      }
+
+      // Update the report in the local state
+      setReports(prev => prev.map(report => 
+        report.id === reportId 
+          ? { ...report, completed: true, responsible_id: user?.id || null }
+          : report
+      ))
+    } catch (error) {
+      console.error('Error validating report:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Error al validar el informe. Por favor, intente nuevamente.'
+      alert(errorMessage)
+    } finally {
+      setUpdatingStatus(null)
+    }
+  }
+
+  const handleUnvalidateReport = async (reportId: string) => {
+    setUpdatingStatus(reportId)
+    try {
+      const response = await fetch(`/api/reports/status/${reportId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'draft' })
+      })
+
+      const responseData = await response.json()
+
+      if (!response.ok) {
+        console.error('Error response:', responseData)
+        throw new Error(responseData.error || 'Error al cambiar el informe a borrador')
+      }
+
+      // Update the report in the local state
+      setReports(prev => prev.map(report => 
+        report.id === reportId 
+          ? { ...report, completed: false, responsible_id: null }
+          : report
+      ))
+    } catch (error) {
+      console.error('Error unvalidating report:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Error al cambiar el informe a borrador. Por favor, intente nuevamente.'
+      alert(errorMessage)
+    } finally {
+      setUpdatingStatus(null)
+    }
+  }
+
   const handleDeleteReport = async (reportId: string, reportStatus: string) => {
     if (reportStatus === 'sent') {
       alert('No se pueden eliminar informes enviados')
@@ -239,7 +315,7 @@ export default function ReportsPage() {
            sampleCodes.includes(searchLower)
   })
 
-  const getStatusBadge = (status: string | null) => {
+  const getStatusBadge = (status: string | null, reportId: string, completed?: boolean | null) => {
     if (!status) {
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
@@ -251,13 +327,85 @@ export default function ReportsPage() {
     const statusConfig = {
       draft: 'bg-gray-100 text-gray-800 border-gray-200',
       generated: 'bg-blue-100 text-blue-800 border-blue-200',
-      sent: 'bg-green-100 text-green-800 border-green-200'
+      sent: 'bg-green-100 text-green-800 border-green-200',
+      validated: 'bg-purple-100 text-purple-800 border-purple-200'
     }
 
     const statusLabels = {
       draft: 'Borrador',
       generated: 'Generado',
-      sent: 'Enviado'
+      sent: 'Enviado',
+      validated: 'Validado'
+    }
+
+    // Verificar si el usuario tiene permisos para validar (admin o validador)
+    const canValidate = userRole === 'admin' || userRole === 'validador'
+    
+    // Si completed es true, el informe está validado (usamos completed en lugar de status)
+    const isValidated = completed === true
+
+    // Si es borrador (no validado), mostrar X a la izquierda (no clickeable) y check a la derecha (clickeable para validar)
+    if (status === 'draft' && !isValidated) {
+      const isUpdating = updatingStatus === reportId
+      return (
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+          statusConfig[status as keyof typeof statusConfig] || 'bg-gray-100 text-gray-800 border-gray-200'
+        }`}>
+          <X className="h-3 w-3 text-gray-500" />
+          {statusLabels[status as keyof typeof statusLabels] || status}
+          {canValidate ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                handleValidateReport(reportId)
+              }}
+              disabled={isUpdating}
+              className="hover:bg-gray-200 rounded p-0.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Validar informe"
+            >
+              {isUpdating ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Check className="h-3 w-3 text-green-600 hover:text-green-700" />
+              )}
+            </button>
+          ) : (
+            <Check className="h-3 w-3 text-gray-400" />
+          )}
+        </span>
+      )
+    }
+
+    // Si es validado (completed = true), mostrar X clickeable a la izquierda (para desvalidar) y check a la derecha (no clickeable)
+    if (isValidated) {
+      const isUpdating = updatingStatus === reportId
+      return (
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+          statusConfig.validated || 'bg-purple-100 text-purple-800 border-purple-200'
+        }`}>
+          {canValidate ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                handleUnvalidateReport(reportId)
+              }}
+              disabled={isUpdating}
+              className="hover:bg-purple-200 rounded p-0.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Cambiar a borrador"
+            >
+              {isUpdating ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <X className="h-3 w-3 text-red-600 hover:text-red-700" />
+              )}
+            </button>
+          ) : (
+            <X className="h-3 w-3 text-gray-400" />
+          )}
+          {statusLabels.validated}
+          <Check className="h-3 w-3 text-green-600" />
+        </span>
+      )
     }
 
     return (
@@ -297,18 +445,18 @@ export default function ReportsPage() {
 
   if (isLoading) {
     return (
-      <DashboardLayout>
-        <div className="p-6">
-          <div className="flex items-center justify-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+        <DashboardLayout>
+          <div className="p-6">
+            <div className="flex items-center justify-center h-64">
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+            </div>
           </div>
-        </div>
-      </DashboardLayout>
+        </DashboardLayout>
     )
   }
 
   return (
-    <DashboardLayout>
+      <DashboardLayout>
       <div className="p-6">
         {/* Header */}
         <div className="mb-6">
@@ -322,7 +470,7 @@ export default function ReportsPage() {
               </p>
               {userRole === 'consumidor' && user?.client_id && (
                 <p className="text-sm text-blue-600 mt-1">
-                  📋 Mostrando solo informes vinculados a tu cuenta
+                  📋 Mostrando solo informes validados vinculados a tu cuenta
                 </p>
               )}
             </div>
@@ -370,6 +518,7 @@ export default function ReportsPage() {
               >
                 <option value="all">Todos los estados</option>
                 <option value="draft">Borradores</option>
+                <option value="validated">Validados</option>
                 <option value="generated">Generados</option>
                 <option value="sent">Enviados</option>
               </select>
@@ -437,7 +586,7 @@ export default function ReportsPage() {
                         {getTemplateBadge(report.template)}
                       </td>
                       <td className="px-6 py-4">
-                        {getStatusBadge(report.status)}
+                        {getStatusBadge(report.status, report.id, report.completed)}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {report.created_at ? new Date(report.created_at).toLocaleDateString('es-ES') : 'N/A'}
@@ -519,12 +668,12 @@ export default function ReportsPage() {
                                 {report.payment ? 'Pagado' : 'Pendiente'}
                               </span>
                               {(userRole === 'admin' || userRole === 'validador' || userRole === 'comun') && (
-                                <button
-                                  onClick={() => handleEditPayment(report.id, report.payment || false, report.invoice_number || '')}
-                                  className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                                >
-                                  Editar
-                                </button>
+                              <button
+                                onClick={() => handleEditPayment(report.id, report.payment || false, report.invoice_number || '')}
+                                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                              >
+                                Editar
+                              </button>
                               )}
                             </div>
                             {report.invoice_number && (

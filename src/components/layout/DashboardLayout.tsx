@@ -171,7 +171,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   Sistema LIMS
                 </p>
               </div>
-
+              
               {/* User Profile Dropdown */}
               <UserProfileDropdown />
             </div>
@@ -184,7 +184,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Page content */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden w-full">
           <div className="w-full h-full">
-            {children}
+          {children}
           </div>
         </main>
       </div>

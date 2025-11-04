@@ -299,7 +299,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Redirect immediately - don't wait for Supabase signOut to complete
         // Use window.location.replace to avoid adding to history
-        window.location.replace('/login')
+              window.location.replace('/login')
       }
       
       // Wait for signOut to complete in background (but don't block)
