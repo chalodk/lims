@@ -11,14 +11,13 @@ import {
   FileText,
   BarChart3,
   Settings,
-  LogOut,
   Menu,
   X,
   Bell,
-  Loader2,
   FlaskConical
 } from 'lucide-react'
 import Image from 'next/image'
+import UserProfileDropdown from '@/components/UserProfileDropdown'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -26,20 +25,8 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
-  const { user, authUser, userRole, signOut, isLoading } = useAuth()
+  const { userRole } = useAuth()
   const pathname = usePathname()
-
-  const handleSignOut = async () => {
-    setIsLoggingOut(true)
-    try {
-      await signOut()
-    } catch (error) {
-      console.error('Logout error:', error)
-    }
-    // Note: Don't set isLoggingOut to false here as the component will unmount
-    // when redirected to login page
-  }
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home, roles: ['admin', 'validador', 'comun', 'consumidor'] },
@@ -113,37 +100,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               )
             })}
           </nav>
-
-          {/* User info */}
-          <div className="p-4 border-t border-gray-200">
-            <div className="flex items-center space-x-3 mb-3">
-              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                <span className="text-green-600 font-medium text-sm">
-                  {user?.name?.charAt(0) || authUser?.email?.charAt(0) || 'U'}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {user?.name || authUser?.email}
-                </p>
-                <p className="text-xs text-gray-500 capitalize">
-                  {userRole || 'Usuario'}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={handleSignOut}
-              disabled={isLoggingOut || isLoading}
-              className="flex items-center w-full px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoggingOut ? (
-                <Loader2 className="h-4 w-4 mr-3 animate-spin" />
-              ) : (
-                <LogOut className="h-4 w-4 mr-3" />
-              )}
-              {isLoggingOut ? 'Cerrando sesión...' : 'Cerrar sesión'}
-            </button>
-          </div>
         </div>
       </div>
 
@@ -151,10 +107,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="flex-1 flex flex-col">
         {/* Top header */}
         <header className="bg-white shadow-sm border-b border-gray-200 lg:ml-0">
-          <div className="flex items-center justify-between h-16 px-4 sm:px-6">
+          <div className="flex items-center justify-end h-16 px-4 sm:px-6">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              className="lg:hidden absolute left-4 p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
             >
               <Menu className="h-6 w-6" />
             </button>
@@ -167,7 +123,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </button>
               
               {/* Company info */}
-              <div className="text-right">
+              <div className="text-right hidden sm:block">
                 <p className="text-sm font-medium text-gray-900">
                   Laboratorio
                 </p>
@@ -175,6 +131,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   Sistema LIMS
                 </p>
               </div>
+
+              {/* User Profile Dropdown */}
+              <UserProfileDropdown />
             </div>
           </div>
         </header>
