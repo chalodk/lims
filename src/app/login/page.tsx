@@ -57,7 +57,38 @@ export default function LoginPage() {
             setError('Error inesperado. Intenta nuevamente.')
           }
         } else {
-          router.push('/dashboard')
+          // Obtener el rol del usuario para redirigir según su rol
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            // Obtener el rol del usuario desde la base de datos
+            const { data: userData } = await supabase
+              .from('users')
+              .select('role_id, roles(name)')
+              .eq('id', user.id)
+              .single()
+            
+            if (userData) {
+              // Definir tipo para roleData para evitar errores de TypeScript
+              type RoleData = { id: number; name: string } | { id: number; name: string }[]
+              const roleData = userData.roles as RoleData
+              const roleName = Array.isArray(roleData) 
+                ? roleData[0]?.name 
+                : (roleData as { id: number; name: string })?.name
+              
+              // Redirigir según el rol: consumidor va a /reports, otros a /dashboard
+              if (roleName === 'consumidor') {
+                router.push('/reports')
+              } else {
+                router.push('/dashboard')
+              }
+            } else {
+              // Fallback si no se puede obtener el usuario
+              router.push('/dashboard')
+            }
+          } else {
+            // Fallback si no se puede obtener el usuario
+            router.push('/dashboard')
+          }
         }
       }
     } catch (error) {
