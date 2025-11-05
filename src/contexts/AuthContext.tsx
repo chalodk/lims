@@ -4,11 +4,8 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { User, Role, RoleName } from '@/types/database'
 import type { User as AuthUser, Session } from '@supabase/supabase-js'
-
-// Utility for conditional logging
-const isDev = process.env.NODE_ENV === 'development'
-const log = isDev ? console.log : () => {}
-const logError = console.error // Always log errors
+import { log, logError } from '@/lib/utils/logger'
+import { TOKEN_REFRESH_THRESHOLD_SECONDS, TOKEN_REFRESH_CHECK_INTERVAL_MS } from '@/lib/auth/constants'
 
 interface AuthState {
   user: User | null
@@ -136,6 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true
+    const refreshIntervalRef = { current: null as NodeJS.Timeout | null }
 
     // Check if Supabase is properly configured
     if (!isSupabaseConfigured()) {
@@ -207,9 +205,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     // Set up proactive token refresh
-    // Check every minute if the token is close to expiring and refresh it proactively
-    const refreshInterval = setInterval(async () => {
-      if (!mounted) return
+    // Check periodically if the token is close to expiring and refresh it proactively
+    refreshIntervalRef.current = setInterval(async () => {
+      if (!mounted) {
+        // Clean up interval if component is unmounted
+        if (refreshIntervalRef.current) {
+          clearInterval(refreshIntervalRef.current)
+          refreshIntervalRef.current = null
+        }
+        return
+      }
       
       try {
         const { data: { session } } = await supabase.auth.getSession()
@@ -218,8 +223,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const expiresAt = session.expires_at
           if (expiresAt) {
             const expiresInSeconds = expiresAt - Math.floor(Date.now() / 1000)
-            // Refresh if less than 5 minutes (300 seconds) until expiration
-            if (expiresInSeconds < 300 && expiresInSeconds > 0) {
+            // Refresh if less than TOKEN_REFRESH_THRESHOLD_SECONDS until expiration
+            if (expiresInSeconds < TOKEN_REFRESH_THRESHOLD_SECONDS && expiresInSeconds > 0) {
               log('🔄 Proactively refreshing token (expires in', expiresInSeconds, 'seconds)')
               await supabase.auth.refreshSession()
             }
@@ -228,12 +233,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         logError('Error in proactive refresh:', error)
       }
-    }, 60000) // Check every minute
+    }, TOKEN_REFRESH_CHECK_INTERVAL_MS)
 
     return () => {
       mounted = false
       subscription.unsubscribe()
-      clearInterval(refreshInterval)
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current)
+        refreshIntervalRef.current = null
+      }
     }
   }, [supabase, updateAuthState])
 

@@ -1,10 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-
-// Utility function for conditional logging
-const isDev = process.env.NODE_ENV === 'development'
-const log = isDev ? console.log : () => {}
-const logError = console.error // Always log errors
+import { log, logError } from '@/lib/utils/logger'
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
