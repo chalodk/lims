@@ -134,19 +134,41 @@ export default function SamplesPage() {
     if (!selectedSample) return
     
     try {
-      const { error } = await supabase
-        .from('samples')
-        .delete()
-        .eq('id', selectedSample.id)
+      const response = await fetch(`/api/samples/${selectedSample.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        const errorData = await response.json()
+        const errorMessage = errorData.error || 'Error al eliminar la muestra'
+        
+        // Handle specific error cases
+        if (response.status === 401) {
+          throw new Error('No estás autenticado. Por favor, inicia sesión nuevamente.')
+        } else if (response.status === 403) {
+          throw new Error('No tienes permiso para eliminar esta muestra.')
+        } else if (response.status === 404) {
+          throw new Error('La muestra no fue encontrada.')
+        } else {
+          throw new Error(errorMessage)
+        }
+      }
+
+      const result = await response.json()
       
+      // Refresh the samples list
       await fetchSamples()
       setShowDeleteConfirm(false)
       setSelectedSample(null)
     } catch (error) {
       console.error('Error deleting sample:', error)
-      alert('Error al eliminar la muestra')
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Error al eliminar la muestra'
+      alert(errorMessage)
     }
   }
 
