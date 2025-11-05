@@ -5,6 +5,11 @@ import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { User, Role, RoleName } from '@/types/database'
 import type { User as AuthUser, Session } from '@supabase/supabase-js'
 
+// Utility for conditional logging
+const isDev = process.env.NODE_ENV === 'development'
+const log = isDev ? console.log : () => {}
+const logError = console.error // Always log errors
+
 interface AuthState {
   user: User | null
   authUser: AuthUser | null
@@ -44,14 +49,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 
   const updateAuthState = useCallback(async (session: Session | null) => {
-    console.log('🔍 updateAuthState called with session:', !!session)
-    console.log('📋 Session details:', { 
+    log('🔍 updateAuthState called with session:', !!session)
+    log('📋 Session details:', { 
       user: session?.user?.email, 
       access_token: !!session?.access_token 
     })
     
     if (!session?.user || !session?.access_token) {
-      console.log('❌ No valid session, setting unauthenticated state')
+      log('❌ No valid session, setting unauthenticated state')
       setState({
         user: null,
         authUser: null,
@@ -65,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      console.log('🔍 Trying to fetch user data from database for:', session.user.id)
+      log('🔍 Trying to fetch user data from database for:', session.user.id)
       // Try to fetch user data from database
       const { data: userData, error: userError } = await supabase
         .from('users')
@@ -74,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single()
 
       if (userError) {
-        console.error('❌ User query failed, user not found in database:', userError.message)
+        logError('❌ User query failed, user not found in database:', userError.message)
         // No fallback user - user must exist in database
         setState({
           user: null,
@@ -88,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      console.log('✅ Setting authenticated state for user:', userData.email)
+      log('✅ Setting authenticated state for user:', userData.email)
       setState({
         user: userData,
         authUser: session.user,
@@ -99,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         session,
       })
     } catch (error) {
-      console.error('❌ Error in updateAuthState:', error)
+      logError('❌ Error in updateAuthState:', error)
       
       // No fallback user - user must exist in database
       setState({
@@ -118,13 +123,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data: { session }, error } = await supabase.auth.getSession()
       if (error) {
-        console.error('Session refresh error:', error)
+        logError('Session refresh error:', error)
         await updateAuthState(null)
         return
       }
       await updateAuthState(session)
     } catch (error) {
-      console.error('Error refreshing session:', error)
+      logError('Error refreshing session:', error)
       await updateAuthState(null)
     }
   }, [supabase, updateAuthState])
@@ -134,7 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Check if Supabase is properly configured
     if (!isSupabaseConfigured()) {
-      console.error('Supabase environment variables not configured properly')
+      logError('Supabase environment variables not configured properly')
       setState({
         user: null,
         authUser: null,
@@ -150,13 +155,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Initialize auth state
     const initializeAuth = async () => {
       try {
-        console.log('Initializing auth...')
+        log('Initializing auth...')
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
         
         if (!mounted) return
         
         if (sessionError) {
-          console.error('Session error:', sessionError)
+          logError('Session error:', sessionError)
           setState({
             user: null,
             authUser: null,
@@ -167,11 +172,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             session: null,
           })
         } else {
-          console.log('Session found:', !!session)
+          log('Session found:', !!session)
           await updateAuthState(session)
         }
       } catch (error) {
-        console.error('Error initializing auth:', error)
+        logError('Error initializing auth:', error)
         if (mounted) {
           setState({
             user: null,
@@ -193,17 +198,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
-      console.log('Auth state change:', event, 'Session:', !!session)
+      log('Auth state change:', event, 'Session:', !!session)
       
-      // Only handle specific events to avoid race conditions
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+      // Handle all auth events that affect the session state
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
         await updateAuthState(session)
       }
     })
 
+    // Set up proactive token refresh
+    // Check every minute if the token is close to expiring and refresh it proactively
+    const refreshInterval = setInterval(async () => {
+      if (!mounted) return
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          // Get the token expiration time
+          const expiresAt = session.expires_at
+          if (expiresAt) {
+            const expiresInSeconds = expiresAt - Math.floor(Date.now() / 1000)
+            // Refresh if less than 5 minutes (300 seconds) until expiration
+            if (expiresInSeconds < 300 && expiresInSeconds > 0) {
+              log('🔄 Proactively refreshing token (expires in', expiresInSeconds, 'seconds)')
+              await supabase.auth.refreshSession()
+            }
+          }
+        }
+      } catch (error) {
+        logError('Error in proactive refresh:', error)
+      }
+    }, 60000) // Check every minute
+
     return () => {
       mounted = false
       subscription.unsubscribe()
+      clearInterval(refreshInterval)
     }
   }, [supabase, updateAuthState])
 
@@ -215,7 +245,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signOut()
       
       if (error) {
-        console.error('SignOut error:', error)
+        logError('SignOut error:', error)
       }
       
       // Clear state
@@ -235,7 +265,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
     } catch (error) {
-      console.error('Error in signOut:', error)
+      logError('Error in signOut:', error)
       
       // Clear state even on error
       setState({
