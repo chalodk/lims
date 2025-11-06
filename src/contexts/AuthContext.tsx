@@ -67,11 +67,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      log('🔍 Trying to fetch user data from database for:', session.user.id)
-      // Try to fetch user data from database
+      console.log('🔍 Trying to fetch user data from database for:', session.user.id)
+      // Try to fetch user data from database with role information
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('*')
+        .select(`
+          *,
+          roles (
+            id,
+            name,
+            level,
+            description
+          )
+        `)
         .eq('id', session.user.id)
         .single()
 
@@ -90,12 +98,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      log('✅ Setting authenticated state for user:', userData.email)
+      // Extract role information
+      let role: Role | null = null
+      let userRole: RoleName | null = null
+
+      if (userData.role_id && userData.roles) {
+        // Handle both array and object formats from Supabase
+        const roleData = Array.isArray(userData.roles) 
+          ? userData.roles[0] 
+          : userData.roles
+
+        if (roleData) {
+          role = {
+            id: roleData.id,
+            name: roleData.name as RoleName,
+            level: roleData.level || 0,
+            description: roleData.description || null,
+            created_at: roleData.created_at || null,
+          }
+          userRole = roleData.name as RoleName
+        }
+      }
+
+      console.log('✅ Setting authenticated state for user:', userData.email)
+      console.log('📋 Role information:', { role, userRole, role_id: userData.role_id })
+
+      // Clean up userData to remove the roles relation (we store it separately)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { roles: _, ...cleanUserData } = userData
+
       setState({
-        user: userData,
+        user: cleanUserData,
         authUser: session.user,
-        role: null,
-        userRole: 'admin', // Default role for now
+        role,
+        userRole,
         isLoading: false,
         isAuthenticated: true,
         session,
@@ -198,8 +234,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!mounted) return
       log('Auth state change:', event, 'Session:', !!session)
       
-      // Handle all auth events that affect the session state
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+      // Handle SIGNED_OUT immediately without calling updateAuthState
+      // to avoid race conditions during logout
+      if (event === 'SIGNED_OUT') {
+        console.log('🔄 SIGNED_OUT event detected, clearing state')
+        setState({
+          user: null,
+          authUser: null,
+          role: null,
+          userRole: null,
+          isLoading: false,
+          isAuthenticated: false,
+          session: null,
+        })
+        return
+      }
+      
+      // Only handle specific events to avoid race conditions
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         await updateAuthState(session)
       }
     })
@@ -247,16 +299,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      setState(prev => ({ ...prev, isLoading: true }))
-      
-      // Sign out from Supabase
-      const { error } = await supabase.auth.signOut()
-      
-      if (error) {
-        logError('SignOut error:', error)
-      }
-      
-      // Clear state
+      // Clear state immediately for better UX
       setState({
         user: null,
         authUser: null,
@@ -267,9 +310,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         session: null,
       })
       
-      // Redirect to login
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut()
+      
+      if (error) {
+        console.error('SignOut error:', error)
+        // Continue with logout even if Supabase signOut fails
+      }
+      
+      // Clear local storage and session storage
       if (typeof window !== 'undefined') {
-        window.location.href = '/login'
+        try {
+          // Clear Supabase auth data
+          Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('sb-') || key.includes('supabase')) {
+              localStorage.removeItem(key)
+            }
+          })
+          
+          Object.keys(sessionStorage).forEach(key => {
+            if (key.startsWith('sb-') || key.includes('supabase')) {
+              sessionStorage.removeItem(key)
+            }
+          })
+        } catch (storageError) {
+          console.error('Error clearing storage:', storageError)
+          // Continue with redirect even if storage clearing fails
+        }
+        
+        // Multiple redirect methods for reliability
+        const redirectToLogin = () => {
+          try {
+            // Method 1: window.location.href (most reliable)
+            window.location.href = '/login'
+          } catch (e) {
+            try {
+              // Method 2: window.location.replace (fallback)
+              window.location.replace('/login')
+            } catch (e2) {
+              try {
+                // Method 3: window.location.assign (last resort)
+                window.location.assign('/login')
+              } catch (e3) {
+                console.error('All redirect methods failed:', e3)
+                // Force page reload as absolute last resort
+                window.location.reload()
+              }
+            }
+          }
+        }
+        
+        // Redirect immediately
+        redirectToLogin()
+        
+        // Safety timeout: if redirect doesn't work within 2 seconds, force it
+        setTimeout(() => {
+          if (window.location.pathname !== '/login') {
+            console.warn('Redirect timeout, forcing redirect to login')
+            redirectToLogin()
+          }
+        }, 2000)
       }
       
     } catch (error) {
@@ -288,7 +388,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Redirect to login even on error
       if (typeof window !== 'undefined') {
-        window.location.href = '/login'
+        try {
+          window.location.href = '/login'
+        } catch (redirectError) {
+          console.error('Redirect error:', redirectError)
+          // Last resort: reload page
+          window.location.reload()
+        }
       }
     }
   }

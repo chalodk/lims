@@ -30,22 +30,41 @@ export default function UserProfileDropdown() {
 
   const handleSignOut = async () => {
     setIsLoggingOut(true)
+    // Cerrar el dropdown inmediatamente
+    setIsOpen(false)
+    
     try {
+      // Llamar a signOut que maneja la redirección
       await signOut()
+      // No resetear isLoggingOut aquí porque el componente se desmontará al redirigir
     } catch (error) {
       console.error('Logout error:', error)
-      setIsLoggingOut(false)
+      // Si hay un error, intentar redirigir manualmente como fallback
+      if (typeof window !== 'undefined') {
+        setTimeout(() => {
+          window.location.href = '/login'
+        }, 500)
+      } else {
+        // Si no hay window, resetear el estado después de un tiempo
+        setTimeout(() => {
+          setIsLoggingOut(false)
+        }, 2000)
+      }
     }
-    // No resetear isLoggingOut aquí porque el componente se desmontará al redirigir
   }
 
   // Obtener nombre completo del usuario desde la tabla de perfiles
-  const userName = user?.name || 'Usuario'
+  const userName = user?.name || authUser?.email?.split('@')[0] || 'Usuario'
   const userEmail = authUser?.email || ''
   const appVersion = APP_VERSION
+  
+  // Determinar el texto del rol a mostrar
+  // Si userRole es null pero el usuario existe, significa que no tiene rol asignado
+  const roleDisplay = userRole ? userRole : (user || authUser ? 'Sin rol' : 'Usuario')
 
-  // No mostrar el componente si no hay usuario autenticado
-  if (!user && !authUser) {
+  // Mostrar el componente solo si hay usuario autenticado (authUser)
+  // No requerimos que exista en la tabla users para mostrar el dropdown
+  if (!authUser) {
     return null
   }
 
@@ -70,13 +89,13 @@ export default function UserProfileDropdown() {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+        <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] sm:w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-[60]">
           {/* Correo electrónico y Rol */}
           <div className="px-4 py-3 border-b border-gray-200">
             <p className="text-xs text-gray-500 mb-1">Correo electrónico</p>
             <p className="text-sm text-gray-900 truncate mb-2">{userEmail}</p>
             <p className="text-xs text-gray-500 mb-1">Rol</p>
-            <p className="text-sm text-gray-900 capitalize">{userRole || 'Usuario'}</p>
+            <p className="text-sm text-gray-900 capitalize">{roleDisplay}</p>
           </div>
 
           {/* Botón Cerrar Sesión */}

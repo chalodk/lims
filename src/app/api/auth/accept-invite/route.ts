@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,7 +36,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
-    const { data: users } = await supabase.auth.admin.listUsers()
+    const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+
+    const { data: users } = await supabaseAdmin.auth.admin.listUsers()
     const existingUser = users?.users?.find(user => user.email === invitation.email)
     
     if (existingUser) {
@@ -43,6 +55,32 @@ export async function POST(request: NextRequest) {
         { error: 'User already exists with this email' },
         { status: 409 }
       )
+    }
+
+    // Buscar metadata de la invitación (role_id y name) en notifications
+    let roleId: number | null = null
+    let userName: string | null = null
+
+    const { data: metadataNotifications } = await supabase
+      .from('notifications')
+      .select('to_ref, payload')
+      .eq('template_code', 'system_invitation')
+      .order('created_at', { ascending: false })
+
+    if (metadataNotifications && metadataNotifications.length > 0) {
+      // Buscar la notificación que corresponda a esta invitación
+      const metadataNotification = metadataNotifications.find((notif: { to_ref: unknown; payload: unknown }) => {
+        const toRef = notif.to_ref as { invitation_id?: string; email?: string } | null
+        return toRef?.invitation_id === invitation.id || toRef?.email === invitation.email
+      })
+
+      if (metadataNotification) {
+        const toRef = metadataNotification.to_ref as { role_id?: number; name?: string } | null
+        const payload = metadataNotification.payload as { role_id?: number; name?: string } | null
+        
+        roleId = toRef?.role_id || payload?.role_id || null
+        userName = toRef?.name || payload?.name || null
+      }
     }
 
     // For client users, check if client already has 2 users
@@ -61,7 +99,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create the user account
-    const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: invitation.email,
       password,
       email_confirm: true,
@@ -83,21 +121,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create user profile
+    // Create user profile with role_id if available
     const { error: profileError } = await supabase
       .from('users')
       .insert({
         id: authUser.user.id,
-        name: invitation.email.split('@')[0], // Default name from email
+        name: userName || invitation.email.split('@')[0], // Use name from metadata or default
         email: invitation.email,
         client_id: invitation.client_id,
-        company_id: '97efa8ef-de43-491c-9c9f-bdd21a7dbb17' // Force specific company_id
+        company_id: invitation.company_id || '97efa8ef-de43-491c-9c9f-bdd21a7dbb17',
+        role_id: roleId || null // Assign role_id from metadata
       })
 
     if (profileError) {
       // If profile creation fails, we should clean up the auth user
       console.error('Profile creation failed:', profileError)
-      await supabase.auth.admin.deleteUser(authUser.user.id)
+      await supabaseAdmin.auth.admin.deleteUser(authUser.user.id)
       return NextResponse.json({ error: profileError.message }, { status: 500 })
     }
 
@@ -109,6 +148,20 @@ export async function POST(request: NextRequest) {
 
     if (acceptError) {
       console.error('Error marking invitation as accepted:', acceptError)
+    }
+
+    // Obtener información del rol asignado
+    let roleName = 'Sin rol'
+    if (roleId) {
+      const { data: roleData } = await supabase
+        .from('roles')
+        .select('name')
+        .eq('id', roleId)
+        .single()
+      
+      if (roleData) {
+        roleName = roleData.name
+      }
     }
 
     // Create notification
@@ -123,7 +176,7 @@ export async function POST(request: NextRequest) {
         template_code: 'invitation_accepted',
         payload: {
           invitee_email: invitation.email,
-          role: invitation.role,
+          role: roleName,
           accepted_at: new Date().toISOString()
         },
         status: 'queued'
@@ -134,7 +187,8 @@ export async function POST(request: NextRequest) {
       user: {
         id: authUser.user.id,
         email: authUser.user.email,
-        role: invitation.role,
+        role: roleName,
+        role_id: roleId,
         client: invitation.clients,
         company: invitation.companies
       }
