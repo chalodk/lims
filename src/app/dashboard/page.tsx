@@ -1,6 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/useAuth'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { 
   FlaskConical, 
@@ -60,16 +62,21 @@ interface RecentSample {
 }
 
 export default function DashboardPage() {
+  const router = useRouter()
+  const { userRole, isLoading: authLoading } = useAuth()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [recentSamples, setRecentSamples] = useState<RecentSample[]>([])
   const [isLoadingStats, setIsLoadingStats] = useState(true)
   const [isLoadingSamples, setIsLoadingSamples] = useState(true)
 
+  // Redirigir usuarios consumidor a /reports
   useEffect(() => {
-    fetchDashboardData()
-  }, [])
+    if (!authLoading && userRole === 'consumidor') {
+      router.replace('/reports')
+    }
+  }, [authLoading, userRole, router])
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       // Fetch dashboard statistics
       const statsResponse = await fetch('/api/dashboard/stats')
@@ -94,7 +101,14 @@ export default function DashboardPage() {
       setIsLoadingStats(false)
       setIsLoadingSamples(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    // Solo cargar datos si no es consumidor
+    if (!authLoading && userRole !== 'consumidor') {
+      fetchDashboardData()
+    }
+  }, [authLoading, userRole, fetchDashboardData])
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -110,8 +124,13 @@ export default function DashboardPage() {
     return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800'
   }
 
+  // Si es consumidor, no mostrar nada (ya se redirigió)
+  if (userRole === 'consumidor') {
+    return null
+  }
+
   // Show loading while fetching data
-  if (isLoadingStats || isLoadingSamples) {
+  if (authLoading || isLoadingStats || isLoadingSamples) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-green-600" />

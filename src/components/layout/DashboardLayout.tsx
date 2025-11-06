@@ -11,14 +11,13 @@ import {
   FileText,
   BarChart3,
   Settings,
-  LogOut,
   Menu,
   X,
   Bell,
-  Loader2,
   FlaskConical
 } from 'lucide-react'
 import Image from 'next/image'
+import UserProfileDropdown from '@/components/UserProfileDropdown'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -26,30 +25,17 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
-  const { user, authUser, userRole, signOut, isLoading } = useAuth()
+  const { userRole } = useAuth()
   const pathname = usePathname()
 
-  const handleSignOut = async () => {
-    setIsLoggingOut(true)
-    try {
-      await signOut()
-    } catch (error) {
-      console.error('Logout error:', error)
-    }
-    // Note: Don't set isLoggingOut to false here as the component will unmount
-    // when redirected to login page
-  }
-
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home, roles: ['admin', 'validador', 'comun', 'consumidor'] },
+    { name: 'Dashboard', href: '/dashboard', icon: Home, roles: ['admin', 'validador', 'comun'] },
     { name: 'Muestras', href: '/samples', icon: TestTube, roles: ['admin', 'validador', 'comun'] },
-    { name: 'Mis Muestras', href: '/my-samples', icon: TestTube, roles: ['consumidor'] },
     { name: 'Resultados', href: '/results', icon: FlaskConical, roles: ['admin', 'validador', 'comun'] },
     { name: 'Clientes', href: '/clients', icon: Users, roles: ['admin', 'validador', 'comun'] },
     { name: 'Informes', href: '/reports', icon: FileText, roles: ['admin', 'validador', 'comun', 'consumidor'] },
     { name: 'Estadísticas', href: '/estadisticas', icon: BarChart3, roles: ['admin', 'validador'] },
-    { name: 'Configuración', href: '/configuracion', icon: Settings, roles: ['admin'] },
+    { name: 'Configuración', href: '/settings', icon: Settings, roles: ['admin'] },
   ]
 
   const filteredNavigation = navigation.filter(item => 
@@ -57,7 +43,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 flex w-full overflow-hidden">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div 
@@ -66,13 +52,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         />
       )}
 
-      {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:flex-shrink-0 ${
+      {/* Sidebar - Fixed */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
+          <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 shrink-0">
             <div className="flex items-center space-x-3">
               <Image
                 src={
@@ -81,7 +67,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 alt="Logo"
                 width={140}
                 height={42}
-                className="w-[140px] h-auto"
+                className="w-[140px] h-auto max-w-full"
                 priority
               />
             </div>
@@ -94,7 +80,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2">
+          <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
             {filteredNavigation.map((item) => {
               const isActive = pathname === item.href
               return (
@@ -107,59 +93,31 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   }`}
                 >
-                  <item.icon className="h-5 w-5 mr-3" />
-                  {item.name}
+                  <item.icon className="h-5 w-5 mr-3 flex-shrink-0" />
+                  <span className="truncate">{item.name}</span>
                 </Link>
               )
             })}
           </nav>
-
-          {/* User info */}
-          <div className="p-4 border-t border-gray-200">
-            <div className="flex items-center space-x-3 mb-3">
-              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                <span className="text-green-600 font-medium text-sm">
-                  {user?.name?.charAt(0) || authUser?.email?.charAt(0) || 'U'}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {user?.name || authUser?.email}
-                </p>
-                <p className="text-xs text-gray-500 capitalize">
-                  {userRole || 'Usuario'}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={handleSignOut}
-              disabled={isLoggingOut || isLoading}
-              className="flex items-center w-full px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoggingOut ? (
-                <Loader2 className="h-4 w-4 mr-3 animate-spin" />
-              ) : (
-                <LogOut className="h-4 w-4 mr-3" />
-              )}
-              {isLoggingOut ? 'Cerrando sesión...' : 'Cerrar sesión'}
-            </button>
-          </div>
         </div>
       </div>
 
+      {/* Spacer for fixed sidebar on desktop */}
+      <div className="hidden lg:block w-64 flex-shrink-0" />
+
       {/* Main content */}
-      <div className="flex-1 flex flex-col">
-        {/* Top header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 lg:ml-0">
-          <div className="flex items-center justify-between h-16 px-4 sm:px-6">
+      <div className="flex-1 flex flex-col min-w-0 w-full lg:ml-0">
+        {/* Top header - Fixed */}
+        <header className="fixed top-0 right-0 left-0 lg:left-64 z-40 bg-white shadow-sm border-b border-gray-200 h-16">
+          <div className="flex items-center justify-end h-full px-2 sm:px-4 md:px-6 w-full">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              className="lg:hidden absolute left-2 sm:left-4 p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
             >
               <Menu className="h-6 w-6" />
             </button>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
               {/* Notifications */}
               <button className="p-2 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 relative">
                 <Bell className="h-5 w-5" />
@@ -167,7 +125,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </button>
               
               {/* Company info */}
-              <div className="text-right">
+              <div className="text-right hidden md:block">
                 <p className="text-sm font-medium text-gray-900">
                   Laboratorio
                 </p>
@@ -175,13 +133,21 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   Sistema LIMS
                 </p>
               </div>
+
+              {/* User Profile Dropdown */}
+              <UserProfileDropdown />
             </div>
           </div>
         </header>
 
+        {/* Spacer for fixed header */}
+        <div className="h-16 shrink-0" />
+
         {/* Page content */}
-        <main className="flex-1">
-          {children}
+        <main className="flex-1 overflow-y-auto overflow-x-hidden w-full">
+          <div className="w-full h-full">
+            {children}
+          </div>
         </main>
       </div>
     </div>

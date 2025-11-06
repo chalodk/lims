@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Responsive viewport and layout */
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+}
+
+#__next {
+  width: 100%;
+  min-height: 100vh;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
