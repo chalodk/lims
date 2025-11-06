@@ -30,6 +30,7 @@ interface Report {
   download_url?: string
   payment?: boolean | null
   invoice_number?: string | null
+  test_areas?: string[] | null
   clients: {
     id: string
     name: string
@@ -290,6 +291,70 @@ export default function ReportsPage() {
     )
   }
 
+  /**
+   * Determines the analysis type from test_areas and returns the initial and color
+   * @param testAreas - Array of test area strings
+   * @returns Object with initial, label, and color classes
+   */
+  const getAnalysisTypeIndicator = (testAreas: string[] | null | undefined) => {
+    if (!testAreas || testAreas.length === 0) {
+      return {
+        initial: '?',
+        label: 'Desconocido',
+        bgColor: 'bg-gray-500',
+        textColor: 'text-white'
+      }
+    }
+
+    // Check all test areas to determine the primary type
+    const testAreasLower = testAreas.map(area => area.toLowerCase()).join(' ')
+    
+    if (testAreasLower.includes('virus') || testAreasLower.includes('viral') || testAreasLower.includes('virolog')) {
+      return {
+        initial: 'V',
+        label: 'Virológico',
+        bgColor: 'bg-indigo-600',
+        textColor: 'text-white'
+      }
+    } else if (testAreasLower.includes('bacter') || testAreasLower.includes('bacteriolog')) {
+      return {
+        initial: 'B',
+        label: 'Bacteriológico',
+        bgColor: 'bg-blue-600',
+        textColor: 'text-white'
+      }
+    } else if (testAreasLower.includes('fitopatolog') || testAreasLower.includes('pathog') || testAreasLower.includes('fung')) {
+      return {
+        initial: 'F',
+        label: 'Fitopatológico',
+        bgColor: 'bg-green-600',
+        textColor: 'text-white'
+      }
+    } else if (testAreasLower.includes('deteccion') || testAreasLower.includes('precoz')) {
+      return {
+        initial: 'DP',
+        label: 'Detección Precoz',
+        bgColor: 'bg-yellow-600',
+        textColor: 'text-white'
+      }
+    } else if (testAreasLower.includes('nematod') || testAreasLower.includes('nematolog')) {
+      return {
+        initial: 'N',
+        label: 'Nematodos',
+        bgColor: 'bg-purple-600',
+        textColor: 'text-white'
+      }
+    }
+
+    // Default
+    return {
+      initial: '?',
+      label: 'Otro',
+      bgColor: 'bg-gray-500',
+      textColor: 'text-white'
+    }
+  }
+
   if (isLoading) {
     return (
       <DashboardLayout>
@@ -373,62 +438,77 @@ export default function ReportsPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full table-auto">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-14">
+                      Tipo
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
                       Cliente
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">
                       Muestras
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
                       Plantilla
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
                       Estado
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell whitespace-nowrap">
                       Fecha
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell min-w-[100px]">
                       Pago
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32 sticky right-0 bg-gray-50 z-10">
                       Acciones
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredReports.map((report) => (
-                    <tr key={report.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="font-medium text-gray-900">{report.clients?.name || 'N/A'}</div>
+                  {filteredReports.map((report) => {
+                    const analysisIndicator = getAnalysisTypeIndicator(report.test_areas)
+                    return (
+                    <tr key={report.id} className="group hover:bg-gray-50">
+                      <td className="px-3 py-4">
+                        <div 
+                          className={`w-10 h-10 rounded-full ${analysisIndicator.bgColor} ${analysisIndicator.textColor} flex items-center justify-center font-bold text-sm shadow-sm`}
+                          title={analysisIndicator.label}
+                        >
+                          {analysisIndicator.initial}
+                        </div>
+                      </td>
+                      <td className="px-3 py-4">
+                        <div className="min-w-0">
+                          <div className="font-medium text-gray-900 truncate">{report.clients?.name || 'N/A'}</div>
                           {report.clients?.rut && (
-                            <div className="text-sm text-gray-500">RUT: {report.clients.rut}</div>
+                            <div className="text-xs text-gray-500 truncate">RUT: {report.clients.rut}</div>
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <SamplesDisplay 
-                          samples={report.results?.map(result => ({
-                            code: result.samples?.code || 'N/A',
-                            species: result.samples?.species || '',
-                            variety: result.samples?.variety
-                          })) || []}
-                        />
+                      <td className="px-3 py-4">
+                        <div className="min-w-0">
+                          <SamplesDisplay 
+                            samples={report.results?.map(result => ({
+                              code: result.samples?.code || 'N/A',
+                              species: result.samples?.species || '',
+                              variety: result.samples?.variety
+                            })) || []}
+                          />
+                        </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-4 hidden lg:table-cell">
                         {getTemplateBadge(report.template)}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-4 hidden md:table-cell">
                         {getStatusBadge(report.status)}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-3 py-4 text-sm text-gray-500 hidden lg:table-cell whitespace-nowrap">
                         {report.created_at ? new Date(report.created_at).toLocaleDateString('es-ES') : 'N/A'}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-4 hidden xl:table-cell">
                         {editingPayment === report.id ? (
                           <div className="space-y-3 min-w-48">
                             <div className="flex items-center gap-2">
@@ -519,8 +599,8 @@ export default function ReportsPage() {
                           </div>
                         )}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center space-x-2">
+                      <td className="px-3 py-4 sticky right-0 bg-white z-10 group-hover:bg-gray-50">
+                        <div className="flex items-center space-x-1">
                           <button 
                             onClick={() => setViewReportId(report.id)}
                             className="p-1 text-gray-400 hover:text-indigo-600 transition-colors" 
@@ -560,7 +640,8 @@ export default function ReportsPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

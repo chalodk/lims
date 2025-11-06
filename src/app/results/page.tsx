@@ -180,73 +180,69 @@ export default function ResultsPage() {
         ) : (
           <div className="bg-white shadow rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="w-full table-auto">
+                <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">
                       Muestra
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
                       Área de Análisis
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
                       Estado
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
                       Resultado
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Severidad
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
                       Patógeno
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell whitespace-nowrap">
                       Fecha
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32 sticky right-0 bg-gray-50 z-10">
                       Acciones
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-200">
                   {filteredResults.map((result) => (
-                    <tr key={result.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <FlaskConical className="h-8 w-8 text-green-600 mr-3" />
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
+                    <tr key={result.id} className="group hover:bg-gray-50">
+                      <td className="px-3 py-4">
+                        <div className="flex items-center min-w-0">
+                          <FlaskConical className="h-6 w-6 text-green-600 mr-2 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-gray-900 truncate">
                               {result.samples?.code || 'N/A'}
                             </div>
-                            <div className="text-sm text-gray-500">
+                            <div className="text-xs text-gray-500 truncate">
                               {result.samples?.clients?.name || 'Cliente no disponible'}
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 py-4">
                         <span className="capitalize text-sm text-gray-900">
                           {result.test_area?.replace('_', ' ') || 'N/A'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 py-4 hidden md:table-cell">
                         {getResultStatusBadge(result.status)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 py-4 hidden lg:table-cell">
                         {getResultTypeBadge(result.result_type)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getSeverityBadge(result.severity)}
+                      <td className="px-3 py-4">
+                        <div className="text-sm text-gray-900 truncate min-w-0">
+                          {result.pathogen_identified || 'No identificado'}
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {result.pathogen_identified || 'No identificado'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-3 py-4 text-sm text-gray-500 hidden lg:table-cell whitespace-nowrap">
                         {formatDate(result.performed_at)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center space-x-2">
+                      <td className="px-3 py-4 sticky right-0 bg-white z-10 group-hover:bg-gray-50">
+                        <div className="flex items-center space-x-1">
                           <button
                             onClick={() => {
                               setSelectedResultId(result.id)

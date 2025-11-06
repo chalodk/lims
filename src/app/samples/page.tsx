@@ -276,28 +276,28 @@ export default function SamplesPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full table-auto">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
                       Código
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">
                       Cliente
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
                       Especie
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
                       Estado
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
                       Prioridad
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell whitespace-nowrap">
                       Fecha
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32 sticky right-0 bg-gray-50 z-10">
                       Acciones
                     </th>
                   </tr>
@@ -306,44 +306,44 @@ export default function SamplesPage() {
                   {filteredSamples.map((sample) => (
                     <tr 
                       key={sample.id} 
-                      className="hover:bg-indigo-50 cursor-pointer transition-colors border-l-2 border-transparent hover:border-indigo-200"
+                      className="group hover:bg-indigo-50 cursor-pointer transition-colors border-l-2 border-transparent hover:border-indigo-200"
                       onClick={() => handleViewSample(sample)}
                     >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
+                      <td className="px-3 py-4">
+                        <div className="flex items-center min-w-0">
                           {getStatusIcon(sample.status)}
-                          <span className="ml-2 font-medium text-gray-900">{sample.code}</span>
+                          <span className="ml-2 font-medium text-gray-900 truncate">{sample.code}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="font-medium text-gray-900">
+                      <td className="px-3 py-4">
+                        <div className="min-w-0">
+                          <div className="font-medium text-gray-900 truncate">
                             {sample.clients?.name || 'Sin asignar'}
                           </div>
-                          <div className="text-sm text-gray-500">
+                          <div className="text-xs text-gray-500 truncate">
                             {sample.clients?.contact_email || 'Cliente no especificado'}
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="font-medium text-gray-900">{sample.species}</div>
+                      <td className="px-3 py-4">
+                        <div className="min-w-0">
+                          <div className="font-medium text-gray-900 truncate">{sample.species}</div>
                           {sample.variety && (
-                            <div className="text-sm text-gray-500">{sample.variety}</div>
+                            <div className="text-xs text-gray-500 truncate">{sample.variety}</div>
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-4 hidden md:table-cell">
                         {getSampleStatusBadge(sample.status)}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-4 hidden lg:table-cell">
                         {getSlaTypeBadge(sample.sla_type)}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-3 py-4 text-sm text-gray-500 hidden lg:table-cell whitespace-nowrap">
                         {formatDate(sample.received_date)}
                       </td>
-                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center space-x-2">
+                      <td className="px-3 py-4 sticky right-0 bg-white z-10 group-hover:bg-indigo-50" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center space-x-1">
                           <button
                             onClick={(e) => {
                               e.stopPropagation()

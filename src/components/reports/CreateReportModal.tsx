@@ -148,25 +148,69 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
           // First selection - always allowed
           return [...prev, resultId]
         } else {
-          // Check if the new result has the same test_area as existing selections
+          // Check if the new result has the same client as existing selections
           const existingResult = results.find(r => prev.includes(r.id))
-          if (existingResult && existingResult.test_area === result.test_area) {
-            // Check if the new result has the same client as existing selections
+          if (existingResult) {
             const existingClientId = existingResult.samples?.client_id
             const newClientId = result.samples?.client_id
             if (existingClientId && newClientId && existingClientId !== newClientId) {
               alert(`No se pueden mezclar resultados de diferentes clientes. Todos los resultados deben ser del mismo cliente.`)
               return prev
             }
-            return [...prev, resultId]
-          } else {
-            // Different type - show warning and don't add
-            alert(`No se pueden mezclar resultados de diferentes tipos de análisis. Ya tienes seleccionados resultados de "${existingResult?.test_area || 'tipo desconocido'}" y estás intentando agregar uno de "${result.test_area || 'tipo desconocido'}".`)
-            return prev
           }
+          // ✅ Allow different analysis types - backend will generate separate PDFs
+          return [...prev, resultId]
         }
       }
     })
+  }
+
+  /**
+   * Determines the analysis type from a test_area string
+   * @param testArea - The test_area string to analyze
+   * @returns The analysis type key
+   */
+  const getAnalysisTypeFromTestArea = (testArea: string | null | undefined): string => {
+    if (!testArea) return 'default'
+    
+    const testAreaLower = testArea.toLowerCase()
+    
+    if (testAreaLower.includes('nematolog')) {
+      return 'nematology'
+    } else if (testAreaLower.includes('virus') || testAreaLower.includes('viral') || testAreaLower.includes('virolog')) {
+      return 'virology'
+    } else if (testAreaLower.includes('fitopatolog') || testAreaLower.includes('pathog') || testAreaLower.includes('fung')) {
+      return 'phytopatology'
+    } else if (testAreaLower.includes('bacter') || testAreaLower.includes('bacteriolog')) {
+      return 'bacteriology'
+    } else if (testAreaLower.includes('deteccion') || testAreaLower.includes('precoz')) {
+      return 'early_detection'
+    }
+    
+    return 'default'
+  }
+
+  /**
+   * Groups selected results by their analysis type
+   * @returns Map of analysis type to result IDs array
+   */
+  const groupResultsByAnalysisType = (): Map<string, string[]> => {
+    const groups = new Map<string, string[]>()
+    
+    selectedResults.forEach(resultId => {
+      const result = results.find(r => r.id === resultId)
+      if (!result) return
+      
+      const analysisType = getAnalysisTypeFromTestArea(result.test_area)
+      
+      if (!groups.has(analysisType)) {
+        groups.set(analysisType, [])
+      }
+      
+      groups.get(analysisType)!.push(resultId)
+    })
+    
+    return groups
   }
 
   const handleCreateReport = async () => {
@@ -174,55 +218,73 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
 
     setIsCreating(true)
     try {
-      // Create the report
-      const { data: reportData, error: reportError } = await supabase
-        .from('reports')
-        .insert({
-          client_id: selectedClient,
-          company_id: user?.company_id,
-          generated_by: user?.id,
-          responsible_id: user?.id,
-          status: 'draft',
-          template: 'standard',
-          include_recommendations: true,
-          include_images: true,
-          test_areas: [...new Set(results
-            .filter(r => selectedResults.includes(r.id))
-            .map(r => r.test_area)
-            .filter(Boolean)
-          )]
-        })
-        .select()
-        .single()
+      // ✅ Group results by analysis type
+      const groupsByType = groupResultsByAnalysisType()
+      console.log('Grouped results by type:', Array.from(groupsByType.entries()).map(([type, ids]) => ({ type, count: ids.length })))
+      
+      // ✅ Create one report per analysis type
+      const createdReports = []
+      
+      for (const [analysisType, resultIds] of groupsByType.entries()) {
+        // Get the test_area for this group (from the first result)
+        const firstResult = results.find(r => resultIds.includes(r.id))
+        const testArea = firstResult?.test_area || 'Análisis'
+        
+        // Create report for this analysis type
+        const { data: reportData, error: reportError } = await supabase
+          .from('reports')
+          .insert({
+            client_id: selectedClient,
+            company_id: user?.company_id,
+            generated_by: user?.id,
+            responsible_id: user?.id,
+            status: 'draft',
+            template: 'standard',
+            include_recommendations: true,
+            include_images: true,
+            test_areas: [testArea] // Only this type's test_area
+          })
+          .select()
+          .single()
 
-      if (reportError) throw reportError
+        if (reportError) {
+          console.error(`Error creating report for ${analysisType}:`, reportError)
+          throw reportError
+        }
 
-      // Associate selected results with the report
-      if (selectedResults.length > 0) {
-        const { error: updateError } = await supabase
-          .from('results')
-          .update({ report_id: reportData.id })
-          .in('id', selectedResults)
+        // Associate results of this type with this report
+        if (resultIds.length > 0) {
+          const { error: updateError } = await supabase
+            .from('results')
+            .update({ report_id: reportData.id })
+            .in('id', resultIds)
 
-        if (updateError) throw updateError
-      }
+          if (updateError) {
+            console.error(`Error associating results for ${analysisType}:`, updateError)
+            throw updateError
+          }
+        }
 
-      // Create PDF in PDFMonkey using all selected results
-      try {
-        if (selectedResults.length > 0) {
+        // Create PDF in PDFMonkey for this group
+        try {
           await fetch('/api/reports/pdfmonkey', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-              result_ids: selectedResults, // Send all selected result IDs
+              result_ids: resultIds, // Only results of this type
               report_id: reportData.id 
             })
           })
+        } catch (e) {
+          console.error(`Failed to request PDF creation for ${analysisType}:`, e)
+          // Don't throw - continue with other groups
         }
-      } catch (e) {
-        console.error('Failed to request PDF creation:', e)
+
+        createdReports.push(reportData)
       }
 
+      console.log(`Successfully created ${createdReports.length} report(s)`)
+      
       onSuccess()
       onClose()
     } catch (error) {
@@ -377,7 +439,20 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
                     <strong>{selectedResults.length} resultado(s) seleccionado(s)</strong>
                   </div>
                   <div className="text-xs text-blue-600 mt-1">
-                    Tipo de análisis: {results.find(r => selectedResults.includes(r.id))?.test_area || 'N/A'}
+                    {(() => {
+                      const selectedTestAreas = [...new Set(
+                        results
+                          .filter(r => selectedResults.includes(r.id))
+                          .map(r => r.test_area)
+                          .filter(Boolean)
+                      )]
+                      if (selectedTestAreas.length === 1) {
+                        return `Tipo de análisis: ${selectedTestAreas[0]}`
+                      } else if (selectedTestAreas.length > 1) {
+                        return `Tipos de análisis: ${selectedTestAreas.join(', ')} (se generarán ${selectedTestAreas.length} PDFs separados)`
+                      }
+                      return 'Tipo de análisis: N/A'
+                    })()}
                   </div>
                 </div>
               )}

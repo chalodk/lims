@@ -636,6 +636,52 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
 }
 
 /**
+ * Determines the analysis type from a test_area string
+ * @param testArea - The test_area string to analyze
+ * @returns The analysis type
+ */
+function getAnalysisTypeFromTestArea(testArea: string | null | undefined): AnalysisType {
+  if (!testArea) return 'default'
+  
+  const testAreaLower = testArea.toLowerCase()
+  
+  if (testAreaLower.includes('nematolog')) {
+    return 'nematology'
+  } else if (testAreaLower.includes('virus') || testAreaLower.includes('viral') || testAreaLower.includes('virolog')) {
+    return 'virology'
+  } else if (testAreaLower.includes('fitopatolog') || testAreaLower.includes('pathog') || testAreaLower.includes('fung')) {
+    return 'phytopatology'
+  } else if (testAreaLower.includes('bacter') || testAreaLower.includes('bacteriolog')) {
+    return 'bacteriology'
+  } else if (testAreaLower.includes('deteccion') || testAreaLower.includes('precoz')) {
+    return 'early_detection'
+  }
+  
+  return 'default'
+}
+
+/**
+ * Groups resultados by their analysis type
+ * @param resultados - Array of resultados to group
+ * @returns Map of analysis type to resultados array
+ */
+function groupResultadosByAnalysisType(resultados: ResultadoData[]): Map<AnalysisType, ResultadoData[]> {
+  const groups = new Map<AnalysisType, ResultadoData[]>()
+  
+  resultados.forEach(resultado => {
+    const analysisType = getAnalysisTypeFromTestArea(resultado.test_area)
+    
+    if (!groups.has(analysisType)) {
+      groups.set(analysisType, [])
+    }
+    
+    groups.get(analysisType)!.push(resultado)
+  })
+  
+  return groups
+}
+
+/**
  * Resolves the correct template ID and payload based on analysis type
  * @param report - The report data from database
  * @param client - The client data from database
@@ -655,19 +701,8 @@ function resolveTemplateAndPayload(report: ReportData, client: ClientData | null
   // Option 1: Check first resultado test_area first (most specific)
   const firstResultado = resultados[0]
   if (firstResultado?.test_area) {
-    const testArea = firstResultado.test_area.toLowerCase()
-    console.log('PDFMonkey: Checking first resultado test_area:', testArea)
-    if (testArea.includes('nematolog')) {
-      analysisType = 'nematology'
-    } else if (testArea.includes('virus') || testArea.includes('viral') || testArea.includes('virolog')) {
-      analysisType = 'virology'
-    } else if (testArea.includes('fitopatolog') || testArea.includes('pathog') || testArea.includes('fung')) {
-      analysisType = 'phytopatology'
-    } else if (testArea.includes('bacter') || testArea.includes('bacteriolog')) {
-      analysisType = 'bacteriology'
-    } else if (testArea.includes('deteccion') || testArea.includes('precoz')) {
-      analysisType = 'early_detection'
-    }
+    analysisType = getAnalysisTypeFromTestArea(firstResultado.test_area)
+    console.log('PDFMonkey: Checking first resultado test_area:', firstResultado.test_area, '→', analysisType)
   }
   // Option 2: Check for future analysis_type field
   else if (report.analysis_type) {
@@ -901,96 +936,216 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('PDFMonkey: Found result data:', JSON.stringify(resultados, null, 2))
-    if (resultados[0]?.findings) {
-      console.log('PDFMonkey: Result findings raw:', resultados[0].findings)
-      console.log('PDFMonkey: Result findings type:', typeof resultados[0].findings)
-      
-      // Handle case where findings might be a JSON string
-      if (typeof resultados[0].findings === 'string') {
+    
+    // Parse findings if they are JSON strings
+    resultados.forEach(resultado => {
+      if (resultado?.findings && typeof resultado.findings === 'string') {
         try {
-          resultados[0].findings = JSON.parse(resultados[0].findings)
-          console.log('PDFMonkey: Parsed findings from string:', JSON.stringify(resultados[0].findings, null, 2))
+          resultado.findings = JSON.parse(resultado.findings)
         } catch (e) {
           console.error('PDFMonkey: Failed to parse findings JSON string:', e)
         }
-      } else {
-        console.log('PDFMonkey: Result findings structure:', JSON.stringify(resultados[0].findings, null, 2))
       }
-    } else {
-      console.log('PDFMonkey: No findings data found')
-    }
+    })
 
-    // Generate filename: client_name + test_areas + date
-    const clientName = client?.name ? client.name.replace(/[^a-zA-Z0-9]/g, '_') : 'Cliente'
-    const testAreas = Array.isArray(report?.test_areas) && report?.test_areas.length > 0
-      ? report?.test_areas.join('_').replace(/[^a-zA-Z0-9]/g, '_')
-      : 'Analisis'
-    const dateStr = new Date().toISOString().split('T')[0] // YYYY-MM-DD format
-    const filename = `${clientName}_${testAreas}_${dateStr}.pdf`
-
-    // Fetch analyst name if we have resultado data
-    let analystName = 'DRA. LUCIA RIVERA C.' // Default
-    if (resultados[0]?.validated_by) {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('name, email')
-        .eq('id', resultados[0].validated_by)
-        .single()
-      if (userData?.name) {
-        analystName = userData.name
+    // ✅ NEW: Group resultados by analysis type
+    const gruposPorTipo = groupResultadosByAnalysisType(resultados)
+    console.log('PDFMonkey: Grouped resultados by type:', Array.from(gruposPorTipo.entries()).map(([type, results]) => ({ type, count: results.length })))
+    
+    // If only one group, process as before (backward compatibility)
+    if (gruposPorTipo.size === 1) {
+      const firstEntry = gruposPorTipo.entries().next().value
+      if (!firstEntry) {
+        return NextResponse.json({ error: 'No results to process' }, { status: 400 })
       }
-    }
+      const [analysisType, grupoResultados] = firstEntry
+      console.log('PDFMonkey: Single analysis type detected, processing as single document')
+      
+      // Generate filename: client_name + test_areas (date will be added by n8n)
+      const clientName = client?.name ? client.name.replace(/[^a-zA-Z0-9]/g, '_') : 'Cliente'
+      const testAreas = Array.isArray(report?.test_areas) && report?.test_areas.length > 0
+        ? report?.test_areas.join('_').replace(/[^a-zA-Z0-9]/g, '_')
+        : 'Analisis'
+      const filename = `${clientName}_${testAreas}.pdf`
 
-    // Dynamically resolve template and payload based on analysis type
-    const { templateId, payload: templatePayload } = resolveTemplateAndPayload(report!, client, resultados, analystName)
-
-    const payload: Record<string, unknown> = {
-      document: {
-        document_template_id: templateId,
-        status: 'pending',
-        payload: templatePayload,
-        meta: {
-          target_id: targetId,
-          result_id: result_id || null,
-          report_id: report_id || null,
-          _filename: filename
+      // Fetch analyst name if we have resultado data
+      let analystName = 'DRA. LUCIA RIVERA C.' // Default
+      if (grupoResultados[0]?.validated_by) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('name, email')
+          .eq('id', grupoResultados[0].validated_by)
+          .single()
+        if (userData?.name) {
+          analystName = userData.name
         }
       }
-    }
 
-    console.log('STATUS DEBUG - payload.document.status before stringify:', (payload.document as Record<string, unknown>).status)
-    const payloadStr = JSON.stringify(payload)
-    console.log('STATUS DEBUG - In JSON string:', payloadStr.includes('"status":"pending"'))
-    console.log('PDFMonkey payload:', payloadStr)
+      // Dynamically resolve template and payload based on analysis type
+      const { templateId, payload: templatePayload } = resolveTemplateAndPayload(report!, client, grupoResultados, analystName)
 
-    const response = await fetch('https://api.pdfmonkey.io/api/v1/documents', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // Token provisto por el usuario (temporalmente hardcoded para pruebas)
-        Authorization: 'Bearer 7mCRJHas8oqUQxsQX-in'
-      },
-      body: JSON.stringify(payload)
-    })
+      const payload: Record<string, unknown> = {
+        document: {
+          document_template_id: templateId,
+          status: 'pending',
+          payload: templatePayload,
+          meta: {
+            target_id: targetId,
+            result_id: result_id || null,
+            report_id: report_id || null,
+            _filename: filename
+          }
+        }
+      }
 
-    const data = await response.json() as Record<string, unknown>
-    
-    if (!response.ok) {
-      console.error('PDFMonkey API error:', {
-        status: response.status,
-        statusText: response.statusText,
-        data
+      console.log('PDFMonkey payload:', JSON.stringify(payload))
+
+      const response = await fetch('https://api.pdfmonkey.io/api/v1/documents', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer 7mCRJHas8oqUQxsQX-in'
+        },
+        body: JSON.stringify(payload)
       })
-      return NextResponse.json({ error: 'PDFMonkey error', details: data }, { status: 502 })
+
+      const data = await response.json() as Record<string, unknown>
+      
+      if (!response.ok) {
+        console.error('PDFMonkey API error:', {
+          status: response.status,
+          statusText: response.statusText,
+          data
+        })
+        return NextResponse.json({ error: 'PDFMonkey error', details: data }, { status: 502 })
+      }
+
+      console.log('PDFMonkey document created successfully:', {
+        documentId: (data as {id?: string}).id,
+        status: (data as {status?: string}).status,
+        reportId: report_id
+      })
+
+      return NextResponse.json([data], { status: 201 })
     }
-
-    console.log('PDFMonkey document created successfully:', {
-      documentId: (data as {id?: string}).id,
-      status: (data as {status?: string}).status,
-      reportId: report_id
-    })
-
-    return NextResponse.json(data, { status: 201 })
+    
+    // ✅ NEW: Multiple analysis types - process each group separately
+    console.log('PDFMonkey: Multiple analysis types detected, processing', gruposPorTipo.size, 'separate documents')
+    
+    const documentosCreados: Record<string, unknown>[] = []
+    const errores: Array<{ type: AnalysisType; error: unknown }> = []
+    
+    // Process each group
+    for (const [analysisType, grupoResultados] of gruposPorTipo.entries()) {
+      try {
+        console.log(`PDFMonkey: Processing group ${analysisType} with ${grupoResultados.length} resultados`)
+        
+        // Create a minimal report structure for this group
+        const grupoReport: ReportData = {
+          id: report?.id || `temp-report-${analysisType}`,
+          created_at: report?.created_at || new Date().toISOString(),
+          client_id: report?.client_id || null,
+          test_areas: [grupoResultados[0].test_area].filter(Boolean) as string[]
+        }
+        
+        // Generate filename: client_name + analysis_type (date will be added by n8n)
+        const clientName = client?.name ? client.name.replace(/[^a-zA-Z0-9]/g, '_') : 'Cliente'
+        const analysisTypeName = analysisType === 'virology' ? 'Virologico' :
+                                 analysisType === 'phytopatology' ? 'Fitopatologico' :
+                                 analysisType === 'nematology' ? 'Nematologico' :
+                                 analysisType === 'bacteriology' ? 'Bacteriologico' :
+                                 analysisType === 'early_detection' ? 'DeteccionPrecoz' :
+                                 'Analisis'
+        const filename = `${clientName}_${analysisTypeName}.pdf`
+        
+        // Fetch analyst name for this group
+        let analystName = 'DRA. LUCIA RIVERA C.' // Default
+        if (grupoResultados[0]?.validated_by) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('name, email')
+            .eq('id', grupoResultados[0].validated_by)
+            .single()
+          if (userData?.name) {
+            analystName = userData.name
+          }
+        }
+        
+        // Resolve template and payload for this group
+        const { templateId, payload: templatePayload } = resolveTemplateAndPayload(grupoReport, client, grupoResultados, analystName)
+        
+        const payload: Record<string, unknown> = {
+          document: {
+            document_template_id: templateId,
+            status: 'pending',
+            payload: templatePayload,
+            meta: {
+              target_id: targetId,
+              result_id: null, // Multiple results, no single result_id
+              report_id: report_id || null,
+              _filename: filename,
+              analysis_type: analysisType,
+              result_ids: grupoResultados.map(r => r.id)
+            }
+          }
+        }
+        
+        console.log(`PDFMonkey: Creating document for ${analysisType} with filename: ${filename}`)
+        
+        const response = await fetch('https://api.pdfmonkey.io/api/v1/documents', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer 7mCRJHas8oqUQxsQX-in'
+          },
+          body: JSON.stringify(payload)
+        })
+        
+        const data = await response.json() as Record<string, unknown>
+        
+        if (!response.ok) {
+          console.error(`PDFMonkey API error for ${analysisType}:`, {
+            status: response.status,
+            statusText: response.statusText,
+            data
+          })
+          errores.push({ type: analysisType, error: data })
+          continue
+        }
+        
+        console.log(`PDFMonkey document created successfully for ${analysisType}:`, {
+          documentId: (data as {id?: string}).id,
+          status: (data as {status?: string}).status,
+          filename
+        })
+        
+        documentosCreados.push(data)
+      } catch (error) {
+        console.error(`PDFMonkey error processing group ${analysisType}:`, error)
+        errores.push({ type: analysisType, error })
+      }
+    }
+    
+    // Return results
+    if (documentosCreados.length === 0) {
+      return NextResponse.json({ 
+        error: 'Failed to create any documents',
+        errors: errores
+      }, { status: 502 })
+    }
+    
+    if (errores.length > 0) {
+      console.warn('PDFMonkey: Some documents failed to create:', errores)
+      // Return partial success
+      return NextResponse.json({
+        documents: documentosCreados,
+        errors: errores,
+        partial: true
+      }, { status: 207 }) // 207 Multi-Status
+    }
+    
+    // All documents created successfully
+    return NextResponse.json(documentosCreados, { status: 201 })
   } catch (error) {
     console.error('Error creating PDFMonkey document:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
