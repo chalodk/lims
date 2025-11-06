@@ -35,7 +35,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: 'Clientes', href: '/clients', icon: Users, roles: ['admin', 'validador', 'comun'] },
     { name: 'Informes', href: '/reports', icon: FileText, roles: ['admin', 'validador', 'comun', 'consumidor'] },
     { name: 'Estadísticas', href: '/estadisticas', icon: BarChart3, roles: ['admin', 'validador'] },
-    { name: 'Configuración', href: '/configuracion', icon: Settings, roles: ['admin'] },
+    { name: 'Configuración', href: '/settings', icon: Settings, roles: ['admin'] },
   ]
 
   const filteredNavigation = navigation.filter(item => 
