@@ -85,6 +85,8 @@ export default function DashboardPage() {
         setStats(statsData)
       } else {
         console.error('Failed to fetch dashboard stats')
+        // Set empty stats to avoid infinite loading
+        setStats(null)
       }
 
       // Fetch recent samples
@@ -94,20 +96,34 @@ export default function DashboardPage() {
         setRecentSamples(samplesData.samples || [])
       } else {
         console.error('Failed to fetch recent samples')
+        // Set empty array to avoid infinite loading
+        setRecentSamples([])
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
+      // Set empty data to avoid infinite loading
+      setStats(null)
+      setRecentSamples([])
     } finally {
+      // Always resolve loading states, even on error
       setIsLoadingStats(false)
       setIsLoadingSamples(false)
     }
   }, [])
 
   useEffect(() => {
-    // Solo cargar datos si no es consumidor
+    // Solo cargar datos si no es consumidor y auth ya cargó
     if (!authLoading && userRole !== 'consumidor') {
       fetchDashboardData()
     }
+    
+    // Timeout de seguridad: resolver estados después de 10 segundos si aún están cargando
+    const timeoutId = setTimeout(() => {
+      setIsLoadingStats(false)
+      setIsLoadingSamples(false)
+    }, 10000)
+
+    return () => clearTimeout(timeoutId)
   }, [authLoading, userRole, fetchDashboardData])
 
   const getStatusColor = (status: string) => {
@@ -129,17 +145,16 @@ export default function DashboardPage() {
     return null
   }
 
-  // Show loading while fetching data
-  if (authLoading || isLoadingStats || isLoadingSamples) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-      </div>
-    )
-  }
-
   return (
     <DashboardLayout>
+      {/* Show loading while fetching data */}
+      {(authLoading || isLoadingStats || isLoadingSamples) ? (
+        <div className="p-6">
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+          </div>
+        </div>
+      ) : (
       <div className="p-6">
         {/* Welcome Section */}
         <div className="mb-8">
@@ -357,6 +372,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      )}
     </DashboardLayout>
   )
 }

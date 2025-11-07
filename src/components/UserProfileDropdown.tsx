@@ -2,14 +2,16 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { User, LogOut, Loader2, ChevronDown } from 'lucide-react'
+import { User, LogOut, Loader2, ChevronDown, Settings } from 'lucide-react'
 import { APP_VERSION } from '@/config/app'
+import EditAccountModal from './UserProfileDropdown/EditAccountModal'
 
 export default function UserProfileDropdown() {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const { user, authUser, userRole, signOut, isLoading } = useAuth()
+  const { user, authUser, userRole, signOut, isLoading, refreshSession } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false)
 
   // Cerrar dropdown al hacer clic fuera
   useEffect(() => {
@@ -98,6 +100,20 @@ export default function UserProfileDropdown() {
             <p className="text-sm text-gray-900 capitalize">{roleDisplay}</p>
           </div>
 
+          {/* Sección Cuenta */}
+          <div className="px-2 py-1 border-b border-gray-200">
+            <button
+              onClick={() => {
+                setIsAccountModalOpen(true)
+                setIsOpen(false)
+              }}
+              className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Settings className="h-4 w-4 mr-3" />
+              Cuenta
+            </button>
+          </div>
+
           {/* Botón Cerrar Sesión */}
           <div className="px-2 py-1">
             <button
@@ -122,6 +138,16 @@ export default function UserProfileDropdown() {
           </div>
         </div>
       )}
+
+      {/* Modal de edición de cuenta */}
+      <EditAccountModal
+        isOpen={isAccountModalOpen}
+        onClose={() => setIsAccountModalOpen(false)}
+        onSuccess={async () => {
+          // Refrescar la sesión para obtener los datos actualizados
+          await refreshSession()
+        }}
+      />
     </div>
   )
 }
