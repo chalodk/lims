@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     authUser: null,
     role: null,
     userRole: null,
-    isLoading: false,
+    isLoading: true, // ✅ Cambiar a true - aún no sabemos si hay sesión
     isAuthenticated: false,
     session: null,
   })

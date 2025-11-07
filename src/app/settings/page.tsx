@@ -115,10 +115,10 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    // Verificación inmediata: si no está cargando y no está autenticado, redirigir al login
+    // ✅ Esperar a que termine la carga de autenticación antes de verificar
     if (!authLoading) {
       if (!isAuthenticated) {
-        // Redirigir inmediatamente al login si no hay sesión
+        // Redirigir al login si no hay sesión (después de que termine la carga)
         router.replace('/login')
         return
       }
@@ -136,7 +136,7 @@ export default function SettingsPage() {
     }
   }, [authLoading, isAuthenticated, userRole, router, fetchUsers])
 
-  // Si está cargando la autenticación, mostrar loader
+  // ✅ Mostrar loader mientras se carga la autenticación (PRIMERO que todo)
   if (authLoading) {
     return (
       <DashboardLayout>
@@ -147,24 +147,29 @@ export default function SettingsPage() {
     )
   }
 
-  // Si no está autenticado, redirigir inmediatamente (no renderizar nada)
-  // Esta es una verificación de seguridad adicional por si el useEffect no se ejecutó aún
+  // ✅ Solo verificar autenticación DESPUÉS de que termine de cargar
+  // No hacer verificaciones en el render que puedan ejecutarse antes del useEffect
   if (!isAuthenticated) {
-    // Usar window.location para redirección inmediata y forzada
-    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-      window.location.href = '/login'
-    }
-    return null
+    // Mostrar loader mientras redirige (evita flash de contenido)
+    return (
+      <DashboardLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+        </div>
+      </DashboardLayout>
+    )
   }
 
-  // Si no es admin, redirigir al dashboard (no renderizar nada)
-  // Esta es una verificación de seguridad adicional por si el useEffect no se ejecutó aún
+  // ✅ Solo verificar rol DESPUÉS de que termine de cargar y esté autenticado
   if (userRole !== 'admin') {
-    // Usar window.location para redirección inmediata y forzada
-    if (typeof window !== 'undefined' && window.location.pathname !== '/dashboard') {
-      window.location.href = '/dashboard'
-    }
-    return null
+    // Mostrar loader mientras redirige (evita flash de contenido)
+    return (
+      <DashboardLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+        </div>
+      </DashboardLayout>
+    )
   }
 
   // Si está cargando usuarios, mostrar loader
