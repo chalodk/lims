@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { SampleWithClient, Client, SLAStatus, SampleStatus, SLAType, SampleTakenBy, AreaType } from '@/types/database'
 import { SPECIES_CATEGORIES } from '@/constants/species'
 import { PROJECT_OPTIONS } from '@/constants/projects'
+import { canEditField } from '@/config/sampleEditRules'
 import { 
   TestTube, 
   Loader2,
@@ -202,7 +203,11 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
         checkValidatedResults(sample.id).then(hasValidated => {
           setHasValidatedResults(hasValidated)
           if (hasValidated) {
-            setValidationError('Esta muestra no puede ser editada porque tiene resultados validados.')
+            setValidationError(
+              'Esta muestra tiene resultados validados. ' +
+              'Algunos campos están bloqueados para mantener la integridad de los datos. ' +
+              'Puedes editar: Estado, Estado SLA, Fecha de vencimiento y todas las notas/observaciones.'
+            )
           }
         })
       }
@@ -220,47 +225,97 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
     setIsSubmitting(true)
 
     try {
-      // Prevent editing if sample has validated results
+      // ✅ Construir el body según si hay resultados validados o no
+      let requestBody: Record<string, unknown>
+      
       if (hasValidatedResults) {
-        setValidationError('Esta muestra no puede ser editada porque tiene resultados validados.')
-        setIsSubmitting(false)
-        return
-      }
+        // ✅ Cuando hay resultados validados, SOLO enviar campos permitidos que realmente cambiaron
+        requestBody = {}
+        
+        // Obtener valores originales para comparar
+        const originalStatus = sample.status || 'received'
+        const originalSlaStatus = (sample as SampleWithClient).sla_status || 'on_time'
+        const sampleDueDate = (sample as SampleWithClient).due_date
+        const originalDueDate = sampleDueDate && typeof sampleDueDate === 'string'
+          ? sampleDueDate.split('T')[0] 
+          : ''
+        const originalClientNotes = sample.client_notes || ''
+        const originalReceptionNotes = sample.reception_notes || ''
+        const originalSamplingObservations = (sample as SampleWithClient).sampling_observations || ''
+        const originalReceptionObservations = (sample as SampleWithClient).reception_observations || ''
+        
+        // Solo incluir campos permitidos si realmente cambiaron
+        if (formData.status !== undefined && formData.status !== originalStatus) {
+          requestBody.status = formData.status
+        }
+        if (formData.sla_status !== undefined && formData.sla_status !== originalSlaStatus) {
+          requestBody.sla_status = formData.sla_status
+        }
+        if (formData.due_date !== undefined && formData.due_date !== originalDueDate) {
+          requestBody.due_date = formData.due_date || null
+        }
+        if (formData.client_notes !== undefined) {
+          const trimmedNotes = formData.client_notes.trim()
+          if (trimmedNotes !== originalClientNotes) {
+            requestBody.client_notes = trimmedNotes || null
+          }
+        }
+        if (formData.reception_notes !== undefined) {
+          const trimmedNotes = formData.reception_notes.trim()
+          if (trimmedNotes !== originalReceptionNotes) {
+            requestBody.reception_notes = trimmedNotes || null
+          }
+        }
+        if (formData.sampling_observations !== undefined) {
+          const trimmedNotes = formData.sampling_observations.trim()
+          if (trimmedNotes !== originalSamplingObservations) {
+            requestBody.sampling_observations = trimmedNotes || null
+          }
+        }
+        if (formData.reception_observations !== undefined) {
+          const trimmedNotes = formData.reception_observations.trim()
+          if (trimmedNotes !== originalReceptionObservations) {
+            requestBody.reception_observations = trimmedNotes || null
+          }
+        }
+        
+        // Verificar que al menos un campo permitido haya cambiado
+        if (Object.keys(requestBody).length === 0) {
+          setValidationError('No hay cambios para guardar. Solo se pueden editar: Estado, Estado SLA, Fecha de vencimiento y Notas.')
+          setIsSubmitting(false)
+          return
+        }
+      } else {
+        // ✅ Cuando NO hay resultados validados, validar campos requeridos y enviar todos
+        if (!formData.client_id) {
+          throw new Error('El campo Cliente es obligatorio')
+        }
+        if (!formData.code?.trim()) {
+          throw new Error('El campo Código es obligatorio')
+        }
+        if (!formData.received_date) {
+          throw new Error('El campo Fecha de recepción es obligatorio')
+        }
+        if (!formData.species?.trim()) {
+          throw new Error('El campo Especie es obligatorio')
+        }
 
-      // Validation: Required fields
-      if (!formData.client_id) {
-        throw new Error('El campo Cliente es obligatorio')
-      }
-      if (!formData.code?.trim()) {
-        throw new Error('El campo Código es obligatorio')
-      }
-      if (!formData.received_date) {
-        throw new Error('El campo Fecha de recepción es obligatorio')
-      }
-      if (!formData.species?.trim()) {
-        throw new Error('El campo Especie es obligatorio')
-      }
+        // Validation: CHECK constraints
+        if (formData.taken_by && !['client', 'lab'].includes(formData.taken_by)) {
+          throw new Error('El campo "Recolectada por" debe ser "Cliente" o "Laboratorio"')
+        }
+        if (formData.status && !['received', 'processing', 'microscopy', 'isolation', 'identification', 'molecular_analysis', 'validation', 'completed'].includes(formData.status)) {
+          throw new Error('Estado de muestra inválido')
+        }
+        if (formData.sla_type && !['normal', 'express'].includes(formData.sla_type)) {
+          throw new Error('Tipo de SLA inválido')
+        }
+        if (formData.sla_status && !['on_time', 'at_risk', 'breached'].includes(formData.sla_status)) {
+          throw new Error('Estado de SLA inválido')
+        }
 
-      // Validation: CHECK constraints
-      if (formData.taken_by && !['client', 'lab'].includes(formData.taken_by)) {
-        throw new Error('El campo "Recolectada por" debe ser "Cliente" o "Laboratorio"')
-      }
-      if (formData.status && !['received', 'processing', 'microscopy', 'isolation', 'identification', 'molecular_analysis', 'validation', 'completed'].includes(formData.status)) {
-        throw new Error('Estado de muestra inválido')
-      }
-      if (formData.sla_type && !['normal', 'express'].includes(formData.sla_type)) {
-        throw new Error('Tipo de SLA inválido')
-      }
-      if (formData.sla_status && !['on_time', 'at_risk', 'breached'].includes(formData.sla_status)) {
-        throw new Error('Estado de SLA inválido')
-      }
-
-      const response = await fetch(`/api/samples/${sample.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+        // Construir body completo cuando no hay resultados validados
+        requestBody = {
           client_id: formData.client_id,
           code: formData.code.trim(),
           received_date: formData.received_date,
@@ -284,7 +339,15 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
           reception_observations: formData.reception_observations.trim() || null,
           sla_status: formData.sla_status,
           status: formData.status
-        })
+        }
+      }
+
+      const response = await fetch(`/api/samples/${sample.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
       })
 
       if (!response.ok) {
@@ -371,7 +434,12 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
               {/* Validation Error Display */}
               {validationError && (
                 <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-sm text-red-800">{validationError}</p>
+                  <p className="text-sm text-red-800 font-medium">{validationError}</p>
+                  {hasValidatedResults && (
+                    <p className="text-xs text-red-600 mt-2">
+                      💡 Puedes editar: Estado, Estado SLA, Fecha de vencimiento y todas las notas/observaciones.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -397,7 +465,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.client_id}
                     onChange={(e) => setFormData(prev => ({ ...prev, client_id: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('client_id', hasValidatedResults)}
                   >
                     <option value="">Seleccionar cliente</option>
                     {clients.map(client => (
@@ -417,7 +485,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.code}
                     onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('code', hasValidatedResults)}
                     placeholder="Ej: LIM-2024-001"
                   />
                 </div>
@@ -431,7 +499,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.status || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as SampleStatus }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('status', hasValidatedResults)}
                   >
                     {statusOptions.map(option => (
                       <option key={option.value} value={option.value}>{option.label}</option>
@@ -450,7 +518,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.received_date}
                     onChange={(e) => setFormData(prev => ({ ...prev, received_date: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('received_date', hasValidatedResults)}
                   />
                 </div>
 
@@ -464,7 +532,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.due_date}
                     onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('due_date', hasValidatedResults)}
                   />
                 </div>
 
@@ -477,7 +545,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.sla_type || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, sla_type: e.target.value as SLAType }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('sla_type', hasValidatedResults)}
                   >
                     <option value="normal">Normal</option>
                     <option value="express">Express</option>
@@ -493,7 +561,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.sla_status || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, sla_status: e.target.value as SLAStatus }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('sla_status', hasValidatedResults)}
                   >
                     {slaStatusOptions.map(option => (
                       <option key={option.value} value={option.value}>{option.label}</option>
@@ -510,7 +578,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.project_id}
                     onChange={(e) => setFormData(prev => ({ ...prev, project_id: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={isLoadingProjects || hasValidatedResults}
+                    disabled={isLoadingProjects || !canEditField('project_id', hasValidatedResults)}
                   >
                     <option value="">
                       {isLoadingProjects ? 'Cargando proyectos...' : 'Seleccionar proyecto'}
@@ -531,7 +599,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.species}
                     onChange={(e) => setFormData(prev => ({ ...prev, species: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('species', hasValidatedResults)}
                   >
                     <option value="">Seleccionar especie</option>
                     <option value="Desconocido">Desconocido</option>
@@ -555,7 +623,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.variety}
                     onChange={(e) => setFormData(prev => ({ ...prev, variety: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('variety', hasValidatedResults)}
                     placeholder="Ej: Cherry"
                   />
                 </div>
@@ -570,7 +638,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.rootstock}
                     onChange={(e) => setFormData(prev => ({ ...prev, rootstock: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('rootstock', hasValidatedResults)}
                     placeholder="Ej: Mahaleb, Gisela 6"
                   />
                 </div>
@@ -587,7 +655,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.planting_year}
                     onChange={(e) => setFormData(prev => ({ ...prev, planting_year: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('planting_year', hasValidatedResults)}
                     placeholder="2023"
                   />
                 </div>
@@ -601,7 +669,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.previous_crop}
                     onChange={(e) => setFormData(prev => ({ ...prev, previous_crop: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('previous_crop', hasValidatedResults)}
                   >
                     <option value="">Sin cultivo anterior</option>
                     <option value="Barbecho">Barbecho</option>
@@ -625,7 +693,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.next_crop}
                     onChange={(e) => setFormData(prev => ({ ...prev, next_crop: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('next_crop', hasValidatedResults)}
                   >
                     <option value="">Sin próximo cultivo planificado</option>
                     <option value="Barbecho">Barbecho</option>
@@ -648,7 +716,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                       checked={formData.fallow}
                       onChange={(e) => setFormData(prev => ({ ...prev, fallow: e.target.checked }))}
                       className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
-                      disabled={hasValidatedResults}
+                      disabled={!canEditField('fallow', hasValidatedResults)}
                     />
                     <span className="ml-2 text-sm text-gray-700">Terreno en barbecho</span>
                   </label>
@@ -669,7 +737,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.region}
                     onChange={(e) => setFormData(prev => ({ ...prev, region: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('region', hasValidatedResults)}
                     placeholder="Ej: Región Metropolitana"
                   />
                 </div>
@@ -684,7 +752,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.locality}
                     onChange={(e) => setFormData(prev => ({ ...prev, locality: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('locality', hasValidatedResults)}
                     placeholder="Ej: Maipú, Santiago"
                   />
                 </div>
@@ -703,7 +771,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.taken_by}
                     onChange={(e) => setFormData(prev => ({ ...prev, taken_by: e.target.value as SampleTakenBy }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('taken_by', hasValidatedResults)}
                   >
                     <option value="client">Cliente</option>
                     <option value="lab">Laboratorio</option>
@@ -720,7 +788,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.delivery_method}
                     onChange={(e) => setFormData(prev => ({ ...prev, delivery_method: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('delivery_method', hasValidatedResults)}
                     placeholder="Ej: Entrega directa, Courier, Transporte propio"
                   />
                 </div>
@@ -734,7 +802,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.suspected_pathogen}
                     onChange={(e) => setFormData(prev => ({ ...prev, suspected_pathogen: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('suspected_pathogen', hasValidatedResults)}
                   >
                     <option value="">Seleccionar patógeno</option>
                     {availableAnalytes.map(analyte => (
@@ -827,7 +895,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.client_notes}
                     onChange={(e) => setFormData(prev => ({ ...prev, client_notes: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('client_notes', hasValidatedResults)}
                     placeholder="Notas proporcionadas por el cliente..."
                   />
                 </div>
@@ -842,7 +910,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.reception_notes}
                     onChange={(e) => setFormData(prev => ({ ...prev, reception_notes: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('reception_notes', hasValidatedResults)}
                     placeholder="Observaciones del laboratorio al recibir la muestra..."
                   />
                 </div>
@@ -857,7 +925,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.sampling_observations}
                     onChange={(e) => setFormData(prev => ({ ...prev, sampling_observations: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('sampling_observations', hasValidatedResults)}
                     placeholder="Observaciones sobre el proceso de muestreo..."
                   />
                 </div>
@@ -872,7 +940,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     value={formData.reception_observations}
                     onChange={(e) => setFormData(prev => ({ ...prev, reception_observations: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={hasValidatedResults}
+                    disabled={!canEditField('reception_observations', hasValidatedResults)}
                     placeholder="Observaciones adicionales al recibir la muestra..."
                   />
                 </div>
@@ -883,7 +951,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
             <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
               <button
                 type="submit"
-                disabled={isSubmitting || hasValidatedResults || isCheckingValidated}
+                disabled={isSubmitting || isCheckingValidated}
                 className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
               >
                 {isSubmitting ? (

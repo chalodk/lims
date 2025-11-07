@@ -290,13 +290,6 @@ export async function PATCH(
       status
     } = body
 
-    if (!client_id || !code || !received_date || !species) {
-      return NextResponse.json(
-        { error: 'client_id, code, received_date, and species are required' },
-        { status: 400 }
-      )
-    }
-
     // First, get the current sample to check access and get current status
     const { data: currentSample, error: fetchError } = await supabase
       .from('samples')
@@ -313,7 +306,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Check if sample has validated results - if so, prevent editing
+    // Check if sample has validated results - if so, restrict editing to allowed fields only
     const { data: validatedResults, error: resultsCheckError } = await supabase
       .from('results')
       .select('id')
@@ -325,56 +318,126 @@ export async function PATCH(
       console.error('Error checking validated results:', resultsCheckError)
     }
 
-    if (validatedResults && validatedResults.length > 0) {
-      return NextResponse.json(
-        { error: 'Esta muestra no puede ser editada porque tiene resultados validados.' },
-        { status: 403 }
-      )
-    }
-
-    // Calculate due date based on SLA
-    const receivedAt = new Date(received_date)
-    const dueDate = new Date(receivedAt)
+    const hasValidatedResults = validatedResults && validatedResults.length > 0
     
-    // Add business days based on SLA type
-    const businessDaysToAdd = sla_type === 'express' ? 4 : 9
-    let addedDays = 0
-    
-    while (addedDays < businessDaysToAdd) {
-      dueDate.setDate(dueDate.getDate() + 1)
-      // Skip weekends (0 = Sunday, 6 = Saturday)
-      if (dueDate.getDay() !== 0 && dueDate.getDay() !== 6) {
-        addedDays++
+    // ✅ If there are validated results, only allow editing specific fields
+    if (hasValidatedResults) {
+      // Fields that CAN be edited when there are validated results
+      const allowedFields = [
+        'status',
+        'sla_status',
+        'due_date',
+        'client_notes',
+        'reception_notes',
+        'sampling_observations',
+        'reception_observations'
+      ]
+      
+      // Fields that CANNOT be edited when there are validated results
+      const blockedFields = [
+        'code',
+        'species',
+        'client_id',
+        'received_date',
+        'variety',
+        'rootstock',
+        'planting_year',
+        'previous_crop',
+        'next_crop',
+        'fallow',
+        'project_id',
+        'sla_type',
+        'region',
+        'locality',
+        'taken_by',
+        'delivery_method',
+        'suspected_pathogen'
+      ]
+      
+      // Check if any blocked field is being modified
+      const bodyKeys = Object.keys(body)
+      const modifiedBlockedFields = bodyKeys.filter(key => blockedFields.includes(key))
+      
+      if (modifiedBlockedFields.length > 0) {
+        return NextResponse.json(
+          { 
+            error: `No se pueden editar los siguientes campos cuando hay resultados validados: ${modifiedBlockedFields.join(', ')}. ` +
+                   'Solo se pueden editar: Estado, Estado SLA, Fecha de vencimiento y Notas.'
+          },
+          { status: 403 }
+        )
+      }
+    } else {
+      // ✅ When there are NO validated results, validate required fields
+      if (!client_id || !code || !received_date || !species) {
+        return NextResponse.json(
+          { error: 'client_id, code, received_date, and species are required' },
+          { status: 400 }
+        )
       }
     }
 
-    const updateData = {
-      client_id,
-      code,
-      received_date,
-      received_at: new Date(received_date).toISOString(),
-      sla_type: sla_type || 'normal',
-      sla_status: sla_status || 'on_time',
-      due_date: dueDate.toISOString().split('T')[0],
-      project_id: project_id || null,
-      species,
-      variety: variety || null,
-      rootstock: rootstock || null,
-      planting_year: planting_year ? parseInt(planting_year) : null,
-      previous_crop: previous_crop || null,
-      next_crop: next_crop || null,
-      fallow: fallow || false,
-      client_notes: client_notes || null,
-      reception_notes: reception_notes || null,
-      taken_by: taken_by || 'client',
-      delivery_method: delivery_method || null,
-      suspected_pathogen: suspected_pathogen || null,
-      region: region || null,
-      locality: locality || null,
-      sampling_observations: sampling_observations || null,
-      reception_observations: reception_observations || null,
-      status: status || 'received',
+    // ✅ Build updateData based on whether there are validated results
+    let updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString()
+    }
+    
+    if (hasValidatedResults) {
+      // ✅ When there are validated results, only update allowed fields from body
+      // Extract only allowed fields from body (they may not be in the destructured variables)
+      if (body.status !== undefined) updateData.status = body.status || 'received'
+      if (body.sla_status !== undefined) updateData.sla_status = body.sla_status || 'on_time'
+      if (body.due_date !== undefined) updateData.due_date = body.due_date
+      if (body.client_notes !== undefined) updateData.client_notes = body.client_notes || null
+      if (body.reception_notes !== undefined) updateData.reception_notes = body.reception_notes || null
+      if (body.sampling_observations !== undefined) updateData.sampling_observations = body.sampling_observations || null
+      if (body.reception_observations !== undefined) updateData.reception_observations = body.reception_observations || null
+    } else {
+      // ✅ When there are NO validated results, update all fields normally
+      // Calculate due date based on SLA
+      const receivedAt = new Date(received_date)
+      const dueDate = new Date(receivedAt)
+      
+      // Add business days based on SLA type
+      const businessDaysToAdd = sla_type === 'express' ? 4 : 9
+      let addedDays = 0
+      
+      while (addedDays < businessDaysToAdd) {
+        dueDate.setDate(dueDate.getDate() + 1)
+        // Skip weekends (0 = Sunday, 6 = Saturday)
+        if (dueDate.getDay() !== 0 && dueDate.getDay() !== 6) {
+          addedDays++
+        }
+      }
+
+      updateData = {
+        client_id,
+        code,
+        received_date,
+        received_at: new Date(received_date).toISOString(),
+        sla_type: sla_type || 'normal',
+        sla_status: sla_status || 'on_time',
+        due_date: dueDate.toISOString().split('T')[0],
+        project_id: project_id || null,
+        species,
+        variety: variety || null,
+        rootstock: rootstock || null,
+        planting_year: planting_year ? parseInt(planting_year) : null,
+        previous_crop: previous_crop || null,
+        next_crop: next_crop || null,
+        fallow: fallow || false,
+        client_notes: client_notes || null,
+        reception_notes: reception_notes || null,
+        taken_by: taken_by || 'client',
+        delivery_method: delivery_method || null,
+        suspected_pathogen: suspected_pathogen || null,
+        region: region || null,
+        locality: locality || null,
+        sampling_observations: sampling_observations || null,
+        reception_observations: reception_observations || null,
+        status: status || 'received',
+        updated_at: new Date().toISOString()
+      }
     }
 
     const { data, error } = await supabase
@@ -398,13 +461,14 @@ export async function PATCH(
     }
 
     // Create status transition if status changed
-    if (status && status !== currentSample.status) {
+    const newStatus = hasValidatedResults ? body.status : status
+    if (newStatus && newStatus !== currentSample.status) {
       await supabase
         .from('sample_status_transitions')
         .insert({
           sample_id: resolvedParams.id,
           from_status: currentSample.status,
-          to_status: status,
+          to_status: newStatus,
           by_user: user.id,
           reason: 'Status updated via PATCH API'
         })
