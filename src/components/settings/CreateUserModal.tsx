@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { X, UserPlus, Loader2, Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
-import { AuthApiError } from '@supabase/supabase-js'
+import { getAuthErrorMessage } from '@/lib/utils/authErrors'
 
 interface CreateUserModalProps {
   isOpen: boolean
@@ -40,11 +40,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
       })
       
       if (error) {
-        if (error instanceof AuthApiError) {
-          setError('Error del servidor. Intenta nuevamente.')
-        } else {
-          setError(error.message)
-        }
+        setError(getAuthErrorMessage(error))
       } else {
         setSuccess(true)
         setFormData({ email: '', password: '' })
@@ -57,7 +53,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
       }
     } catch (err) {
       console.error('Error al crear usuario:', err)
-      setError('Error inesperado. Intenta nuevamente.')
+      setError(getAuthErrorMessage(err))
     } finally {
       setIsSubmitting(false)
     }

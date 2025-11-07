@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { Eye, EyeOff, Loader2, Mail, Lock } from 'lucide-react'
 import Image from 'next/image'
-import { AuthApiError, AuthInvalidCredentialsError } from '@supabase/supabase-js'
+import { getAuthErrorMessage } from '@/lib/utils/authErrors'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -34,13 +34,9 @@ export default function LoginPage() {
         })
         
         if (error) {
-          if (error instanceof AuthApiError) {
-            setError('Error del servidor. Intenta nuevamente.')
-          } else {
-            setError(error.message)
-          }
+          setError(getAuthErrorMessage(error))
         } else {
-          alert('Check your email for the confirmation link!')
+          alert('Revisa tu correo electrónico para confirmar tu cuenta')
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -49,13 +45,7 @@ export default function LoginPage() {
         })
         
         if (error) {
-          if (error instanceof AuthInvalidCredentialsError) {
-            setError('Credenciales incorrectas. Verifica tu email y contraseña.')
-          } else if (error instanceof AuthApiError) {
-            setError('Error del servidor. Intenta nuevamente.')
-          } else {
-            setError('Error inesperado. Intenta nuevamente.')
-          }
+          setError(getAuthErrorMessage(error))
         } else {
           // Obtener el rol del usuario para redirigir según su rol
           const { data: { user } } = await supabase.auth.getUser()
@@ -93,7 +83,7 @@ export default function LoginPage() {
       }
     } catch (error) {
       console.error('Login error:', error)
-      setError('Error inesperado. Intenta nuevamente.')
+      setError(getAuthErrorMessage(error))
     } finally {
       setIsLoading(false)
     }
