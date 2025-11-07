@@ -639,22 +639,24 @@ export default function EditResultModal({
                   </div>
 
                   {/* Severity */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Severidad
-                    </label>
-                    <select
-                      value={formData.severity}
-                      onChange={(e) => setFormData(prev => ({ ...prev, severity: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Seleccionar severidad</option>
-                      <option value="low">Baja</option>
-                      <option value="moderate">Moderada</option>
-                      <option value="high">Alta</option>
-                      <option value="severe">Severa</option>
-                    </select>
-                  </div>
+                  {!(formData.result_type === 'negative' && formData.pathogen_type === 'nematode') && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Severidad
+                      </label>
+                      <select
+                        value={formData.severity}
+                        onChange={(e) => setFormData(prev => ({ ...prev, severity: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">Seleccionar severidad</option>
+                        <option value="low">Baja</option>
+                        <option value="moderate">Moderada</option>
+                        <option value="high">Alta</option>
+                        <option value="severe">Severa</option>
+                      </select>
+                    </div>
+                  )}
 
                   {/* Methodology */}
                   <div>

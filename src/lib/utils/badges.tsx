@@ -89,13 +89,15 @@ export const getReportStatusBadge = (status: ReportStatus | null) => {
   const statusConfig = {
     draft: 'bg-gray-100 text-gray-800',
     generated: 'bg-blue-100 text-blue-800',
-    sent: 'bg-green-100 text-green-800'
+    sent: 'bg-green-100 text-green-800',
+    validated: 'bg-purple-100 text-purple-800'
   }
 
   const statusLabels = {
     draft: 'Borrador',
     generated: 'Generado',
-    sent: 'Enviado'
+    sent: 'Enviado',
+    validated: 'Validado'
   }
 
   const colorClass = statusConfig[status] || statusConfig.draft

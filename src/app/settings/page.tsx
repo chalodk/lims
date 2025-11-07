@@ -183,17 +183,17 @@ export default function SettingsPage() {
   // Si está cargando usuarios, mostrar loader
   if (isLoading) {
     return (
-      <DashboardLayout>
+        <DashboardLayout>
         <div className="min-h-screen flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-        </div>
-      </DashboardLayout>
+          </div>
+        </DashboardLayout>
     )
   }
 
   return (
-    <DashboardLayout>
-      <div className="p-6">
+      <DashboardLayout>
+          <div className="p-6">
         <div className="mb-8">
           <div className="flex items-center space-x-3 mb-2">
             <Settings className="h-8 w-8 text-green-600" />
@@ -201,20 +201,20 @@ export default function SettingsPage() {
           </div>
           <p className="text-gray-600">
             Gestiona la configuración del sistema
-          </p>
-        </div>
-
-        {/* Gestión de Perfiles */}
+                </p>
+              </div>
+                  
+                  {/* Gestión de Perfiles */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center space-x-3">
               <Users className="h-6 w-6 text-green-600" />
               <h2 className="text-xl font-semibold text-gray-900">Gestión de Perfiles</h2>
-            </div>
+                  </div>
             <p className="text-sm text-gray-500 mt-1">
               Lista de todos los usuarios registrados en el sistema
             </p>
-          </div>
+                  </div>
 
           {/* Buscador y Botones */}
           <div className="p-6 border-b border-gray-200 bg-gray-50">
@@ -279,7 +279,7 @@ export default function SettingsPage() {
             <p className="mt-2 text-sm text-gray-500">
               Ingresa tu búsqueda y presiona &quot;Buscar&quot; o Enter para filtrar usuarios
             </p>
-          </div>
+            </div>
 
           <div className="p-6">
             {error ? (
@@ -446,6 +446,6 @@ export default function SettingsPage() {
           onSuccess={handleEditSuccess}
         />
       </DashboardLayout>
-    )
-  }
+  )
+}
 
