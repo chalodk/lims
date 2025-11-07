@@ -299,6 +299,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      // Sign out from Supabase first (but don't wait for it to complete)
+      const signOutPromise = supabase.auth.signOut().catch(err => {
+        console.error('SignOut error:', err)
+        // Continue with logout even if Supabase signOut fails
+      })
+      
       // Clear state immediately for better UX
       setState({
         user: null,
@@ -310,15 +316,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         session: null,
       })
       
-      // Sign out from Supabase
-      const { error } = await supabase.auth.signOut()
-      
-      if (error) {
-        console.error('SignOut error:', error)
-        // Continue with logout even if Supabase signOut fails
-      }
-      
-      // Clear local storage and session storage
+      // Clear local storage and session storage immediately
       if (typeof window !== 'undefined') {
         try {
           // Clear Supabase auth data
@@ -335,42 +333,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           })
         } catch (storageError) {
           console.error('Error clearing storage:', storageError)
-          // Continue with redirect even if storage clearing fails
         }
         
-        // Multiple redirect methods for reliability
-        const redirectToLogin = () => {
-          try {
-            // Method 1: window.location.href (most reliable)
-            window.location.href = '/login'
-          } catch (e) {
-            try {
-              // Method 2: window.location.replace (fallback)
+        // Redirect immediately - don't wait for Supabase signOut to complete
+        // Use window.location.replace to avoid adding to history
               window.location.replace('/login')
-            } catch (e2) {
-              try {
-                // Method 3: window.location.assign (last resort)
-                window.location.assign('/login')
-              } catch (e3) {
-                console.error('All redirect methods failed:', e3)
-                // Force page reload as absolute last resort
-                window.location.reload()
-              }
-            }
-          }
-        }
-        
-        // Redirect immediately
-        redirectToLogin()
-        
-        // Safety timeout: if redirect doesn't work within 2 seconds, force it
-        setTimeout(() => {
-          if (window.location.pathname !== '/login') {
-            console.warn('Redirect timeout, forcing redirect to login')
-            redirectToLogin()
-          }
-        }, 2000)
       }
+      
+      // Wait for signOut to complete in background (but don't block)
+      await signOutPromise
       
     } catch (error) {
       logError('Error in signOut:', error)
@@ -388,13 +359,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Redirect to login even on error
       if (typeof window !== 'undefined') {
-        try {
-          window.location.href = '/login'
-        } catch (redirectError) {
-          console.error('Redirect error:', redirectError)
-          // Last resort: reload page
-          window.location.reload()
-        }
+        window.location.replace('/login')
       }
     }
   }
