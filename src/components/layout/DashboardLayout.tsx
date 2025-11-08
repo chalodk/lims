@@ -26,21 +26,23 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const { user, isAuthenticated, isLoading, userRole } = useAuth()
+  const { user, authUser, isAuthenticated, isLoading, userRole } = useAuth()
   const pathname = usePathname()
 
   // ✅ TODOS LOS HOOKS DEBEN IR ANTES DE CUALQUIER RETORNO CONDICIONAL
   // Verificar si hay usuario autenticado DESPUÉS de que termine de cargar
-  // Solo verificar si terminó de cargar Y no está autenticado
+  // ✅ CRÍTICO: authUser (de la sesión) es suficiente para considerar autenticado
+  // user (de BD) es complementario pero no esencial
   useEffect(() => {
-    // Solo redirigir si terminó de cargar Y no está autenticado
-    if (!isLoading && (!isAuthenticated || !user)) {
+    // Solo redirigir si terminó de cargar Y no hay sesión válida
+    // authUser viene de la sesión de Supabase y es la fuente de verdad
+    if (!isLoading && (!isAuthenticated || !authUser)) {
       if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
         // Usar replace para evitar agregar al historial y loops
         window.location.replace('/login')
       }
     }
-  }, [isAuthenticated, user, isLoading])
+  }, [isAuthenticated, authUser, isLoading])
 
   // Mostrar loading mientras se verifica la autenticación
   if (isLoading) {
@@ -54,9 +56,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     )
   }
 
-  // Si no hay usuario autenticado DESPUÉS de que termine de cargar, mostrar loader mientras redirige
-  // No hacer redirect inmediato en el render para evitar loops con el middleware
-  if (!isAuthenticated || !user) {
+  // ✅ CRÍTICO: Verificar authUser (sesión) en lugar de user (BD)
+  // Si hay sesión válida pero no datos de BD, el usuario sigue autenticado
+  if (!isAuthenticated || !authUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">

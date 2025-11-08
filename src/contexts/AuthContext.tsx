@@ -83,36 +83,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }, 5000) // 5 second timeout
       })
 
-      const { data: userData, error: userError } = await Promise.race([
-        userQueryPromise,
-        timeoutPromise
-      ]) as { data: User | null; error: { message: string } | null }
+      let userData: User | null = null
+      let userError: { message: string } | null = null
 
-      if (userError) {
-        logError('❌ User query failed, user not found in database:', userError.message)
-        // No fallback user - user must exist in database
-        setState({
-          user: null,
-          authUser: null,
-          role: null,
-          userRole: null,
-          isLoading: false,
-          isAuthenticated: false,
-          session: null,
-        })
-        return
+      try {
+        const result = await Promise.race([
+          userQueryPromise,
+          timeoutPromise
+        ]) as { data: User | null; error: { message: string } | null }
+        userData = result.data
+        userError = result.error
+      } catch (timeoutError) {
+        logError('❌ Query timeout or error:', timeoutError instanceof Error ? timeoutError.message : 'Unknown error')
+        userError = { message: timeoutError instanceof Error ? timeoutError.message : 'Query timeout' }
       }
 
-      if (!userData) {
-        logError('❌ User query returned no data')
+      // ✅ CRÍTICO: Si hay sesión válida, el usuario ESTÁ autenticado
+      // Los datos de BD son complementarios, no determinan la autenticación
+      // Si falla la consulta, mantenemos autenticado pero con datos parciales
+      if (userError || !userData) {
+        logError('❌ User query failed, but user has valid session. Continuing with partial data:', userError?.message || 'No data returned')
+        // Mantener autenticado basado en la sesión, pero con datos mínimos
         setState({
-          user: null,
-          authUser: null,
+          user: null, // No hay datos de BD, pero el usuario está autenticado
+          authUser: session.user, // ✅ Mantener authUser de la sesión
           role: null,
           userRole: null,
           isLoading: false,
-          isAuthenticated: false,
-          session: null,
+          isAuthenticated: true, // ✅ CRÍTICO: Mantener autenticado si hay sesión válida
+          session, // ✅ Mantener la sesión
         })
         return
       }

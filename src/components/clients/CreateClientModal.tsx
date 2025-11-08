@@ -1,8 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useAuth } from '@/hooks/useAuth'
-import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { 
   Users,
   Loader2,
@@ -16,7 +14,6 @@ interface CreateClientModalProps {
 }
 
 export default function CreateClientModal({ isOpen, onClose, onSuccess }: CreateClientModalProps) {
-  const { user } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
@@ -27,42 +24,46 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
     client_type: 'farmer',
     observation: false
   })
-  
-  const supabase = getSupabaseClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
-      const { error } = await supabase
-        .from('clients')
-        .insert([
-          {
-            ...formData,
-            company_id: user?.company_id,
-            rut: formData.rut || null,
-            contact_email: formData.contact_email || null,
-            phone: formData.phone || null,
-            address: formData.address || null,
-            observation: formData.observation
-          }
-        ])
+      // Validar RUT (requerido)
+      if (!formData.rut || !formData.rut.trim()) {
+        alert('El RUT es requerido para crear el cliente')
+        setIsSubmitting(false)
+        return
+      }
 
-      if (error) throw error
+      // Llamar a la API route que crea el cliente y opcionalmente el usuario
+      const response = await fetch('/api/clients', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          rut: formData.rut,
+          contact_email: formData.contact_email || null,
+          phone: formData.phone || null,
+          address: formData.address || null,
+          client_type: formData.client_type,
+          observation: formData.observation
+        })
+      })
 
-      // Get the created client ID
-      const { data: createdClient, error: fetchError } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('name', formData.name)
-        .eq('company_id', user?.company_id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
+      const data = await response.json()
 
-      if (fetchError) {
-        console.error('Error fetching created client:', fetchError)
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al crear el cliente')
+      }
+
+      // Mostrar advertencia si hubo algún problema con la creación del usuario
+      if (data.warning) {
+        console.warn('Advertencia:', data.warning)
+        // No mostrar alerta al usuario, solo loguear
       }
 
       // Reset form and close modal
@@ -78,7 +79,7 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
       onClose()
       
       // Notify parent component to refresh and pass client ID
-      onSuccess(createdClient?.id)
+      onSuccess(data.client?.id)
     } catch (error: unknown) {
       console.error('Error creating client:', error)
       alert('Error al crear el cliente: ' + (error instanceof Error ? error.message : 'Error desconocido'))
@@ -144,16 +145,20 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
                 {/* RUT */}
                 <div>
                   <label htmlFor="rut" className="block text-sm font-medium text-gray-700 mb-1">
-                    RUT
+                    RUT *
                   </label>
                   <input
                     type="text"
                     id="rut"
+                    required
                     value={formData.rut}
                     onChange={(e) => setFormData(prev => ({ ...prev, rut: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                     placeholder="12.345.678-9"
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Si se proporciona email, se creará automáticamente un usuario consumidor con contraseña igual al RUT sin puntos ni dígito verificador
+                  </p>
                 </div>
 
                 {/* Client Type */}
@@ -188,6 +193,9 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                     placeholder="cliente@ejemplo.com"
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Si se proporciona, se creará automáticamente un usuario consumidor asociado a este cliente
+                  </p>
                 </div>
 
                 {/* Phone */}
