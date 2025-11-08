@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
 import DashboardLayout from '@/components/layout/DashboardLayout'
@@ -50,7 +50,7 @@ interface Report {
 }
 
 export default function ReportsPage() {
-  const { userRole, isLoading: authLoading, user } = useAuth()
+  const { userRole, isLoading: authLoading, user, isAuthenticated } = useAuth()
   const [reports, setReports] = useState<Report[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -62,6 +62,7 @@ export default function ReportsPage() {
   const [paymentData, setPaymentData] = useState<{[key: string]: { payment: boolean, invoice_number: string }}>({})
   const [savingPayment, setSavingPayment] = useState<string | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null)
+  const hasFetchedRef = useRef<string | false>(false)
   
   const supabase = getSupabaseClient()
 
@@ -116,8 +117,23 @@ export default function ReportsPage() {
   }, [statusFilter, supabase, userRole, user?.client_id])
 
   useEffect(() => {
-    // Solo cargar reportes si la autenticación ya terminó de cargar
-    if (!authLoading) {
+    // No ejecutar si no hay usuario autenticado o si aún está cargando
+    // Esto previene loops infinitos cuando la sesión expira
+    if (authLoading || !user || !isAuthenticated) {
+      // Si la sesión expiró, resolver el estado de loading para evitar loops
+      if (!authLoading && (!user || !isAuthenticated)) {
+        setIsLoading(false)
+        hasFetchedRef.current = false // Reset cuando la sesión expira
+      }
+      return
+    }
+    
+    // Crear una clave única basada en las dependencias reales
+    const fetchKey = `${statusFilter}-${userRole}-${user?.client_id || 'none'}`
+    
+    // Solo ejecutar si las dependencias reales cambiaron
+    if (hasFetchedRef.current !== fetchKey) {
+      hasFetchedRef.current = fetchKey
       fetchReports()
     }
     
@@ -127,7 +143,8 @@ export default function ReportsPage() {
     }, 10000)
 
     return () => clearTimeout(timeoutId)
-  }, [authLoading, fetchReports])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user, isAuthenticated, statusFilter, userRole, user?.client_id])
 
   const handleEditPayment = (reportId: string, currentPayment?: boolean, currentInvoice?: string) => {
     setEditingPayment(reportId)

@@ -29,38 +29,39 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, isAuthenticated, isLoading, userRole } = useAuth()
   const pathname = usePathname()
 
-  // Verificar si hay usuario autenticado, si no redirigir inmediatamente al login
+  // ✅ TODOS LOS HOOKS DEBEN IR ANTES DE CUALQUIER RETORNO CONDICIONAL
+  // Verificar si hay usuario autenticado DESPUÉS de que termine de cargar
+  // Solo verificar si terminó de cargar Y no está autenticado
   useEffect(() => {
-    // Si ya terminó de cargar y no hay usuario, redirigir inmediatamente
-    // Solo redirigir si no estamos ya en la página de login para evitar loops
+    // Solo redirigir si terminó de cargar Y no está autenticado
     if (!isLoading && (!isAuthenticated || !user)) {
       if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-        // Usar replace para evitar agregar al historial
+        // Usar replace para evitar agregar al historial y loops
         window.location.replace('/login')
       }
     }
   }, [isAuthenticated, user, isLoading])
 
-  // Si no hay usuario autenticado, redirigir inmediatamente al login
-  // Esto maneja el caso donde el usuario hace logout y el estado cambia
-  if (!isAuthenticated || !user) {
-    // Redirigir usando window.location.replace para evitar loops y agregar al historial
-    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-      window.location.replace('/login')
-      // Retornar null mientras se redirige
-      return null
-    }
-    // Si ya estamos en login, no mostrar nada
-    return null
-  }
-
-  // Mostrar loading mientras se verifica la autenticación (solo en la carga inicial)
+  // Mostrar loading mientras se verifica la autenticación
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-green-600 mx-auto mb-4" />
           <p className="text-gray-600">Verificando autenticación...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Si no hay usuario autenticado DESPUÉS de que termine de cargar, mostrar loader mientras redirige
+  // No hacer redirect inmediato en el render para evitar loops con el middleware
+  if (!isAuthenticated || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-green-600 mx-auto mb-4" />
+          <p className="text-gray-600">Redirigiendo...</p>
         </div>
       </div>
     )

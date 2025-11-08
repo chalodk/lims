@@ -68,20 +68,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       console.log('🔍 Trying to fetch user data from database for:', session.user.id)
-      // Try to fetch user data from database with role information
-      const { data: userData, error: userError } = await supabase
+      
+      // First, try to fetch user data without the roles join to see if that's the issue
+      // Add timeout to prevent hanging queries (5 seconds)
+      const userQueryPromise = supabase
         .from('users')
-        .select(`
-          *,
-          roles (
-            id,
-            name,
-            level,
-            description
-          )
-        `)
+        .select('*')
         .eq('id', session.user.id)
         .single()
+
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Query timeout: User data fetch took too long'))
+        }, 5000) // 5 second timeout
+      })
+
+      const { data: userData, error: userError } = await Promise.race([
+        userQueryPromise,
+        timeoutPromise
+      ]) as { data: User | null; error: { message: string } | null }
 
       if (userError) {
         logError('❌ User query failed, user not found in database:', userError.message)
@@ -98,37 +103,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // Extract role information
+      if (!userData) {
+        logError('❌ User query returned no data')
+        setState({
+          user: null,
+          authUser: null,
+          role: null,
+          userRole: null,
+          isLoading: false,
+          isAuthenticated: false,
+          session: null,
+        })
+        return
+      }
+
+      // Now fetch role information separately if role_id exists
       let role: Role | null = null
       let userRole: RoleName | null = null
 
-      if (userData.role_id && userData.roles) {
-        // Handle both array and object formats from Supabase
-        const roleData = Array.isArray(userData.roles) 
-          ? userData.roles[0] 
-          : userData.roles
+      if (userData.role_id) {
+        try {
+          const roleQueryPromise = supabase
+            .from('roles')
+            .select('id, name, level, description, created_at')
+            .eq('id', userData.role_id)
+            .single()
 
-        if (roleData) {
-          role = {
-            id: roleData.id,
-            name: roleData.name as RoleName,
-            level: roleData.level || 0,
-            description: roleData.description || null,
-            created_at: roleData.created_at || null,
+          const roleTimeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => {
+              reject(new Error('Query timeout: Role data fetch took too long'))
+            }, 3000) // 3 second timeout for role
+          })
+
+          const { data: roleData, error: roleError } = await Promise.race([
+            roleQueryPromise,
+            roleTimeoutPromise
+          ]) as { data: Role | null; error: { message: string } | null }
+
+          if (!roleError && roleData) {
+            role = {
+              id: roleData.id,
+              name: roleData.name as RoleName,
+              level: roleData.level || 0,
+              description: roleData.description || null,
+              created_at: roleData.created_at || null,
+            }
+            userRole = roleData.name as RoleName
+          } else {
+            logError('❌ Role query failed:', roleError?.message || 'Unknown error')
           }
-          userRole = roleData.name as RoleName
+        } catch (roleErr) {
+          logError('❌ Error fetching role:', roleErr)
+          // Continue without role - user can still be authenticated
         }
       }
 
       console.log('✅ Setting authenticated state for user:', userData.email)
       console.log('📋 Role information:', { role, userRole, role_id: userData.role_id })
 
-      // Clean up userData to remove the roles relation (we store it separately)
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { roles: _, ...cleanUserData } = userData
-
       setState({
-        user: cleanUserData,
+        user: userData,
         authUser: session.user,
         role,
         userRole,
