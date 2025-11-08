@@ -50,7 +50,7 @@ interface Report {
 }
 
 export default function ReportsPage() {
-  const { userRole, user } = useAuth()
+  const { userRole, isLoading: authLoading, user } = useAuth()
   const [reports, setReports] = useState<Report[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -101,21 +101,33 @@ export default function ReportsPage() {
           query = query.eq('status', statusFilter)
         }
       }
-
       const { data, error } = await query
 
       if (error) throw error
       setReports(data || [])
     } catch (error) {
       console.error('Error fetching reports:', error)
+      // Set empty array to avoid infinite loading
+      setReports([])
     } finally {
+      // Always resolve loading state, even on error
       setIsLoading(false)
     }
   }, [statusFilter, supabase, userRole, user?.client_id])
 
   useEffect(() => {
-    fetchReports()
-  }, [fetchReports])
+    // Solo cargar reportes si la autenticación ya terminó de cargar
+    if (!authLoading) {
+      fetchReports()
+    }
+    
+    // Timeout de seguridad: resolver estado después de 10 segundos si aún está cargando
+    const timeoutId = setTimeout(() => {
+      setIsLoading(false)
+    }, 10000)
+
+    return () => clearTimeout(timeoutId)
+  }, [authLoading, fetchReports])
 
   const handleEditPayment = (reportId: string, currentPayment?: boolean, currentInvoice?: string) => {
     setEditingPayment(reportId)
@@ -508,20 +520,16 @@ export default function ReportsPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-        <DashboardLayout>
-          <div className="p-6">
-            <div className="flex items-center justify-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-            </div>
-          </div>
-        </DashboardLayout>
-    )
-  }
-
   return (
-      <DashboardLayout>
+    <DashboardLayout>
+      {/* Show loading while fetching data or auth is loading */}
+      {(authLoading || isLoading) ? (
+        <div className="p-6">
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+          </div>
+        </div>
+      ) : (
       <div className="p-6">
         {/* Header */}
         <div className="mb-6">
@@ -830,6 +838,7 @@ export default function ReportsPage() {
           reportId={viewReportId}
         />
       </div>
+      )}
     </DashboardLayout>
   )
 }
