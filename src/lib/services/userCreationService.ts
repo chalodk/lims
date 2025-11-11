@@ -43,7 +43,7 @@ export function validateRut(rut: string): { valid: boolean; cleaned?: string; er
   }
 
   // Limpiar el RUT: quitar puntos y guiones
-  let cleaned = rut.replace(/\./g, '').replace(/-/g, '').trim().toUpperCase()
+  const cleaned = rut.replace(/\./g, '').replace(/-/g, '').trim().toUpperCase()
   
   if (cleaned.length < 7) {
     return { valid: false, error: 'RUT demasiado corto (mínimo 7 caracteres)' }
@@ -147,7 +147,7 @@ function generateRandomPassword(): string {
 
 /**
  * Verifica si un email ya existe en auth.users
- * Usa getUserByEmail si está disponible, sino lista y filtra
+ * Usa listUsers() y filtra por email (método estándar de Supabase Admin API)
  */
 export async function checkEmailExistsInAuth(email: string): Promise<{ exists: boolean; userId?: string }> {
   try {
@@ -162,20 +162,19 @@ export async function checkEmailExistsInAuth(email: string): Promise<{ exists: b
       }
     )
 
-    // Intentar usar getUserByEmail (más eficiente)
-    try {
-      const { data: { user }, error } = await supabaseAdmin.auth.admin.getUserByEmail(email.trim())
-      if (!error && user) {
-        return { exists: true, userId: user.id }
-      }
-    } catch {
-      // Si getUserByEmail no está disponible, usar listUsers
+    // Listar usuarios y filtrar por email
+    // Nota: getUserByEmail no existe en la API de Supabase Admin, por lo que usamos listUsers()
+    const { data: authUsersList, error: listError } = await supabaseAdmin.auth.admin.listUsers()
+    
+    if (listError) {
+      console.warn('Error al listar usuarios en auth:', listError)
+      // En caso de error, asumir que no existe para permitir intentar crear
+      return { exists: false }
     }
 
-    // Fallback: listar usuarios y filtrar (menos eficiente pero funciona)
-    const { data: authUsersList, error: listError } = await supabaseAdmin.auth.admin.listUsers()
-    if (!listError && authUsersList?.users) {
-      const existingUser = authUsersList.users.find(u => u.email?.toLowerCase() === email.trim().toLowerCase())
+    if (authUsersList?.users) {
+      const emailLower = email.trim().toLowerCase()
+      const existingUser = authUsersList.users.find(u => u.email?.toLowerCase() === emailLower)
       if (existingUser) {
         return { exists: true, userId: existingUser.id }
       }
@@ -380,7 +379,7 @@ export async function createUserAtomically(options: CreateUserOptions): Promise<
 
     // 8. Crear perfil en public.users
     const supabase = await createClient()
-    const { data: newUser, error: createProfileError } = await supabase
+    const { error: createProfileError } = await supabase
       .from('users')
       .insert({
         id: authUserId,

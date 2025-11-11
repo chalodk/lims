@@ -42,7 +42,7 @@ export default function AuthDebug() {
               Sign Out
             </button>
             <button
-              onClick={refreshSession}
+              onClick={() => refreshSession()}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-1 px-2 rounded text-xs"
             >
               Refresh Session
