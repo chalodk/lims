@@ -1,21 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-
-/**
- * Función helper para limpiar el RUT: quitar puntos y dígito verificador
- * Ejemplo: "12.345.678-9" -> "12345678"
- * Ejemplo: "12.345.678-K" -> "12345678"
- */
-function cleanRut(rut: string): string {
-  // Quitar puntos y guiones
-  let cleaned = rut.replace(/\./g, '').replace(/-/g, '').trim()
-  // Quitar el último carácter (dígito verificador)
-  if (cleaned.length > 0) {
-    cleaned = cleaned.slice(0, -1)
-  }
-  return cleaned
-}
+import { 
+  createUserAtomically, 
+  linkExistingUserToClient,
+  checkEmailExistsInAuth,
+  checkEmailExistsInPublicUsers,
+  type CreateUserOptions 
+} from '@/lib/services/userCreationService'
 
 /**
  * POST /api/clients
@@ -88,120 +79,82 @@ export async function POST(request: NextRequest) {
       try {
         console.log(`🔍 Iniciando creación de usuario consumidor para email: ${contact_email.trim()}`)
         
-        // Crear cliente admin para operaciones de auth
-        const supabaseAdmin = createAdminClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!,
-          {
-            auth: {
-              autoRefreshToken: false,
-              persistSession: false
+        // Verificar si el email ya existe
+        const authCheck = await checkEmailExistsInAuth(contact_email.trim())
+        const publicCheck = await checkEmailExistsInPublicUsers(contact_email.trim())
+        
+        if (authCheck.exists || publicCheck.exists) {
+          // Email ya existe - intentar vincular si es posible
+          const userId = authCheck.userId || publicCheck.userId
+          
+          if (userId) {
+            // Si el usuario existe pero no tiene client_id o es diferente, intentar vincular
+            if (!publicCheck.clientId || publicCheck.clientId !== newClient.id) {
+              const linkResult = await linkExistingUserToClient(userId, newClient.id)
+              
+              if (linkResult.success) {
+                console.log(`✅ Usuario existente vinculado al cliente ${newClient.id}`)
+                return NextResponse.json({ 
+                  message: 'Cliente creado exitosamente',
+                  client: newClient,
+                  warning: 'El email ya existía en el sistema y fue vinculado al cliente'
+                }, { status: 201 })
+              } else {
+                console.warn(`⚠️ No se pudo vincular usuario existente: ${linkResult.error}`)
+                return NextResponse.json({ 
+                  client: newClient,
+                  warning: `Cliente creado pero el email ya existe y no se pudo vincular: ${linkResult.error}`
+                }, { status: 201 })
+              }
+            } else {
+              // Ya está vinculado al mismo cliente
+              console.log(`ℹ️ Email ya está vinculado a este cliente`)
+              return NextResponse.json({ 
+                message: 'Cliente creado exitosamente',
+                client: newClient,
+                warning: 'El email ya está asociado a este cliente'
+              }, { status: 201 })
             }
+          } else {
+            // Email existe pero no se pudo obtener userId
+            console.warn(`⚠️ Email existe pero no se pudo obtener userId`)
+            return NextResponse.json({ 
+              client: newClient,
+              warning: 'Cliente creado pero el email ya existe en el sistema'
+            }, { status: 201 })
           }
-        )
-
-        // Verificar si el email ya existe en auth.users
-        // Usar listUsers y filtrar por email, ya que getUserByEmail puede no estar disponible
-        let emailExists = false
-        try {
-          const { data: authUsersList, error: listError } = await supabaseAdmin.auth.admin.listUsers()
-          if (!listError && authUsersList?.users) {
-            emailExists = authUsersList.users.some(u => u.email === contact_email.trim())
-          }
-        } catch (checkError) {
-          console.warn('Error al verificar si email existe:', checkError)
-          // Continuar intentando crear el usuario
         }
         
-        if (emailExists) {
-          // Email ya existe, omitir creación de usuario pero continuar
-          console.log(`⚠️ Email ${contact_email.trim()} ya existe en auth.users, omitiendo creación de usuario`)
-        } else {
-          console.log(`📋 Email no existe, procediendo con creación de usuario`)
+        // Email no existe - crear nuevo usuario
+        console.log(`📋 Email no existe, procediendo con creación de usuario`)
+        
+        const createUserOptions: CreateUserOptions = {
+          email: contact_email.trim(),
+          name: name.trim(),
+          rut: rut.trim(),
+          companyId: currentUser.company_id,
+          clientId: newClient.id,
+          roleName: 'consumidor'
+        }
+        
+        const createResult = await createUserAtomically(createUserOptions)
+        
+        if (createResult.success) {
+          console.log(`✅ Usuario consumidor creado exitosamente para cliente ${newClient.id} (user_id: ${createResult.userId})`)
           
-          // Obtener el role_id del rol "consumidor"
-          console.log(`🔍 Obteniendo role_id del rol "consumidor"`)
-          const { data: consumidorRole, error: roleError } = await supabase
-            .from('roles')
-            .select('id')
-            .eq('name', 'consumidor')
-            .single()
-
-          if (roleError || !consumidorRole) {
-            console.error('❌ Error al obtener role_id de consumidor:', roleError)
-            return NextResponse.json({ 
-              client: newClient,
-              warning: `Cliente creado pero no se pudo crear usuario consumidor (rol no encontrado: ${roleError?.message || 'Error desconocido'})`
-            }, { status: 201 })
-          }
-
-          console.log(`✅ Role_id de consumidor obtenido: ${consumidorRole.id}`)
-
-          // Limpiar el RUT para usarlo como contraseña
-          const password = cleanRut(rut.trim())
-          console.log(`🔐 Contraseña generada desde RUT (longitud: ${password.length})`)
-
-          if (password.length < 6) {
-            console.error('❌ La contraseña generada es muy corta (mínimo 6 caracteres)')
-            return NextResponse.json({ 
-              client: newClient,
-              warning: 'Cliente creado pero no se pudo crear usuario consumidor (RUT muy corto para generar contraseña válida)'
-            }, { status: 201 })
-          }
-
-          // Crear usuario en auth.users
-          console.log(`👤 Creando usuario en auth.users...`)
-          const { data: authUser, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
-            email: contact_email.trim(),
-            password: password,
-            email_confirm: true,
-            user_metadata: {
-              name: name.trim()
-            }
-          })
-
-          if (createAuthError || !authUser.user) {
-            console.error('❌ Error al crear usuario en auth.users:', createAuthError)
-            return NextResponse.json({ 
-              client: newClient,
-              warning: `Cliente creado pero no se pudo crear usuario consumidor: ${createAuthError?.message || 'Error desconocido'}`
-            }, { status: 201 })
-          }
-
-          console.log(`✅ Usuario creado en auth.users con ID: ${authUser.user.id}`)
-
-          // Crear perfil en public.users
-          console.log(`📝 Creando perfil en public.users...`)
-          const { data: newUser, error: createProfileError } = await supabase
-            .from('users')
-            .insert({
-              id: authUser.user.id,
-              name: name.trim(),
-              email: contact_email.trim(),
-              role_id: consumidorRole.id,
-              company_id: currentUser.company_id,
-              client_id: newClient.id,
-              created_at: new Date().toISOString()
-            })
-            .select()
-            .single()
-
-          if (createProfileError) {
-            console.error('❌ Error al crear perfil de usuario:', createProfileError)
-            // Si falla la creación del perfil, eliminar el usuario de auth
-            try {
-              await supabaseAdmin.auth.admin.deleteUser(authUser.user.id)
-              console.log(`🗑️ Usuario eliminado de auth.users debido a error en perfil`)
-            } catch (deleteError) {
-              console.error('Error al eliminar usuario de auth después de fallo:', deleteError)
-            }
-            return NextResponse.json({ 
-              client: newClient,
-              warning: `Cliente creado pero no se pudo crear usuario consumidor (error al crear perfil: ${createProfileError.message})`
-            }, { status: 201 })
-          }
-
-          console.log(`✅ Usuario consumidor creado exitosamente para cliente ${newClient.id} (user_id: ${newUser.id})`)
+          return NextResponse.json({ 
+            message: 'Cliente creado exitosamente',
+            client: newClient,
+            warning: createResult.warning
+          }, { status: 201 })
+        } else {
+          // Error al crear usuario
+          console.error(`❌ Error al crear usuario: ${createResult.error} (${createResult.errorCode})`)
+          
+          return NextResponse.json({ 
+            client: newClient,
+            warning: `Cliente creado pero no se pudo crear usuario consumidor: ${createResult.error}`
+          }, { status: 201 })
         }
       } catch (userCreationError) {
         console.error('❌ Error en proceso de creación de usuario:', userCreationError)
