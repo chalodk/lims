@@ -144,8 +144,8 @@ export default function UserProfileDropdown() {
         isOpen={isAccountModalOpen}
         onClose={() => setIsAccountModalOpen(false)}
         onSuccess={async () => {
-          // Refrescar la sesión para obtener los datos actualizados
-          await refreshSession()
+          // Refrescar la sesión para obtener los datos actualizados (force refresh)
+          await refreshSession(true)
         }}
       />
     </div>
