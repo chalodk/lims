@@ -58,7 +58,7 @@ const ANALYSIS_DEFAULTS = {
   nematologia: {
     tituloInforme: "INFORME NEMATOLÓGICO",
     tipoAnalisisDescripcion: "Determinación de nematodos fitoparásitos de formas móviles y enquistadas en suelo.",
-    metodologiaDescripcion: "Para la determinación de nematodos fitoparásitos en formas móviles se utilizó el Método de Tamizado de Cobb y Embudo de Baermann. Con respecto a la determinación de formas enquistadas se utilizó el método de Fenwick."
+    metodologiaDescripcion: "Para la determinación de nematodos fitoparásitos en formas móviles se utilizó el Método de Tamizado de Cobb y Embudo de Baermann."
   },
   virology: {
     tituloInforme: "INFORME VIROLÓGICO",
@@ -155,7 +155,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           localidad: client?.address || 'No especificada',
           rut: client?.rut || '',
           numeroMuestras: String(resultados.length),
-          fechaRecepcion: resultados[0]?.performed_at ? formatDate(resultados[0].performed_at) : formatDate(currentDate.toISOString()),
+          fechaRecepcion: resultados[0]?.samples?.received_date ? formatDate(resultados[0].samples.received_date) : (resultados[0]?.performed_at ? formatDate(resultados[0].performed_at) : formatDate(currentDate.toISOString())),
           fechaEntrega: resultados[0]?.validation_date ? formatDate(resultados[0].validation_date) : formatDate(currentDate.toISOString())
         },
         tipoAnalisis: { descripcion: tipoAnalisisDesc },
@@ -262,7 +262,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           productor: client?.name || 'Cliente no especificado',
           localidad: client?.address || 'No especificada',
           contacto: client?.contact_email || client?.phone || 'No especificado',
-          fechaRecepcion: resultados[0]?.performed_at ? formatDate(resultados[0].performed_at) : formatDate(currentDate.toISOString()),
+          fechaRecepcion: resultados[0]?.samples?.received_date ? formatDate(resultados[0].samples.received_date) : (resultados[0]?.performed_at ? formatDate(resultados[0].performed_at) : formatDate(currentDate.toISOString())),
           fechaMuestreo: resultados[0]?.performed_at ? formatDate(resultados[0].performed_at) : formatDate(currentDate.toISOString()),
           fechaInforme: resultados[0]?.validation_date ? formatDate(resultados[0].validation_date) : formatDate(currentDate.toISOString())
         },
@@ -386,7 +386,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           localidad: client?.address || 'No especificada',
           rut: client?.rut || '',
           numeroMuestras: String(resultados.length),
-          fechaRecepcion: resultados[0]?.performed_at ? formatDate(resultados[0].performed_at) : formatDate(currentDate.toISOString()),
+          fechaRecepcion: resultados[0]?.samples?.received_date ? formatDate(resultados[0].samples.received_date) : (resultados[0]?.performed_at ? formatDate(resultados[0].performed_at) : formatDate(currentDate.toISOString())),
           fechaEntrega: resultados[0]?.validation_date ? formatDate(resultados[0].validation_date) : formatDate(currentDate.toISOString())
         },
         tipoAnalisis: {
@@ -498,7 +498,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           contacto: client?.contact_email || 'No especificado',
           telefono: client?.phone || 'No especificado',
           localidad: client?.address || 'No especificada',
-          fechaRecepcion: resultados[0]?.performed_at ? formatDate(resultados[0].performed_at) : formatDate(currentDate.toISOString()),
+          fechaRecepcion: resultados[0]?.samples?.received_date ? formatDate(resultados[0].samples.received_date) : (resultados[0]?.performed_at ? formatDate(resultados[0].performed_at) : formatDate(currentDate.toISOString())),
           fechaInforme: resultados[0]?.validation_date ? formatDate(resultados[0].validation_date) : formatDate(currentDate.toISOString()),
           numeroMuestras: resultados.length.toString()
         },
@@ -576,7 +576,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           correo: client?.contact_email || 'No especificado',
           localidad: client?.address || 'No especificada',
           numeroMuestras: '1', // Default to 1 for now
-          fechaRecepcion: resultado[0]?.performed_at ? formatDate(resultado[0].performed_at) : formatDate(currentDate.toISOString()),
+          fechaRecepcion: resultado[0]?.samples?.received_date ? formatDate(resultado[0].samples.received_date) : (resultado[0]?.performed_at ? formatDate(resultado[0].performed_at) : formatDate(currentDate.toISOString())),
           fechaEntrega: resultado[0]?.validation_date ? formatDate(resultado[0].validation_date) : formatDate(currentDate.toISOString())
         },
         tipoAnalisis: {
