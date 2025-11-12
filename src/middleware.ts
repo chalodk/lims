@@ -53,6 +53,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.next()
     }
 
+    
     // Handle unauthenticated access to protected routes
     if (!user) {
       // For protected API routes, return 401
