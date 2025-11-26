@@ -12,6 +12,7 @@ import {
   Plus,
   Minus
 } from 'lucide-react'
+import RichTextEditor from '@/components/RichTextEditor'
 
 interface AddResultModalProps {
   isOpen: boolean
@@ -2637,16 +2638,14 @@ export default function AddResultModal({
 
                 {renderResultFormatFields()}
 
-                {/* Text Areas */}
+                {/* Rich Text Areas */}
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Diagnóstico
                   </label>
-                  <textarea
-                    rows={3}
+                  <RichTextEditor
                     value={formData.diagnosis}
-                    onChange={(e) => setFormData(prev => ({ ...prev, diagnosis: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+                    onChange={(value) => setFormData(prev => ({ ...prev, diagnosis: value }))}
                     placeholder="Diagnóstico detallado del análisis..."
                     disabled={isValidated}
                   />
@@ -2656,11 +2655,9 @@ export default function AddResultModal({
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Conclusión
                   </label>
-                  <textarea
-                    rows={3}
+                  <RichTextEditor
                     value={formData.conclusion}
-                    onChange={(e) => setFormData(prev => ({ ...prev, conclusion: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+                    onChange={(value) => setFormData(prev => ({ ...prev, conclusion: value }))}
                     placeholder="Conclusiones del análisis..."
                     disabled={isValidated}
                   />
@@ -2670,11 +2667,9 @@ export default function AddResultModal({
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Recomendaciones
                   </label>
-                  <textarea
-                    rows={3}
+                  <RichTextEditor
                     value={formData.recommendations}
-                    onChange={(e) => setFormData(prev => ({ ...prev, recommendations: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+                    onChange={(value) => setFormData(prev => ({ ...prev, recommendations: value }))}
                     placeholder="Recomendaciones para el cliente..."
                     disabled={isValidated}
                   />

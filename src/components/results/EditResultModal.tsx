@@ -11,6 +11,7 @@ import {
   AlertCircle,
   CheckCircle
 } from 'lucide-react'
+import RichTextEditor from '@/components/RichTextEditor'
 
 interface EditResultModalProps {
   isOpen: boolean
@@ -746,16 +747,14 @@ export default function EditResultModal({
                     )}
                   </div>
 
-                  {/* Text Areas */}
+                  {/* Rich Text Areas */}
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Diagnóstico
                     </label>
-                    <textarea
-                      rows={3}
+                    <RichTextEditor
                       value={formData.diagnosis}
-                      onChange={(e) => setFormData(prev => ({ ...prev, diagnosis: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      onChange={(value) => setFormData(prev => ({ ...prev, diagnosis: value }))}
                       placeholder="Diagnóstico detallado del análisis..."
                     />
                   </div>
@@ -764,11 +763,9 @@ export default function EditResultModal({
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Conclusión
                     </label>
-                    <textarea
-                      rows={3}
+                    <RichTextEditor
                       value={formData.conclusion}
-                      onChange={(e) => setFormData(prev => ({ ...prev, conclusion: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      onChange={(value) => setFormData(prev => ({ ...prev, conclusion: value }))}
                       placeholder="Conclusiones del análisis..."
                     />
                   </div>
@@ -777,11 +774,9 @@ export default function EditResultModal({
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Recomendaciones
                     </label>
-                    <textarea
-                      rows={3}
+                    <RichTextEditor
                       value={formData.recommendations}
-                      onChange={(e) => setFormData(prev => ({ ...prev, recommendations: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      onChange={(value) => setFormData(prev => ({ ...prev, recommendations: value }))}
                       placeholder="Recomendaciones para el cliente..."
                     />
                   </div>

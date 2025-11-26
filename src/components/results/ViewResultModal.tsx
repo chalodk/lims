@@ -642,17 +642,19 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
                       {result.diagnosis && (
                         <div>
                           <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Diagnóstico</label>
-                          <p className="text-sm text-gray-900 whitespace-pre-wrap">
-                            {result.diagnosis}
-                          </p>
+                          <div 
+                            className="text-sm text-gray-900 prose prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{ __html: result.diagnosis }}
+                          />
                         </div>
                       )}
                       {result.conclusion && (
                         <div>
                           <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Conclusión</label>
-                          <p className="text-sm text-gray-900 whitespace-pre-wrap">
-                            {result.conclusion}
-                          </p>
+                          <div 
+                            className="text-sm text-gray-900 prose prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{ __html: result.conclusion }}
+                          />
                         </div>
                       )}
                     </div>
@@ -663,9 +665,10 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
                 {result.recommendations && (
                   <div className="bg-green-50 rounded-lg p-4">
                     <h4 className="text-sm font-medium text-gray-900 mb-3">Recomendaciones</h4>
-                    <p className="text-sm text-gray-900 whitespace-pre-wrap">
-                      {result.recommendations}
-                    </p>
+                    <div 
+                      className="text-sm text-gray-900 prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: result.recommendations }}
+                    />
                   </div>
                 )}
 
