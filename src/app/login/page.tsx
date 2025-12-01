@@ -13,7 +13,6 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
-  const [isSignUp, setIsSignUp] = useState(false)
   
   const router = useRouter()
   const supabase = getSupabaseClient()
@@ -24,61 +23,45 @@ export default function LoginPage() {
     setError('')
 
     try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`
-          }
-        })
-        
-        if (error) {
-          setError(getAuthErrorMessage(error))
-        } else {
-          alert('Revisa tu correo electrónico para confirmar tu cuenta')
-        }
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+      
+      if (error) {
+        setError(getAuthErrorMessage(error))
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        })
-        
-        if (error) {
-          setError(getAuthErrorMessage(error))
-        } else {
-          // Obtener el rol del usuario para redirigir según su rol
-          const { data: { user } } = await supabase.auth.getUser()
-          if (user) {
-            // Obtener el rol del usuario desde la base de datos
-            const { data: userData } = await supabase
-              .from('users')
-              .select('role_id, roles(name)')
-              .eq('id', user.id)
-              .single()
+        // Obtener el rol del usuario para redirigir según su rol
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          // Obtener el rol del usuario desde la base de datos
+          const { data: userData } = await supabase
+            .from('users')
+            .select('role_id, roles(name)')
+            .eq('id', user.id)
+            .single()
+          
+          if (userData) {
+            // Definir tipo para roleData para evitar errores de TypeScript
+            type RoleData = { id: number; name: string } | { id: number; name: string }[]
+            const roleData = userData.roles as RoleData
+            const roleName = Array.isArray(roleData) 
+              ? roleData[0]?.name 
+              : (roleData as { id: number; name: string })?.name
             
-            if (userData) {
-              // Definir tipo para roleData para evitar errores de TypeScript
-              type RoleData = { id: number; name: string } | { id: number; name: string }[]
-              const roleData = userData.roles as RoleData
-              const roleName = Array.isArray(roleData) 
-                ? roleData[0]?.name 
-                : (roleData as { id: number; name: string })?.name
-              
-              // Redirigir según el rol: consumidor va a /reports, otros a /dashboard
-              if (roleName === 'consumidor') {
-                router.push('/reports')
-              } else {
-                router.push('/dashboard')
-              }
+            // Redirigir según el rol: consumidor va a /reports, otros a /dashboard
+            if (roleName === 'consumidor') {
+              router.push('/reports')
             } else {
-              // Fallback si no se puede obtener el usuario
               router.push('/dashboard')
             }
           } else {
             // Fallback si no se puede obtener el usuario
             router.push('/dashboard')
           }
+        } else {
+          // Fallback si no se puede obtener el usuario
+          router.push('/dashboard')
         }
       }
     } catch (error) {
@@ -109,13 +92,10 @@ export default function LoginPage() {
         <div className="bg-white shadow-xl rounded-2xl p-8 space-y-6">
           <div className="text-center">
             <h2 className="text-xl font-semibold text-gray-900">
-              {isSignUp ? 'Crear cuenta' : 'Iniciar sesión'}
+              Iniciar sesión
             </h2>
             <p className="text-sm text-gray-600 mt-1">
-              {isSignUp 
-                ? 'Regístrate para acceder al sistema'
-                : 'Accede a tu cuenta del laboratorio'
-              }
+              Accede a tu cuenta del laboratorio
             </p>
           </div>
 
@@ -181,24 +161,11 @@ export default function LoginPage() {
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <span>{isSignUp ? 'Crear cuenta' : 'Iniciar sesión'}</span>
+                <span>Iniciar sesión</span>
               )}
             </button>
           </form>
 
-          {/* Toggle Mode */}
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-sm text-green-600 hover:text-green-500 transition-colors"
-            >
-              {isSignUp 
-                ? '¿Ya tienes cuenta? Inicia sesión' 
-                : '¿No tienes cuenta? Crear cuenta'
-              }
-            </button>
-          </div>
         </div>
 
         {/* Footer */}

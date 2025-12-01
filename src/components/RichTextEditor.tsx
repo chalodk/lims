@@ -56,7 +56,7 @@ export default function RichTextEditor({
 
   useEffect(() => {
     if (editor && !isInternalChange.current && value !== editor.getHTML()) {
-      editor.commands.setContent(value, false)
+      editor.commands.setContent(value, { emitUpdate: false })
     }
     isInternalChange.current = false
   }, [value, editor])

@@ -328,10 +328,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }
 
-    // Verificar que el usuario es admin
+    // Verificar que el usuario es admin y obtener su company_id
     const { data: currentUser, error: userError } = await supabase
       .from('users')
-      .select('role_id, roles(name)')
+      .select('role_id, company_id, roles(name)')
       .eq('id', user.id)
       .single()
 
@@ -352,11 +352,64 @@ export async function POST(request: NextRequest) {
 
     // Obtener datos del body
     const body = await request.json()
-    const { name, email, password, role_id } = body
+    const { name, email, password, role_id, client_id } = body
 
     if (!name || !email || !password) {
       return NextResponse.json({ error: 'Nombre, email y contraseña son requeridos' }, { status: 400 })
     }
+
+    // Obtener información del rol seleccionado
+    let selectedRoleName: string | null = null
+    if (role_id) {
+      const { data: selectedRole, error: roleError } = await supabase
+        .from('roles')
+        .select('name')
+        .eq('id', role_id)
+        .single()
+      
+      if (!roleError && selectedRole) {
+        selectedRoleName = selectedRole.name
+      }
+    }
+
+    // Determinar company_id y client_id según el rol
+    let finalCompanyId: string | null = null
+    let finalClientId: string | null = null
+
+    if (selectedRoleName === 'consumidor') {
+      // Si es consumidor, debe tener client_id
+      if (!client_id) {
+        return NextResponse.json({ 
+          error: 'El rol "consumidor" requiere que se seleccione un cliente' 
+        }, { status: 400 })
+      }
+      
+      // Obtener el company_id del cliente
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('company_id')
+        .eq('id', client_id)
+        .single()
+      
+      if (clientError || !clientData) {
+        return NextResponse.json({ 
+          error: 'Cliente no encontrado' 
+        }, { status: 400 })
+      }
+      
+      finalClientId = client_id
+      finalCompanyId = clientData.company_id
+    } else if (selectedRoleName && selectedRoleName !== 'admin') {
+      // Para otros roles (excepto admin), usar company_id del usuario que crea
+      if (!currentUser.company_id) {
+        return NextResponse.json({ 
+          error: 'El usuario actual no tiene company_id asignado' 
+        }, { status: 400 })
+      }
+      finalCompanyId = currentUser.company_id
+      finalClientId = null
+    }
+    // Si es admin, no se asigna company_id ni client_id (ambos null)
 
     // Crear cliente admin para crear usuario en auth.users
     const supabaseAdmin = createAdminClient(
@@ -376,7 +429,9 @@ export async function POST(request: NextRequest) {
       password: password,
       email_confirm: true,
       user_metadata: {
-        name: name
+        name: name,
+        company_id: finalCompanyId,
+        client_id: finalClientId
       }
     })
 
@@ -395,6 +450,8 @@ export async function POST(request: NextRequest) {
         name: name,
         email: email,
         role_id: role_id || null,
+        company_id: finalCompanyId,
+        client_id: finalClientId,
         created_at: new Date().toISOString()
       })
       .select()

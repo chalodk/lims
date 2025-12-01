@@ -1,9 +1,22 @@
 'use client'
 
-import { useState } from 'react'
-import { X, UserPlus, Loader2, Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { X, UserPlus, Loader2, Mail, Lock, Eye, EyeOff, Shield, Building2 } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
-import { getAuthErrorMessage } from '@/lib/utils/authErrors'
+
+interface Role {
+  id: number
+  name: string
+  level: number
+  description: string | null
+}
+
+interface Client {
+  id: string
+  name: string
+  rut: string | null
+}
 
 interface CreateUserModalProps {
   isOpen: boolean
@@ -12,16 +25,81 @@ interface CreateUserModalProps {
 }
 
 export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUserModalProps) {
+  const { user } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [roles, setRoles] = useState<Role[]>([])
+  const [clients, setClients] = useState<Client[]>([])
+  const [isLoadingRoles, setIsLoadingRoles] = useState(false)
+  const [isLoadingClients, setIsLoadingClients] = useState(false)
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
-    password: ''
+    password: '',
+    role_id: '' as string | number,
+    client_id: '' as string | null
   })
 
-  const supabase = getSupabaseClient()
+  const fetchRoles = useCallback(async () => {
+    setIsLoadingRoles(true)
+    try {
+      const response = await fetch('/api/settings/roles')
+      if (!response.ok) throw new Error('Error al cargar roles')
+      const data = await response.json()
+      setRoles(data.roles || [])
+    } catch (err) {
+      console.error('Error fetching roles:', err)
+      setError('Error al cargar roles')
+    } finally {
+      setIsLoadingRoles(false)
+    }
+  }, [])
+
+  const fetchClients = useCallback(async () => {
+    setIsLoadingClients(true)
+    try {
+      const supabase = getSupabaseClient()
+      
+      if (!user?.company_id) {
+        throw new Error('No se pudo obtener la compañía del usuario')
+      }
+
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, name, rut')
+        .eq('company_id', user.company_id)
+        .order('name', { ascending: true })
+
+      if (error) throw error
+      setClients(data || [])
+    } catch (err) {
+      console.error('Error fetching clients:', err)
+      setError('Error al cargar clientes')
+    } finally {
+      setIsLoadingClients(false)
+    }
+  }, [user?.company_id])
+
+  // Cargar roles al abrir el modal
+  useEffect(() => {
+    if (isOpen) {
+      fetchRoles()
+    }
+  }, [isOpen, fetchRoles])
+
+  // Cargar clientes cuando se selecciona rol "consumidor"
+  useEffect(() => {
+    if (isOpen && formData.role_id && roles.length > 0) {
+      const selectedRole = roles.find(r => r.id === formData.role_id)
+      if (selectedRole?.name === 'consumidor') {
+        fetchClients()
+      } else {
+        setFormData(prev => ({ ...prev, client_id: null }))
+      }
+    }
+  }, [formData.role_id, isOpen, roles, fetchClients])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,30 +108,44 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
     setSuccess(false)
 
     try {
-      // Usar exactamente el mismo método que el login
-      const { error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`
-        }
+      const response = await fetch('/api/settings/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          role_id: formData.role_id ? Number(formData.role_id) : null,
+          client_id: formData.client_id || null
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || 'Error al crear usuario')
+        return
+      }
+
+      setSuccess(true)
+      setFormData({
+        name: '',
+        email: '',
+        password: '',
+        role_id: '',
+        client_id: null
       })
       
-      if (error) {
-        setError(getAuthErrorMessage(error))
-      } else {
-        setSuccess(true)
-        setFormData({ email: '', password: '' })
-        // Mostrar mensaje de éxito y cerrar después de un momento
-        setTimeout(() => {
-          onSuccess()
-          onClose()
-          setSuccess(false)
-        }, 2000)
-      }
+      setTimeout(() => {
+        onSuccess()
+        onClose()
+        setSuccess(false)
+      }, 2000)
     } catch (err) {
       console.error('Error al crear usuario:', err)
-      setError(getAuthErrorMessage(err))
+      setError('Error inesperado al crear usuario')
     } finally {
       setIsSubmitting(false)
     }
@@ -61,12 +153,21 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
 
   const handleClose = () => {
     if (!isSubmitting) {
-      setFormData({ email: '', password: '' })
+      setFormData({
+        name: '',
+        email: '',
+        password: '',
+        role_id: '',
+        client_id: null
+      })
       setError(null)
       setSuccess(false)
       onClose()
     }
   }
+
+  const selectedRole = roles.find(r => r.id === formData.role_id)
+  const showClientSelector = selectedRole?.name === 'consumidor'
 
   if (!isOpen) return null
 
@@ -88,7 +189,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
                       Crear Usuario
                     </h3>
                     <p className="text-sm text-gray-500">
-                      Se enviará un correo de autenticación al email proporcionado
+                      Crea un nuevo usuario en el sistema
                     </p>
                   </div>
                 </div>
@@ -110,11 +211,28 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
 
               {success && (
                 <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md text-green-800 text-sm">
-                  ¡Usuario creado exitosamente! Se ha enviado un correo de autenticación al email proporcionado.
+                  ¡Usuario creado exitosamente!
                 </div>
               )}
 
               <div className="space-y-4">
+                {/* Nombre */}
+                <div>
+                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre completo
+                  </label>
+                  <input
+                    type="text"
+                    id="name"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    placeholder="Juan Pérez"
+                    disabled={isSubmitting}
+                  />
+                </div>
+
                 {/* Email */}
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
@@ -166,6 +284,71 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
                     La contraseña debe tener al menos 6 caracteres
                   </p>
                 </div>
+
+                {/* Rol */}
+                <div>
+                  <label htmlFor="role_id" className="block text-sm font-medium text-gray-700 mb-1">
+                    <Shield className="inline h-4 w-4 mr-1" />
+                    Rol
+                  </label>
+                  {isLoadingRoles ? (
+                    <div className="flex items-center justify-center py-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                      <span className="ml-2 text-sm text-gray-500">Cargando roles...</span>
+                    </div>
+                  ) : (
+                    <select
+                      id="role_id"
+                      required
+                      value={formData.role_id}
+                      onChange={(e) => setFormData({ ...formData, role_id: e.target.value, client_id: null })}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      disabled={isSubmitting}
+                    >
+                      <option value="">Seleccione un rol</option>
+                      {roles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name} {role.description && `- ${role.description}`}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {/* Cliente (solo si rol es consumidor) */}
+                {showClientSelector && (
+                  <div>
+                    <label htmlFor="client_id" className="block text-sm font-medium text-gray-700 mb-1">
+                      <Building2 className="inline h-4 w-4 mr-1" />
+                      Cliente
+                    </label>
+                    {isLoadingClients ? (
+                      <div className="flex items-center justify-center py-2">
+                        <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                        <span className="ml-2 text-sm text-gray-500">Cargando clientes...</span>
+                      </div>
+                    ) : (
+                      <select
+                        id="client_id"
+                        required
+                        value={formData.client_id || ''}
+                        onChange={(e) => setFormData({ ...formData, client_id: e.target.value || null })}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                        disabled={isSubmitting}
+                      >
+                        <option value="">Seleccione un cliente</option>
+                        {clients.map((client) => (
+                          <option key={client.id} value={client.id}>
+                            {client.name} {client.rut && `(${client.rut})`}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <p className="mt-1 text-xs text-gray-500">
+                      Los usuarios con rol &quot;consumidor&quot; deben estar asociados a un cliente
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
