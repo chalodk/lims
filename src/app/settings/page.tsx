@@ -310,9 +310,7 @@ export default function SettingsPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Rol
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Cliente Vinculado
-                      </th>
+                     
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Fecha de Creación
                       </th>
@@ -351,23 +349,9 @@ export default function SettingsPage() {
                              user.role === 'Sin autorizar' ? 'Sin autorizar' :
                              user.role}
                           </span>
+                          <span className="text-xs text-gray-500 block">{user.client_name}</span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {user.role === 'consumidor' ? (
-                            user.client_name ? (
-                              <div>
-                                <span className="font-medium text-gray-900">{user.client_name}</span>
-                                {user.client_id && (
-                                  <span className="text-xs text-gray-500 block">ID: {user.client_id.substring(0, 8)}...</span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-gray-500 italic">Sin vincular</span>
-                            )
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
+                        
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                           {formatDateTime(user.created_at)}
                         </td>
