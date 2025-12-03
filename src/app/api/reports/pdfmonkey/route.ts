@@ -178,9 +178,9 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           positivo: virusNames.length === 1 ? `Resultado de análisis positivo a ${virusNames[0]}` : 'Resultado de análisis positivo'
         },
         analista: {
-          nombre: analystName || 'Analista',
-          titulo: 'Ing. Agrónomo',
-          departamento: 'Laboratorio Virología',
+          nombre: 'DRA. LUCIA RIVERA C.',
+          titulo: 'Ing. Agrónomo MSc.',
+          departamento: 'Nematóloga',
           email: ''
         }
       }
@@ -288,10 +288,10 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           descripcion: 'Los resultados de los análisis de detección precoz efectuados en las muestras demostraron diferentes niveles de severidad. Se evaluó la presencia del patógeno utilizando la escala de severidad establecida, permitiendo determinar el potencial de inoculo en las muestras analizadas.'
         },
         analista: {
-          nombre: analystName || 'Analista',
-          titulo: 'Ingeniero Agrónomo, M.Sc.',
-          departamento: 'Laboratorio Fitopatología',
-          email: 'analista@laboratorio.cl'
+          nombre: 'DRA. LUCIA RIVERA C.',
+          titulo: 'Ing. Agrónomo MSc.',
+          departamento: 'Nematóloga',
+          email: ''
         }
       }
     }
@@ -413,9 +413,9 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           positivo: 'Resultado de análisis positivo a la(s) bacteria(s) analizada(s)'
         },
         analista: {
-          nombre: analystName || 'Analista',
-          titulo: 'Ing. Agrónomo',
-          departamento: 'Laboratorio Bacteriología',
+          nombre: 'DRA. LUCIA RIVERA C.',
+          titulo: 'Ing. Agrónomo MSc.',
+          departamento: 'Nematóloga',
           email: ''
         }
       }
@@ -515,10 +515,10 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         },
         notaResultados: 'Los resultados solamente son válidos sólo para las muestras analizadas las que fueron proporcionadas por el cliente.',
         analista: {
-          nombre: analystName || 'Blancaluz Pinilla C.',
-          titulo: 'Ingeniero Agrónomo, M.Sc.', // Default title
-          departamento: 'Laboratorio Fitopatología',
-          email: 'blancaluzpinilla@nemachile.cl'
+          nombre: 'DRA. LUCIA RIVERA C.',
+          titulo: 'Ing. Agrónomo MSc.',
+          departamento: 'Nematóloga',
+          email: ''
         }
       }
     }
@@ -604,8 +604,8 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
                       'La muestra analizada no presentó nematodos fitoparásitos, sólo nematodos de vida libre o benéficos.'
         },
         analista: {
-          nombre: analystName || 'DRA. LUCIA RIVERA C.',
-          titulo: 'Ing. Agrónomo MSc.', // Default title
+          nombre: 'DRA. LUCIA RIVERA C.',
+          titulo: 'Ing. Agrónomo MSc.',
           departamento: 'Nematóloga',
           email: ''
         }
@@ -630,8 +630,8 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         { name: 'Materia orgánica', method: 'Combustión', value: '2.8', unit: '%', reference: '> 3.0' }
       ],
       observations: 'La muestra presenta un nivel ligeramente bajo de materia orgánica.',
-      analystName: 'Dra. María González',
-      analystTitle: 'Químico responsable'
+      analystName: 'DRA. LUCIA RIVERA C.',
+      analystTitle: 'Ing. Agrónomo MSc.'
     })
   }
 }
