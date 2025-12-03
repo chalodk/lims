@@ -783,14 +783,17 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Método de entrega
                   </label>
-                        <input
-                    type="text"
+                  <select
                     value={formData.delivery_method}
                     onChange={(e) => setFormData(prev => ({ ...prev, delivery_method: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
                     disabled={!canEditField('delivery_method', hasValidatedResults)}
-                    placeholder="Ej: Entrega directa, Courier, Transporte propio"
-                  />
+                  >
+                    <option value="">Seleccionar método</option>
+                    <option value="Entrega directa">Entrega directa</option>
+                    <option value="Courier">Courier</option>
+                    <option value="Transporte propio">Transporte propio</option>
+                  </select>
                 </div>
 
                 {/* Suspected Pathogen */}

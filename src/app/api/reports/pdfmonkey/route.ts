@@ -50,6 +50,7 @@ interface ResultadoData {
     planting_year: number | null
     received_date: string | null
     suspected_pathogen: string | null
+    taken_by: 'client' | 'lab' | null
   } | null
 }
 
@@ -162,7 +163,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         tecnicaUtilizada: { descripcion: tecnicaUtilizadaDesc },
         procedimientoMuestreo: {
           procedimientoUtilizado: '----------',
-          personaTomoMuestra: resultados[0]?.performed_by ? 'Muestras tomadas por laboratorio' : 'Muestras tomadas por cliente'
+          personaTomoMuestra: resultados[0]?.samples?.taken_by === 'lab' ? 'Muestras tomadas por laboratorio' : 'Muestras tomadas por cliente'
         },
         informacionGeneral: {
           especie: (resultados[0] as ResultadoData)?.samples?.species || 'No especificado',
@@ -397,7 +398,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         },
         procedimientoMuestreo: {
           procedimientoUtilizado: '----------',
-          personaTomoMuestra: resultados[0]?.performed_by ? 'Muestras tomadas por laboratorio' : 'Muestras tomadas por cliente'
+          personaTomoMuestra: resultados[0]?.samples?.taken_by === 'lab' ? 'Muestras tomadas por laboratorio' : 'Muestras tomadas por cliente'
         },
         informacionGeneral: {
           especie: resultados[0]?.samples?.species || 'No especificado',
@@ -587,7 +588,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         },
         procedimientoMuestreo: {
           procedimientoUtilizado: "----------",
-          personaTomoMuestra: "Cliente"
+          personaTomoMuestra: resultado[0]?.samples?.taken_by === 'lab' ? 'Muestras tomadas por laboratorio' : 'Muestras tomadas por cliente'
         },
         resultados: [
           {
@@ -776,7 +777,7 @@ export async function POST(request: NextRequest) {
       // If we have result_ids, fetch all results
       const { data: resultsData, error: resultsError } = await supabase
         .from('results')
-        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date, suspected_pathogen)')
+        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date, suspected_pathogen, taken_by)')
         .in('id', targetIds)
       
       if (resultsError || !resultsData || resultsData.length === 0) {
@@ -840,7 +841,7 @@ export async function POST(request: NextRequest) {
       // If we have result_id, fetch the result directly and get report/client info from it
       const { data: resultData, error: resultError } = await supabase
         .from('results')
-        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date, suspected_pathogen)')
+        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date, suspected_pathogen, taken_by)')
         .eq('id', result_id)
         .single()
       
@@ -888,7 +889,7 @@ export async function POST(request: NextRequest) {
       // Try to fetch result data from results table using report_id
       const { data: resultData, error: resultError } = await supabase
         .from('results')
-        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date, suspected_pathogen)')
+        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date, suspected_pathogen, taken_by)')
         .eq('report_id', report_id)
         .single()
       
