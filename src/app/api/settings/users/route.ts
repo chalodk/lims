@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { checkEmailExistsInAuth, checkEmailExistsInPublicUsers } from '@/lib/services/userCreationService'
 
 export async function GET(request: NextRequest) {
   try {
@@ -372,6 +373,37 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Validar si el email ya existe antes de intentar crear el usuario
+    const authCheck = await checkEmailExistsInAuth(email)
+    const publicCheck = await checkEmailExistsInPublicUsers(email)
+    
+    if (authCheck.exists || publicCheck.exists) {
+      let errorMessage = 'El email ya está registrado en el sistema'
+      
+      if (publicCheck.exists && publicCheck.clientId) {
+        // Intentar obtener el nombre del cliente para el mensaje
+        const { data: clientData } = await supabase
+          .from('clients')
+          .select('name')
+          .eq('id', publicCheck.clientId)
+          .single()
+        
+        if (clientData) {
+          errorMessage = `El email ya está registrado y está asociado al cliente "${clientData.name}"`
+        } else {
+          errorMessage = 'El email ya está registrado y está asociado a un cliente'
+        }
+      } else if (authCheck.exists && !publicCheck.exists) {
+        errorMessage = 'El email ya está registrado pero no tiene perfil de usuario completo'
+      }
+      
+      return NextResponse.json({ 
+        error: errorMessage,
+        errorCode: 'EMAIL_EXISTS',
+        details: 'Por favor, utiliza un email diferente o contacta al administrador si necesitas recuperar acceso a esta cuenta.'
+      }, { status: 409 })
+    }
+
     // Determinar la contraseña según el rol
     // Para validador, comun o admin: usar contraseña por defecto
     // Para otros roles (consumidor): usar la contraseña proporcionada
@@ -452,9 +484,28 @@ export async function POST(request: NextRequest) {
     })
 
     if (createAuthError || !authUser.user) {
+      // Detectar errores comunes de Supabase Auth
+      let errorMessage = 'Error al crear usuario'
+      let errorDetails = createAuthError?.message || 'Error desconocido'
+      
+      if (createAuthError?.message) {
+        const errorMsg = createAuthError.message.toLowerCase()
+        if (errorMsg.includes('already registered') || errorMsg.includes('already exists') || errorMsg.includes('user already exists')) {
+          errorMessage = 'El email ya está registrado en el sistema'
+          errorDetails = 'Este email ya tiene una cuenta. Por favor, utiliza un email diferente.'
+        } else if (errorMsg.includes('invalid email')) {
+          errorMessage = 'Email inválido'
+          errorDetails = 'El formato del email no es válido. Por favor, verifica que el email esté correctamente escrito.'
+        } else if (errorMsg.includes('password')) {
+          errorMessage = 'Error con la contraseña'
+          errorDetails = 'La contraseña no cumple con los requisitos de seguridad.'
+        }
+      }
+      
       return NextResponse.json({ 
-        error: 'Error al crear usuario',
-        details: createAuthError?.message || 'Error desconocido'
+        error: errorMessage,
+        details: errorDetails,
+        errorCode: 'AUTH_ERROR'
       }, { status: 500 })
     }
 
