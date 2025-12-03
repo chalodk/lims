@@ -354,8 +354,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { name, email, password, role_id, client_id } = body
 
-    if (!name || !email || !password) {
-      return NextResponse.json({ error: 'Nombre, email y contraseña son requeridos' }, { status: 400 })
+    if (!name || !email) {
+      return NextResponse.json({ error: 'Nombre y email son requeridos' }, { status: 400 })
     }
 
     // Obtener información del rol seleccionado
@@ -370,6 +370,22 @@ export async function POST(request: NextRequest) {
       if (!roleError && selectedRole) {
         selectedRoleName = selectedRole.name
       }
+    }
+
+    // Determinar la contraseña según el rol
+    // Para validador, comun o admin: usar contraseña por defecto
+    // Para otros roles (consumidor): usar la contraseña proporcionada
+    const DEFAULT_PASSWORD = 'n3M4Ch1L3'
+    let finalPassword: string
+    
+    if (selectedRoleName === 'validador' || selectedRoleName === 'comun' || selectedRoleName === 'admin') {
+      finalPassword = DEFAULT_PASSWORD
+    } else {
+      // Para consumidor u otros roles, usar la contraseña proporcionada
+      if (!password) {
+        return NextResponse.json({ error: 'Contraseña es requerida para este rol' }, { status: 400 })
+      }
+      finalPassword = password
     }
 
     // Determinar company_id y client_id según el rol
@@ -426,7 +442,7 @@ export async function POST(request: NextRequest) {
     // Crear usuario en auth.users
     const { data: authUser, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
       email: email,
-      password: password,
+      password: finalPassword,
       email_confirm: true,
       user_metadata: {
         name: name,

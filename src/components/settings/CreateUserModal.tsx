@@ -89,14 +89,23 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
     }
   }, [isOpen, fetchRoles])
 
-  // Cargar clientes cuando se selecciona rol "consumidor"
+  // Cargar clientes cuando se selecciona rol "consumidor" y limpiar contraseña si usa default
   useEffect(() => {
     if (isOpen && formData.role_id && roles.length > 0) {
-      const selectedRole = roles.find(r => r.id === formData.role_id)
+      const roleIdNumber = Number(formData.role_id)
+      const selectedRole = roles.find(r => r.id === roleIdNumber)
+      
       if (selectedRole?.name === 'consumidor') {
         fetchClients()
       } else {
         setFormData(prev => ({ ...prev, client_id: null }))
+      }
+      
+      // Si el rol usa contraseña por defecto, limpiar el campo de contraseña
+      if (selectedRole?.name === 'validador' || 
+          selectedRole?.name === 'comun' || 
+          selectedRole?.name === 'admin') {
+        setFormData(prev => ({ ...prev, password: '' }))
       }
     }
   }, [formData.role_id, isOpen, roles, fetchClients])
@@ -166,8 +175,12 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
     }
   }
 
-  const selectedRole = roles.find(r => r.id === formData.role_id)
+  const roleIdNumber = formData.role_id ? Number(formData.role_id) : null
+  const selectedRole = roleIdNumber ? roles.find(r => r.id === roleIdNumber) : null
   const showClientSelector = selectedRole?.name === 'consumidor'
+  const usesDefaultPassword = selectedRole?.name === 'validador' || 
+                              selectedRole?.name === 'comun' || 
+                              selectedRole?.name === 'admin'
 
   if (!isOpen) return null
 
@@ -216,6 +229,35 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
               )}
 
               <div className="space-y-4">
+                {/* Rol */}
+                <div>
+                  <label htmlFor="role_id" className="block text-sm font-medium text-gray-700 mb-1">
+                    <Shield className="inline h-4 w-4 mr-1" />
+                    Rol
+                  </label>
+                  {isLoadingRoles ? (
+                    <div className="flex items-center justify-center py-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                      <span className="ml-2 text-sm text-gray-500">Cargando roles...</span>
+                    </div>
+                  ) : (
+                    <select
+                      id="role_id"
+                      required
+                      value={formData.role_id}
+                      onChange={(e) => setFormData({ ...formData, role_id: e.target.value, client_id: null })}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      disabled={isSubmitting}
+                    >
+                      <option value="">Seleccione un rol</option>
+                      {roles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name} {role.description && `- ${role.description}`}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
                 {/* Nombre */}
                 <div>
                   <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
@@ -257,19 +299,22 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
                 <div>
                   <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                     Contraseña
+                    {usesDefaultPassword && (
+                      <span className="text-xs font-normal text-gray-500 ml-2">(se usará contraseña por defecto)</span>
+                    )}
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       id="password"
-                      required
+                      required={!usesDefaultPassword}
                       minLength={6}
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      className="block w-full pl-10 pr-12 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      className="block w-full pl-10 pr-12 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
                       placeholder="••••••••"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || usesDefaultPassword}
                     />
                     <button
                       type="button"
@@ -281,39 +326,14 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
                     </button>
                   </div>
                   <p className="mt-1 text-xs text-gray-500">
-                    La contraseña debe tener al menos 6 caracteres
+                    {usesDefaultPassword 
+                      ? 'Para roles de validador, común o admin se usará la contraseña por defecto: n3M4Ch1L3'
+                      : 'La contraseña debe tener al menos 6 caracteres'
+                    }
                   </p>
                 </div>
 
-                {/* Rol */}
-                <div>
-                  <label htmlFor="role_id" className="block text-sm font-medium text-gray-700 mb-1">
-                    <Shield className="inline h-4 w-4 mr-1" />
-                    Rol
-                  </label>
-                  {isLoadingRoles ? (
-                    <div className="flex items-center justify-center py-2">
-                      <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-                      <span className="ml-2 text-sm text-gray-500">Cargando roles...</span>
-                    </div>
-                  ) : (
-                    <select
-                      id="role_id"
-                      required
-                      value={formData.role_id}
-                      onChange={(e) => setFormData({ ...formData, role_id: e.target.value, client_id: null })}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                      disabled={isSubmitting}
-                    >
-                      <option value="">Seleccione un rol</option>
-                      {roles.map((role) => (
-                        <option key={role.id} value={role.id}>
-                          {role.name} {role.description && `- ${role.description}`}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
+                
 
                 {/* Cliente (solo si rol es consumidor) */}
                 {showClientSelector && (
