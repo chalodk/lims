@@ -202,7 +202,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
       const allVarieties: string[] = []
 
       resultados.forEach((resultado, resultIdx) => {
-        let findings = resultados[0]?.findings as unknown
+        let findings = resultado?.findings as unknown
         if (typeof findings === 'string') {
           try { findings = JSON.parse(findings) } catch { findings = undefined }
         }
@@ -315,7 +315,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
       const allMethodNames: string[] = []
 
       resultados.forEach((resultado, resultIdx) => {
-        let findings = resultados[0]?.findings as unknown
+        let findings = resultado?.findings as unknown
         if (typeof findings === 'string') {
           try {
             findings = JSON.parse(findings)
@@ -444,37 +444,39 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
       // Extract microorganisms data from findings
       let resultadosData: Array<{numeroMuestra: string, identificacionMuestra: string, microorganismos: Array<{nombre: string, dilucion10_1: number, dilucion10_2: number, dilucion10_3: number}>}> = []
       
-      // Handle findings - might be JSON string or object
-      let findings: unknown = resultados[0]?.findings
-      if (typeof findings === 'string') {
-        try {
-          findings = JSON.parse(findings)
-        } catch {
-          findings = undefined
-        }
-      }
-      
-      if (findings && typeof findings === 'object' && (findings as Record<string, unknown>).tests && Array.isArray((findings as Record<string, unknown>).tests)) {
-        // Group microorganisms by sample (each test represents one sample)
-        ((findings as Record<string, unknown>).tests as Array<{microorganism?: string, dilutions?: Record<string, string>, identification?: string}>).forEach((test, index: number) => {
-          const microorganismos: Array<{nombre: string, dilucion10_1: number, dilucion10_2: number, dilucion10_3: number}> = []
-          
-          if (test.microorganism && test.dilutions) {
-            microorganismos.push({
-              nombre: test.microorganism,
-              dilucion10_1: parseInt(test.dilutions['10-1']) || 0,
-              dilucion10_2: parseInt(test.dilutions['10-2']) || 0,  
-              dilucion10_3: parseInt(test.dilutions['10-3']) || 0
-            })
+      // Process findings from all resultados
+      resultados.forEach((resultado, resultIdx) => {
+        let findings: unknown = resultado?.findings
+        if (typeof findings === 'string') {
+          try {
+            findings = JSON.parse(findings)
+          } catch {
+            findings = undefined
           }
-          
-          resultadosData.push({
-            numeroMuestra: (index + 1).toString(),
-            identificacionMuestra: test.identification || `Muestra ${index + 1}`,
-            microorganismos: microorganismos
+        }
+        
+        if (findings && typeof findings === 'object' && (findings as Record<string, unknown>).tests && Array.isArray((findings as Record<string, unknown>).tests)) {
+          // Process each test from this resultado's findings
+          ((findings as Record<string, unknown>).tests as Array<{microorganism?: string, dilutions?: Record<string, string>, identification?: string}>).forEach((test) => {
+            const microorganismos: Array<{nombre: string, dilucion10_1: number, dilucion10_2: number, dilucion10_3: number}> = []
+            
+            if (test.microorganism && test.dilutions) {
+              microorganismos.push({
+                nombre: test.microorganism,
+                dilucion10_1: parseInt(test.dilutions['10-1']) || 0,
+                dilucion10_2: parseInt(test.dilutions['10-2']) || 0,  
+                dilucion10_3: parseInt(test.dilutions['10-3']) || 0
+              })
+            }
+            
+            resultadosData.push({
+              numeroMuestra: resultado?.samples?.code || String(resultadosData.length + 1),
+              identificacionMuestra: test.identification || resultado?.samples?.code || `Muestra ${resultadosData.length + 1}`,
+              microorganismos: microorganismos
+            })
           })
-        })
-      }
+        }
+      })
       
       // If no results found, add default entry
       if (resultadosData.length === 0) {
@@ -526,7 +528,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
   
   nematology: {
     templateId: '1D6880A8-BEDA-4538-86CA-4121557E88FE',
-    payloadBuilder: (report, client, resultado, analystName) => {
+    payloadBuilder: (report, client, resultados, analystName) => {
       const defaults = ANALYSIS_DEFAULTS.nematologia
       const currentDate = new Date()
       
@@ -539,31 +541,56 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         return date.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
       }
       
-      // Extract nematodes from findings
+      // Extract nematodes from findings - combine from all resultados
       let nematodes: Array<{ generoEspecie: string; cantidad: string }> = []
+      const resultadosPayload: Array<{numeroMuestra: string, identificacionCliente: string, nematodos: Array<{ generoEspecie: string; cantidad: string }>}> = []
       
-      // Handle findings - might be JSON string or object
-      let findings: unknown = resultado[0]?.findings
-      if (typeof findings === 'string') {
-        try {
-          findings = JSON.parse(findings)
-        } catch {
-          findings = undefined
+      // Process findings from all resultados
+      resultados.forEach((resultado) => {
+        let findings: unknown = resultado?.findings
+        if (typeof findings === 'string') {
+          try {
+            findings = JSON.parse(findings)
+          } catch {
+            findings = undefined
+          }
         }
-      }
+        
+        const sampleNematodes: Array<{ generoEspecie: string; cantidad: string }> = []
+        
+        if (findings && typeof findings === 'object' && (findings as Record<string, unknown>).nematodes && Array.isArray((findings as Record<string, unknown>).nematodes)) {
+          const parsedNematodes = ((findings as Record<string, unknown>).nematodes as Array<{name?: string, quantity?: string, generoEspecie?: string, cantidad?: string}>).map((nem) => ({
+            generoEspecie: nem.name || nem.generoEspecie || 'No especificado',
+            cantidad: nem.quantity || nem.cantidad || '0'
+          }))
+          sampleNematodes.push(...parsedNematodes)
+          nematodes.push(...parsedNematodes)
+        }
+        
+        // If no nematodes found for this sample, add default entry
+        if (sampleNematodes.length === 0) {
+          sampleNematodes.push({ generoEspecie: 'No se encontraron nematodos', cantidad: '0' })
+        }
+        
+        resultadosPayload.push({
+          numeroMuestra: resultado?.samples?.code || String(resultadosPayload.length + 1),
+          identificacionCliente: resultado?.samples?.code ? `Muestra ${resultado.samples.code}` : 'Muestra ---',
+          nematodos: sampleNematodes
+        })
+      })
       
-      if (findings && typeof findings === 'object' && (findings as Record<string, unknown>).nematodes && Array.isArray((findings as Record<string, unknown>).nematodes)) {
-        nematodes = ((findings as Record<string, unknown>).nematodes as Array<{name?: string, quantity?: string, generoEspecie?: string, cantidad?: string}>).map((nem) => ({
-          generoEspecie: nem.name || nem.generoEspecie || 'No especificado',
-          cantidad: nem.quantity || nem.cantidad || '0'
-        }))
-      }
-      
-      // If no nematodes found, add default entry
+      // If no nematodes found at all, add default entry
       if (nematodes.length === 0) {
         nematodes = [
           { generoEspecie: 'No se encontraron nematodos', cantidad: '0' }
         ]
+        if (resultadosPayload.length === 0) {
+          resultadosPayload.push({
+            numeroMuestra: "1",
+            identificacionCliente: 'Muestra ---',
+            nematodos: nematodes
+          })
+        }
       }
 
       return {
@@ -576,31 +603,24 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           telefono: client?.phone || 'No especificado',
           correo: client?.contact_email || 'No especificado',
           localidad: client?.address || 'No especificada',
-          numeroMuestras: '1', // Default to 1 for now
-          fechaRecepcion: resultado[0]?.samples?.received_date ? formatDate(resultado[0].samples.received_date) : (resultado[0]?.performed_at ? formatDate(resultado[0].performed_at) : formatDate(currentDate.toISOString())),
-          fechaEntrega: resultado[0]?.validation_date ? formatDate(resultado[0].validation_date) : formatDate(currentDate.toISOString())
+          numeroMuestras: resultados.length.toString(),
+          fechaRecepcion: resultados[0]?.samples?.received_date ? formatDate(resultados[0].samples.received_date) : (resultados[0]?.performed_at ? formatDate(resultados[0].performed_at) : formatDate(currentDate.toISOString())),
+          fechaEntrega: resultados[0]?.validation_date ? formatDate(resultados[0].validation_date) : formatDate(currentDate.toISOString())
         },
         tipoAnalisis: {
           descripcion: defaults.tipoAnalisisDescripcion
         },
         metodologia: {
-          descripcion: resultado[0]?.methodology || defaults.metodologiaDescripcion
+          descripcion: resultados[0]?.methodology || defaults.metodologiaDescripcion
         },
         procedimientoMuestreo: {
           procedimientoUtilizado: "----------",
-          personaTomoMuestra: resultado[0]?.samples?.taken_by === 'lab' ? 'Muestras tomadas por laboratorio' : 'Muestras tomadas por cliente'
+          personaTomoMuestra: resultados[0]?.samples?.taken_by === 'lab' ? 'Muestras tomadas por laboratorio' : 'Muestras tomadas por cliente'
         },
-        resultados: [
-          {
-            numeroMuestra: "1",
-            identificacionCliente: resultado[0]?.sample_id || 'Muestra',
-            codigoInterno: resultado[0]?.id || report.id,
-            nematodos: nematodes
-          }
-        ],
+        resultados: resultadosPayload,
         conclusiones: {
-          descripcion: resultado[0]?.conclusion || 
-                      resultado[0]?.diagnosis || 
+          descripcion: resultados[0]?.conclusion || 
+                      resultados[0]?.diagnosis || 
                       'La muestra analizada no presentó nematodos fitoparásitos, sólo nematodos de vida libre o benéficos.'
         },
         analista: {
@@ -1027,6 +1047,24 @@ export async function POST(request: NextRequest) {
         reportId: report_id
       })
 
+      // Update report with payload if report_id exists (not a temporary report)
+      if (report_id && report_id !== 'temp-report') {
+        const { error: updateError } = await supabase
+          .from('reports')
+          .update({ 
+            payload: templatePayload,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', report_id)
+
+        if (updateError) {
+          console.error('Error updating report with payload:', updateError)
+          // Don't fail the request, just log the error
+        } else {
+          console.log('Report updated with payload successfully')
+        }
+      }
+
       return NextResponse.json([data], { status: 201 })
     }
     
@@ -1119,6 +1157,24 @@ export async function POST(request: NextRequest) {
           status: (data as {status?: string}).status,
           filename
         })
+        
+        // Update report with payload if report_id exists (not a temporary report)
+        if (report_id && report_id !== 'temp-report' && !report_id.startsWith('temp-report-')) {
+          const { error: updateError } = await supabase
+            .from('reports')
+            .update({ 
+              payload: templatePayload,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', report_id)
+
+          if (updateError) {
+            console.error(`Error updating report with payload for ${analysisType}:`, updateError)
+            // Don't fail the request, just log the error
+          } else {
+            console.log(`Report updated with payload successfully for ${analysisType}`)
+          }
+        }
         
         documentosCreados.push(data)
       } catch (error) {

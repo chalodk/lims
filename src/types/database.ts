@@ -370,6 +370,7 @@ export interface Database {
           test_areas: string[] // text[]
           payment: boolean | null
           invoice_number: string | null
+          payload: Record<string, unknown> | null // jsonb
         }
         Insert: {
           id?: string
@@ -396,6 +397,7 @@ export interface Database {
           test_areas?: string[]
           payment?: boolean | null
           invoice_number?: string | null
+          payload?: Record<string, unknown> | null // jsonb
         }
         Update: Partial<Database['public']['Tables']['reports']['Insert']>
       }
