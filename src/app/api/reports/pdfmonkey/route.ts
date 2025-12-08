@@ -377,6 +377,25 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         }
       })
 
+      // Agrupar resultados por muestra única (usando samples.code)
+      const muestrasUnicas = new Map<string, ResultadoData>()
+      resultados.forEach((resultado) => {
+        const sampleCode = resultado?.samples?.code
+        if (sampleCode && !muestrasUnicas.has(sampleCode)) {
+          muestrasUnicas.set(sampleCode, resultado)
+        }
+      })
+
+      // Crear array informacionGeneral con un objeto por muestra única
+      const informacionGeneral = Array.from(muestrasUnicas.values()).map((resultado) => ({
+        muestra: resultado?.samples?.code || 'No especificado',
+        especie: resultado?.samples?.species || 'No especificado',
+        cuartel: '',
+        variedadPortainjerto: resultado?.samples?.variety || '',
+        anoPlantacion: resultado?.samples?.planting_year ? String(resultado.samples.planting_year) : '',
+        organoAnalizado: ''
+      }))
+
       return {
         numeroInforme: reportNumber,
         tituloInforme: 'INFORME ANÁLISIS BACTERIOLÓGICO',
@@ -386,7 +405,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           telefono: client?.phone || '',
           localidad: client?.address || 'No especificada',
           rut: client?.rut || '',
-          numeroMuestras: String(resultados.length),
+          numeroMuestras: String(muestrasUnicas.size),
           fechaRecepcion: resultados[0]?.samples?.received_date ? formatDate(resultados[0].samples.received_date) : (resultados[0]?.performed_at ? formatDate(resultados[0].performed_at) : formatDate(currentDate.toISOString())),
           fechaEntrega: resultados[0]?.validation_date ? formatDate(resultados[0].validation_date) : formatDate(currentDate.toISOString())
         },
@@ -400,13 +419,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           procedimientoUtilizado: '----------',
           personaTomoMuestra: resultados[0]?.samples?.taken_by === 'lab' ? 'Muestras tomadas por laboratorio' : 'Muestras tomadas por cliente'
         },
-        informacionGeneral: {
-          especie: resultados[0]?.samples?.species || 'No especificado',
-          cuartel: '',
-          variedadPortainjerto: resultados[0]?.samples?.variety || '',
-          anoPlantacion: resultados[0]?.samples?.planting_year ? String(resultados[0].samples.planting_year) : '',
-          organoAnalizado: ''
-        },
+        informacionGeneral: informacionGeneral,
         resultados: resultadosPayload,
         leyendaResultados: {
           negativo: 'Resultado de análisis negativo a la(s) bacteria(s) analizada(s)',
