@@ -852,13 +852,15 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      // Get report info from the first result
+      // Get report info: prioritize report_id from request body, then from first result
       const firstResult = resultsData[0]
-      if (firstResult.report_id) {
+      let reportIdToUse = report_id || firstResult.report_id
+      
+      if (reportIdToUse) {
         const { data: reportData } = await supabase
           .from('reports')
           .select('id, created_at, client_id, test_areas')
-          .eq('id', firstResult.report_id)
+          .eq('id', reportIdToUse)
           .single()
         report = reportData
       } else {
@@ -1061,21 +1063,36 @@ export async function POST(request: NextRequest) {
       })
 
       // Update report with payload if report_id exists (not a temporary report)
-      if (report_id && report_id !== 'temp-report') {
+      // Use report_id from body if available, otherwise use report.id from fetched data
+      const reportIdForPayload = report_id || report?.id
+      
+      if (reportIdForPayload && reportIdForPayload !== 'temp-report' && !reportIdForPayload.startsWith('temp-report-')) {
+        console.log('PDFMonkey: Updating report with payload:', {
+          reportId: reportIdForPayload,
+          analysisType,
+          payloadKeys: Object.keys(templatePayload)
+        })
+        
         const { error: updateError } = await supabase
           .from('reports')
           .update({ 
             payload: templatePayload,
             updated_at: new Date().toISOString()
           })
-          .eq('id', report_id)
+          .eq('id', reportIdForPayload)
 
         if (updateError) {
           console.error('Error updating report with payload:', updateError)
           // Don't fail the request, just log the error
         } else {
-          console.log('Report updated with payload successfully')
+          console.log('Report updated with payload successfully:', reportIdForPayload)
         }
+      } else {
+        console.warn('PDFMonkey: Skipping payload update - invalid report_id:', {
+          reportIdFromBody: report_id,
+          reportIdFromData: report?.id,
+          reportIdForPayload
+        })
       }
 
       return NextResponse.json([data], { status: 201 })
@@ -1093,8 +1110,10 @@ export async function POST(request: NextRequest) {
         console.log(`PDFMonkey: Processing group ${analysisType} with ${grupoResultados.length} resultados`)
         
         // Create a minimal report structure for this group
+        // Prioritize report_id from body, then report.id from fetched data
+        const grupoReportId = report_id || report?.id || `temp-report-${analysisType}`
         const grupoReport: ReportData = {
-          id: report?.id || `temp-report-${analysisType}`,
+          id: grupoReportId,
           created_at: report?.created_at || new Date().toISOString(),
           client_id: report?.client_id || null,
           test_areas: [grupoResultados[0].test_area].filter(Boolean) as string[]
@@ -1172,21 +1191,37 @@ export async function POST(request: NextRequest) {
         })
         
         // Update report with payload if report_id exists (not a temporary report)
-        if (report_id && report_id !== 'temp-report' && !report_id.startsWith('temp-report-')) {
+        // Note: When multiple analysis types, each should have its own report_id from CreateReportModal
+        // This case handles when multiple types are sent in a single request (edge case)
+        // Use report_id from body if available, otherwise use report.id from fetched data
+        const reportIdForPayload = report_id || grupoReport?.id
+        
+        if (reportIdForPayload && reportIdForPayload !== 'temp-report' && !reportIdForPayload.startsWith('temp-report-')) {
+          console.log(`PDFMonkey: Updating report with payload for ${analysisType}:`, {
+            reportId: reportIdForPayload,
+            payloadKeys: Object.keys(templatePayload)
+          })
+          
           const { error: updateError } = await supabase
             .from('reports')
             .update({ 
               payload: templatePayload,
               updated_at: new Date().toISOString()
             })
-            .eq('id', report_id)
+            .eq('id', reportIdForPayload)
 
           if (updateError) {
             console.error(`Error updating report with payload for ${analysisType}:`, updateError)
             // Don't fail the request, just log the error
           } else {
-            console.log(`Report updated with payload successfully for ${analysisType}`)
+            console.log(`Report updated with payload successfully for ${analysisType}:`, reportIdForPayload)
           }
+        } else {
+          console.warn(`PDFMonkey: Skipping payload update for ${analysisType} - invalid report_id:`, {
+            reportIdFromBody: report_id,
+            reportIdFromData: grupoReport?.id,
+            reportIdForPayload
+          })
         }
         
         documentosCreados.push(data)

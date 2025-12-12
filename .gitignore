@@ -41,3 +41,17 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env
+
+# files
+*.txt
+*.md
+*.pdf
+*.docx
+*.doc
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+
+# csv files
+*.csv
