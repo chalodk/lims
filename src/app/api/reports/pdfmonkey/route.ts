@@ -854,7 +854,7 @@ export async function POST(request: NextRequest) {
       
       // Get report info: prioritize report_id from request body, then from first result
       const firstResult = resultsData[0]
-      let reportIdToUse = report_id || firstResult.report_id
+      const reportIdToUse = report_id || firstResult.report_id
       
       if (reportIdToUse) {
         const { data: reportData } = await supabase
