@@ -212,13 +212,28 @@ export default function ViewReportModal({ isOpen, onClose, reportId }: ViewRepor
               </div>
             ) : report ? (
               <div className="h-full">
-                {report.rendered_pdf_url ? (
+                {report.rendered_pdf_url?.startsWith('https://') ? (
                   <iframe
                     src={report.rendered_pdf_url}
                     className="w-full h-full border-0 rounded"
                     title="Vista previa del informe PDF"
                     loading="lazy"
+                    referrerPolicy="no-referrer"
+                    allow="fullscreen"
                   />
+                ) : report.rendered_pdf_url ? (
+                  <div className="flex flex-col justify-center items-center h-full text-center">
+                    <AlertCircle className="h-12 w-12 text-yellow-500 mb-4" />
+                    <p className="text-lg text-gray-600">Vista previa no disponible</p>
+                    <p className="text-sm text-gray-500 mt-2">La URL del documento no es segura</p>
+                    <button
+                      onClick={() => window.open(report.rendered_pdf_url!, '_blank')}
+                      className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Abrir en nueva pestaña
+                    </button>
+                  </div>
                 ) : (
                   <div className="flex flex-col justify-center items-center h-full text-center">
                     <Loader2 className="h-12 w-12 animate-spin text-blue-600 mb-4" />

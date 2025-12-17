@@ -83,7 +83,10 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
 
       const formatDate = (dateString: string) => {
         const date = new Date(dateString)
-        return date.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        const day = String(date.getDate()).padStart(2, '0')
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const year = date.getFullYear()
+        return `${day}/${month}/${year}`
       }
 
       // Combine findings from all resultados
@@ -100,12 +103,22 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         
         const tests = Array.isArray((findings as Record<string, unknown>)?.tests) ? (findings as Record<string, unknown>).tests as unknown[] : []
         
+        // Build sample identification: Especie + Variedad (si existe) + (Año) (si existe)
+        let sampleIdentification = resultado?.samples?.species || 'Especie no especificada'
+        if (resultado?.samples?.variety) {
+          sampleIdentification += ` ${resultado.samples.variety}`
+        }
+        if (resultado?.samples?.planting_year) {
+          sampleIdentification += ` (${resultado.samples.planting_year})`
+        }
+        
         // Add tests with sample identification
         tests.forEach((test: unknown) => {
           const testObj = test as Record<string, unknown>
           allTests.push({
             ...testObj,
             sample_code: resultado?.samples?.code || `SAMPLE-${resultIdx + 1}`,
+            sample_identification: sampleIdentification,
             sample_id: resultado?.sample_id
           })
         })
@@ -137,7 +150,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
       const resultadosPayload = allTests.map((t: unknown, idx: number) => {
         const test = t as Record<string, unknown>
         return {
-          muestra: test.sample_code as string || String(idx + 1),
+          muestra: test.sample_identification as string || 'Especie no especificada',
           identificacion: (test.identification as string) || `Muestra ${idx + 1}`,
           tecnicaUtilizada: (test.method as string) || 'No especificado',
           virusAnalizado: (test.virus as string) || 'No especificado',
@@ -195,7 +208,10 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
 
       const formatDate = (dateString: string) => {
         const date = new Date(dateString)
-        return date.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        const day = String(date.getDate()).padStart(2, '0')
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const year = date.getFullYear()
+        return `${day}/${month}/${year}`
       }
 
       // Combine findings from all resultados
@@ -306,7 +322,10 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
       // Helpers
       const formatDate = (dateString: string) => {
         const date = new Date(dateString)
-        return date.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        const day = String(date.getDate()).padStart(2, '0')
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const year = date.getFullYear()
+        return `${day}/${month}/${year}`
       }
 
       // Combine findings from all resultados
@@ -448,11 +467,10 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
       // Format dates
       const formatDate = (dateString: string) => {
         const date = new Date(dateString)
-        return date.toLocaleDateString('es-CL', { 
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric'
-        })
+        const day = String(date.getDate()).padStart(2, '0')
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const year = date.getFullYear()
+        return `${day}/${month}/${year}`
       }
       
       // Extract microorganisms data from findings
@@ -527,7 +545,15 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         },
         resultados: resultadosData,
         diagnostico: {
-          descripcion: resultados[0]?.diagnosis || resultados[0]?.conclusion || 'Análisis fitopatológico completado. Los microorganismos identificados corresponden a la flora natural del suelo.'
+          descripcion: resultados
+            .map(r => r?.diagnosis)
+            .filter(d => d && d.trim() !== '')
+            .join('\n') || 
+            resultados
+              .map(r => r?.conclusion)
+              .filter(c => c && c.trim() !== '')
+              .join('\n') || 
+            'Análisis fitopatológico completado. Los microorganismos identificados corresponden a la flora natural del suelo.'
         },
         notaResultados: 'Los resultados solamente son válidos sólo para las muestras analizadas las que fueron proporcionadas por el cliente.',
         analista: {
@@ -552,7 +578,10 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
       // Format dates
       const formatDate = (dateString: string) => {
         const date = new Date(dateString)
-        return date.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        const day = String(date.getDate()).padStart(2, '0')
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const year = date.getFullYear()
+        return `${day}/${month}/${year}`
       }
       
       // Extract nematodes from findings - combine from all resultados
@@ -642,9 +671,15 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         },
         resultados: resultadosPayload,
         conclusiones: {
-          descripcion: resultados[0]?.conclusion || 
-                      resultados[0]?.diagnosis || 
-                      'La muestra analizada no presentó nematodos fitoparásitos, sólo nematodos de vida libre o benéficos.'
+          descripcion: resultados
+            .map(r => r?.conclusion)
+            .filter(c => c && c.trim() !== '')
+            .join('\n') || 
+            resultados
+              .map(r => r?.diagnosis)
+              .filter(d => d && d.trim() !== '')
+              .join('\n') || 
+            'La muestra analizada no presentó nematodos fitoparásitos, sólo nematodos de vida libre o benéficos.'
         },
         analista: {
           nombre: 'DRA. LUCIA RIVERA C.',
