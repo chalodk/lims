@@ -453,7 +453,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ 
           error: 'El usuario actual no tiene company_id asignado' 
         }, { status: 400 })
-      }
+    }
       finalCompanyId = currentUser.company_id
       finalClientId = null
     }

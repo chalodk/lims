@@ -23,7 +23,7 @@ export const BLOCKED_WHEN_VALIDATED: string[] = [
   'region',            // Región - contexto geográfico
   'locality',          // Localidad - contexto geográfico
   'taken_by',          // Recolectada por - contexto de muestreo
-  'delivery_method',   // Método de entrega - contexto de recepción
+  'sampling_method',   // Método de muestreo
   'suspected_pathogen', // Patógeno sospechado - puede afectar análisis
 ]
 

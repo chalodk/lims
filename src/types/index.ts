@@ -67,7 +67,7 @@ export interface Sample {
   client_notes?: string
   reception_notes?: string
   taken_by: 'client' | 'lab'
-  delivery_method?: string
+  sampling_method?: string
   suspected_pathogen?: string
   requested_tests: string[]
   status: 'received' | 'processing' | 'microscopy' | 'isolation' | 'identification' | 'molecular_analysis' | 'validation' | 'completed'

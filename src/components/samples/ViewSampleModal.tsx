@@ -229,8 +229,8 @@ export default function ViewSampleModal({ isOpen, onClose, sample }: ViewSampleM
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Método de entrega</label>
-                <p className="text-sm text-gray-900">{sample.delivery_method || 'No especificado'}</p>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Método de muestreo</label>
+                <p className="text-sm text-gray-900">{sample.sampling_method || 'No especificado'}</p>
               </div>
 
               {/* Analysis Information */}

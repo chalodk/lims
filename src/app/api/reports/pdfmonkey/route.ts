@@ -51,6 +51,7 @@ interface ResultadoData {
     received_date: string | null
     suspected_pathogen: string | null
     taken_by: 'client' | 'lab' | null
+    sampling_method: string | null
   } | null
 }
 
@@ -162,7 +163,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         tipoAnalisis: { descripcion: tipoAnalisisDesc },
         tecnicaUtilizada: { descripcion: tecnicaUtilizadaDesc },
         procedimientoMuestreo: {
-          procedimientoUtilizado: '----------',
+          procedimientoUtilizado: resultados[0]?.samples?.sampling_method || 'No especificado',
           personaTomoMuestra: resultados[0]?.samples?.taken_by === 'lab' ? 'Muestras tomadas por laboratorio' : 'Muestras tomadas por cliente'
         },
         informacionGeneral: {
@@ -416,7 +417,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           descripcion: tecnicaUtilizadaDesc
         },
         procedimientoMuestreo: {
-          procedimientoUtilizado: '----------',
+          procedimientoUtilizado: resultados[0]?.samples?.sampling_method || 'No especificado',
           personaTomoMuestra: resultados[0]?.samples?.taken_by === 'lab' ? 'Muestras tomadas por laboratorio' : 'Muestras tomadas por cliente'
         },
         informacionGeneral: informacionGeneral,
@@ -460,35 +461,35 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
       // Process findings from all resultados
       resultados.forEach((resultado, resultIdx) => {
         let findings: unknown = resultado?.findings
-        if (typeof findings === 'string') {
-          try {
-            findings = JSON.parse(findings)
-          } catch {
-            findings = undefined
-          }
+      if (typeof findings === 'string') {
+        try {
+          findings = JSON.parse(findings)
+        } catch {
+          findings = undefined
         }
-        
-        if (findings && typeof findings === 'object' && (findings as Record<string, unknown>).tests && Array.isArray((findings as Record<string, unknown>).tests)) {
+      }
+      
+      if (findings && typeof findings === 'object' && (findings as Record<string, unknown>).tests && Array.isArray((findings as Record<string, unknown>).tests)) {
           // Process each test from this resultado's findings
           ((findings as Record<string, unknown>).tests as Array<{microorganism?: string, dilutions?: Record<string, string>, identification?: string}>).forEach((test) => {
-            const microorganismos: Array<{nombre: string, dilucion10_1: number, dilucion10_2: number, dilucion10_3: number}> = []
-            
-            if (test.microorganism && test.dilutions) {
-              microorganismos.push({
-                nombre: test.microorganism,
-                dilucion10_1: parseInt(test.dilutions['10-1']) || 0,
-                dilucion10_2: parseInt(test.dilutions['10-2']) || 0,  
-                dilucion10_3: parseInt(test.dilutions['10-3']) || 0
-              })
-            }
-            
-            resultadosData.push({
+          const microorganismos: Array<{nombre: string, dilucion10_1: number, dilucion10_2: number, dilucion10_3: number}> = []
+          
+          if (test.microorganism && test.dilutions) {
+            microorganismos.push({
+              nombre: test.microorganism,
+              dilucion10_1: parseInt(test.dilutions['10-1']) || 0,
+              dilucion10_2: parseInt(test.dilutions['10-2']) || 0,  
+              dilucion10_3: parseInt(test.dilutions['10-3']) || 0
+            })
+          }
+          
+          resultadosData.push({
               numeroMuestra: resultado?.samples?.code || String(resultadosData.length + 1),
               identificacionMuestra: test.identification || resultado?.samples?.code || `Muestra ${resultadosData.length + 1}`,
-              microorganismos: microorganismos
-            })
+            microorganismos: microorganismos
           })
-        }
+        })
+      }
       })
       
       // If no results found, add default entry
@@ -561,25 +562,25 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
       // Process findings from all resultados
       resultados.forEach((resultado) => {
         let findings: unknown = resultado?.findings
-        if (typeof findings === 'string') {
-          try {
-            findings = JSON.parse(findings)
-          } catch {
-            findings = undefined
-          }
+      if (typeof findings === 'string') {
+        try {
+          findings = JSON.parse(findings)
+        } catch {
+          findings = undefined
         }
+      }
         
         const sampleNematodes: Array<{ generoEspecie: string; cantidad: string }> = []
-        
-        if (findings && typeof findings === 'object' && (findings as Record<string, unknown>).nematodes && Array.isArray((findings as Record<string, unknown>).nematodes)) {
+      
+      if (findings && typeof findings === 'object' && (findings as Record<string, unknown>).nematodes && Array.isArray((findings as Record<string, unknown>).nematodes)) {
           const parsedNematodes = ((findings as Record<string, unknown>).nematodes as Array<{name?: string, quantity?: string, generoEspecie?: string, cantidad?: string}>).map((nem) => ({
-            generoEspecie: nem.name || nem.generoEspecie || 'No especificado',
-            cantidad: nem.quantity || nem.cantidad || '0'
-          }))
+          generoEspecie: nem.name || nem.generoEspecie || 'No especificado',
+          cantidad: nem.quantity || nem.cantidad || '0'
+        }))
           sampleNematodes.push(...parsedNematodes)
           nematodes.push(...parsedNematodes)
-        }
-        
+      }
+      
         // If no nematodes found for this sample, add default entry
         if (sampleNematodes.length === 0) {
           sampleNematodes.push({ generoEspecie: 'No se encontraron nematodos', cantidad: '0' })
@@ -627,7 +628,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           descripcion: resultados[0]?.methodology || defaults.metodologiaDescripcion
         },
         procedimientoMuestreo: {
-          procedimientoUtilizado: "----------",
+          procedimientoUtilizado: resultados[0]?.samples?.sampling_method || 'No especificado',
           personaTomoMuestra: resultados[0]?.samples?.taken_by === 'lab' ? 'Muestras tomadas por laboratorio' : 'Muestras tomadas por cliente'
         },
         resultados: resultadosPayload,
@@ -810,7 +811,7 @@ export async function POST(request: NextRequest) {
       // If we have result_ids, fetch all results
       const { data: resultsData, error: resultsError } = await supabase
         .from('results')
-        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date, suspected_pathogen, taken_by)')
+        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date, suspected_pathogen, taken_by, sampling_method)')
         .in('id', targetIds)
       
       if (resultsError || !resultsData || resultsData.length === 0) {
@@ -876,7 +877,7 @@ export async function POST(request: NextRequest) {
       // If we have result_id, fetch the result directly and get report/client info from it
       const { data: resultData, error: resultError } = await supabase
         .from('results')
-        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date, suspected_pathogen, taken_by)')
+        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date, suspected_pathogen, taken_by, sampling_method)')
         .eq('id', result_id)
         .single()
       
@@ -924,7 +925,7 @@ export async function POST(request: NextRequest) {
       // Try to fetch result data from results table using report_id
       const { data: resultData, error: resultError } = await supabase
         .from('results')
-        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date, suspected_pathogen, taken_by)')
+        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date, suspected_pathogen, taken_by, sampling_method)')
         .eq('report_id', report_id)
         .single()
       

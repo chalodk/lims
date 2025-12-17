@@ -60,7 +60,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
   const fetchClients = useCallback(async () => {
     setIsLoadingClients(true)
     try {
-      const supabase = getSupabaseClient()
+  const supabase = getSupabaseClient()
       
       if (!user?.company_id) {
         throw new Error('No se pudo obtener la compañía del usuario')
@@ -124,8 +124,8 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
         },
         body: JSON.stringify({
           name: formData.name,
-          email: formData.email,
-          password: formData.password,
+        email: formData.email,
+        password: formData.password,
           role_id: formData.role_id ? Number(formData.role_id) : null,
           client_id: formData.client_id || null
         }),
@@ -143,7 +143,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
         return
       }
 
-      setSuccess(true)
+        setSuccess(true)
       setFormData({
         name: '',
         email: '',
@@ -152,11 +152,11 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
         client_id: null
       })
       
-      setTimeout(() => {
-        onSuccess()
-        onClose()
-        setSuccess(false)
-      }, 2000)
+        setTimeout(() => {
+          onSuccess()
+          onClose()
+          setSuccess(false)
+        }, 2000)
     } catch (err) {
       console.error('Error al crear usuario:', err)
       setError('Error inesperado al crear usuario')

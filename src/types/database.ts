@@ -599,7 +599,7 @@ export interface Database {
           client_notes: string | null
           reception_notes: string | null
           taken_by: SampleTakenBy | null
-          delivery_method: string | null
+          sampling_method: string | null
           suspected_pathogen: string | null
           status: SampleStatus | null
           created_at: string | null
@@ -631,7 +631,7 @@ export interface Database {
           client_notes?: string | null
           reception_notes?: string | null
           taken_by?: SampleTakenBy | null
-          delivery_method?: string | null
+          sampling_method?: string | null
           suspected_pathogen?: string | null
           status?: SampleStatus | null
           created_at?: string | null

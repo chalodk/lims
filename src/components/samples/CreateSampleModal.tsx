@@ -47,7 +47,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
     client_notes: '',
     reception_notes: '',
     taken_by: 'client',
-    delivery_method: '',
+    sampling_method: '',
     suspected_pathogen: '',
     region: '',
     locality: '',
@@ -174,7 +174,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
         client_notes: '',
         reception_notes: '',
         taken_by: 'client',
-        delivery_method: '',
+        sampling_method: '',
         suspected_pathogen: '',
         region: '',
         locality: '',
@@ -227,7 +227,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
         client_notes: formData.client_notes.trim() || null,
         reception_notes: formData.reception_notes.trim() || null,
         taken_by: formData.taken_by,
-        delivery_method: formData.delivery_method.trim() || null,
+        sampling_method: formData.sampling_method.trim() || null,
         suspected_pathogen: formData.suspected_pathogen.trim() || null,
         region: formData.region.trim() || null,
         locality: formData.locality.trim() || null,
@@ -289,7 +289,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
         client_notes: '',
         reception_notes: '',
         taken_by: 'client',
-        delivery_method: '',
+        sampling_method: '',
         suspected_pathogen: '',
         region: '',
         locality: '',
@@ -634,17 +634,15 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
                 {/* Delivery Method */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Método de entrega
+                    Método de muestreo
                   </label>
                   <select
-                    value={formData.delivery_method}
-                    onChange={(e) => setFormData(prev => ({ ...prev, delivery_method: e.target.value }))}
+                    value={formData.sampling_method}
+                    onChange={(e) => setFormData(prev => ({ ...prev, sampling_method: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   >
-                    <option value="">Seleccionar método</option>
-                    <option value="Entrega directa">Entrega directa</option>
-                    <option value="Courier">Courier</option>
-                    <option value="Transporte propio">Transporte propio</option>
+                    <option value="">No especificado</option>
+                    <option value="Muestra compuesta">Muestra compuesta</option>
                   </select>
                 </div>
 

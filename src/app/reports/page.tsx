@@ -62,6 +62,9 @@ export default function ReportsPage() {
   const [paymentData, setPaymentData] = useState<{[key: string]: { payment: boolean, invoice_number: string }}>({})
   const [savingPayment, setSavingPayment] = useState<string | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null)
+  const [selectedReports, setSelectedReports] = useState<Set<string>>(new Set())
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+  const [isBulkValidating, setIsBulkValidating] = useState(false)
   const hasFetchedRef = useRef<string | false>(false)
   
   const supabase = getSupabaseClient()
@@ -328,6 +331,138 @@ export default function ReportsPage() {
       alert('Error al eliminar el informe. Por favor, intente nuevamente.')
     } finally {
       setIsDeleting(null)
+    }
+  }
+
+  // Funciones de selección múltiple
+  const handleSelectReport = (reportId: string) => {
+    setSelectedReports(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(reportId)) {
+        newSet.delete(reportId)
+      } else {
+        newSet.add(reportId)
+      }
+      return newSet
+    })
+  }
+
+  const handleSelectAll = () => {
+    if (selectedReports.size === filteredReports.length) {
+      setSelectedReports(new Set())
+    } else {
+      setSelectedReports(new Set(filteredReports.map(r => r.id)))
+    }
+  }
+
+  const clearSelection = () => {
+    setSelectedReports(new Set())
+  }
+
+  // Acciones masivas
+  const handleBulkDelete = async () => {
+    const selectedArray = Array.from(selectedReports)
+    const selectedReportsList = reports.filter(r => selectedArray.includes(r.id))
+    
+    // Verificar si hay informes enviados
+    const sentReports = selectedReportsList.filter(r => r.status === 'sent')
+    if (sentReports.length > 0) {
+      alert(`No se pueden eliminar ${sentReports.length} informe(s) porque están enviados. Se omitirán.`)
+    }
+
+    const deletableReports = selectedReportsList.filter(r => r.status !== 'sent')
+    if (deletableReports.length === 0) {
+      alert('No hay informes que se puedan eliminar.')
+      return
+    }
+
+    if (!confirm(`¿Estás seguro de que quieres eliminar ${deletableReports.length} informe(s)? Esta acción no se puede deshacer.`)) {
+      return
+    }
+
+    setIsBulkDeleting(true)
+    let successCount = 0
+    let errorCount = 0
+
+    for (const report of deletableReports) {
+      try {
+        const response = await fetch(`/api/reports/delete/${report.id}`, {
+          method: 'DELETE',
+        })
+
+        if (response.ok) {
+          successCount++
+        } else {
+          errorCount++
+        }
+      } catch {
+        errorCount++
+      }
+    }
+
+    setIsBulkDeleting(false)
+    clearSelection()
+    await fetchReports()
+
+    if (errorCount > 0) {
+      alert(`Se eliminaron ${successCount} informe(s). ${errorCount} informe(s) no se pudieron eliminar.`)
+    } else {
+      alert(`Se eliminaron ${successCount} informe(s) exitosamente.`)
+    }
+  }
+
+  const handleBulkValidate = async () => {
+    const selectedArray = Array.from(selectedReports)
+    const selectedReportsList = reports.filter(r => selectedArray.includes(r.id))
+    
+    // Verificar si hay informes ya validados
+    const alreadyValidated = selectedReportsList.filter(r => r.completed === true)
+    if (alreadyValidated.length > 0) {
+      alert(`${alreadyValidated.length} informe(s) ya están validados. Se omitirán.`)
+    }
+
+    const validatableReports = selectedReportsList.filter(r => r.completed !== true)
+    if (validatableReports.length === 0) {
+      alert('No hay informes que se puedan validar.')
+      return
+    }
+
+    if (!confirm(`¿Estás seguro de que quieres validar ${validatableReports.length} informe(s)?`)) {
+      return
+    }
+
+    setIsBulkValidating(true)
+    let successCount = 0
+    let errorCount = 0
+
+    for (const report of validatableReports) {
+      try {
+        const response = await fetch(`/api/reports/status/${report.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ status: 'validated' })
+        })
+
+        if (response.ok) {
+          successCount++
+        } else {
+          errorCount++
+        }
+      } catch {
+        errorCount++
+      }
+    }
+
+    setIsBulkValidating(false)
+    clearSelection()
+    await fetchReports()
+
+    if (errorCount > 0) {
+      alert(`Se validaron ${successCount} informe(s). ${errorCount} informe(s) no se pudieron validar.`)
+    } else {
+      alert(`Se validaron ${successCount} informe(s) exitosamente.`)
     }
   }
 
@@ -628,6 +763,62 @@ export default function ReportsPage() {
             <div className="overflow-x-auto">
               <table className="w-full table-auto">
                 <thead className="bg-gray-50 border-b border-gray-200">
+                  {selectedReports.size > 0 ? (
+                    <tr>
+                      <th colSpan={9} className="px-3 py-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <input
+                              type="checkbox"
+                              checked={selectedReports.size === filteredReports.length}
+                              onChange={handleSelectAll}
+                              className="h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                            />
+                            <span className="text-sm font-medium text-gray-700">
+                              {selectedReports.size} informe(s) seleccionado(s)
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {(userRole === 'admin' || userRole === 'validador') && (
+                              <button
+                                onClick={handleBulkValidate}
+                                disabled={isBulkValidating}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                {isBulkValidating ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Check className="h-4 w-4" />
+                                )}
+                                Validar
+                              </button>
+                            )}
+                            {(userRole === 'admin' || userRole === 'comun') && (
+                              <button
+                                onClick={handleBulkDelete}
+                                disabled={isBulkDeleting}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                {isBulkDeleting ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                                Borrar
+                              </button>
+                            )}
+                            <button
+                              onClick={clearSelection}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200 transition-colors"
+                            >
+                              <X className="h-4 w-4" />
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      </th>
+                    </tr>
+                  ) : (
                   <tr>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-14">
                       Tipo
@@ -653,7 +844,19 @@ export default function ReportsPage() {
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32 sticky right-0 bg-gray-50 z-10">
                       Acciones
                     </th>
+                    {(userRole === 'admin' || userRole === 'validador' || userRole === 'comun') && (
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                        <input
+                          type="checkbox"
+                          checked={selectedReports.size === filteredReports.length && filteredReports.length > 0}
+                          onChange={handleSelectAll}
+                          className="h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                          title="Seleccionar todos"
+                        />
+                      </th>
+                    )}
                   </tr>
+                  )}
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredReports.map((report) => {
@@ -829,6 +1032,16 @@ export default function ReportsPage() {
                           )}
                         </div>
                       </td>
+                      {(userRole === 'admin' || userRole === 'validador' || userRole === 'comun') && (
+                        <td className="px-3 py-4 text-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedReports.has(report.id)}
+                            onChange={() => handleSelectReport(report.id)}
+                            className="h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                          />
+                        </td>
+                      )}
                     </tr>
                     )
                   })}

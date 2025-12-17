@@ -130,7 +130,7 @@ export async function PUT(
       client_notes,
       reception_notes,
       taken_by,
-      delivery_method,
+      sampling_method,
       suspected_pathogen,
       region,
       locality,
@@ -193,7 +193,7 @@ export async function PUT(
     if (client_notes !== undefined) updateData.client_notes = client_notes
     if (reception_notes !== undefined) updateData.reception_notes = reception_notes
     if (taken_by !== undefined) updateData.taken_by = taken_by
-    if (delivery_method !== undefined) updateData.delivery_method = delivery_method
+    if (sampling_method !== undefined) updateData.sampling_method = sampling_method
     if (suspected_pathogen !== undefined) updateData.suspected_pathogen = suspected_pathogen
     if (region !== undefined) updateData.region = region
     if (locality !== undefined) updateData.locality = locality
@@ -281,7 +281,7 @@ export async function PATCH(
       client_notes,
       reception_notes,
       taken_by,
-      delivery_method,
+      sampling_method,
       suspected_pathogen,
       region,
       locality,
@@ -350,7 +350,7 @@ export async function PATCH(
         'region',
         'locality',
         'taken_by',
-        'delivery_method',
+        'sampling_method',
         'suspected_pathogen'
       ]
       
@@ -429,7 +429,7 @@ export async function PATCH(
         client_notes: client_notes || null,
         reception_notes: reception_notes || null,
         taken_by: taken_by || 'client',
-        delivery_method: delivery_method || null,
+        sampling_method: sampling_method || null,
         suspected_pathogen: suspected_pathogen || null,
         region: region || null,
         locality: locality || null,
