@@ -250,12 +250,12 @@ export const ALL_SPECIES = [
 // Categorías para organización en el dropdown
 export const SPECIES_CATEGORIES = [
   {
-    label: 'Cultivos y Hortalizas',
-    options: Array.from(CROP_SPECIES.VEGETABLES_AND_CROPS).sort()
-  },
-  {
     label: 'Frutales y Árboles',
     options: Array.from(CROP_SPECIES.FRUITS_AND_TREES).sort()
+  },
+  {
+    label: 'Cultivos y Hortalizas',
+    options: Array.from(CROP_SPECIES.VEGETABLES_AND_CROPS).sort()
   }
 ] as const
 
