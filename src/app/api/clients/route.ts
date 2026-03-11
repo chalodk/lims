@@ -134,7 +134,8 @@ export async function POST(request: NextRequest) {
           rut: rut.trim(),
           companyId: currentUser.company_id,
           clientId: newClient.id,
-          roleName: 'consumidor'
+          roleName: 'consumidor',
+          webhookOrigen: 1
         }
         
         const createResult = await createUserAtomically(createUserOptions)

@@ -200,6 +200,12 @@ CREATE POLICY "Users can update clients from their company" ON clients
     company_id = get_user_company_id() OR is_admin()
   );
 
+DROP POLICY IF EXISTS "Users can delete clients from their company" ON clients;
+CREATE POLICY "Users can delete clients from their company" ON clients
+  FOR DELETE USING (
+    company_id = get_user_company_id() OR is_admin()
+  );
+
 -- ============================================================================
 -- USERS
 -- ============================================================================

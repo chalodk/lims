@@ -69,6 +69,11 @@ CREATE POLICY "Users can update clients from their company" ON clients
     company_id = get_user_company_id() OR is_admin()
   );
 
+CREATE POLICY "Users can delete clients from their company" ON clients
+  FOR DELETE USING (
+    company_id = get_user_company_id() OR is_admin()
+  );
+
 -- Users RLS Policies
 CREATE POLICY "Users can view users from their company" ON users
   FOR SELECT USING (

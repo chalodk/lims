@@ -30,7 +30,9 @@ export async function GET(request: NextRequest) {
     const test_area = searchParams.get('test_area')
     const sample_id = searchParams.get('sample_id')
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const requestedLimit = parseInt(searchParams.get('limit') || '20')
+    const allowedLimits = [20, 50, 100]
+    const limit = allowedLimits.includes(requestedLimit) ? requestedLimit : 20
 
     // Get user's company_id from users table
     const { data: userData } = await supabase

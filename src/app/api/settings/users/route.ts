@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { checkEmailExistsInAuth, checkEmailExistsInPublicUsers } from '@/lib/services/userCreationService'
+import { sendUserCredentialsToWebhook } from '@/lib/services/userCredentialsWebhook'
 
 export async function GET(request: NextRequest) {
   try {
@@ -532,6 +533,16 @@ export async function POST(request: NextRequest) {
         error: 'Error al crear perfil de usuario',
         details: createProfileError.message 
       }, { status: 500 })
+    }
+
+    // Enviar credenciales al webhook (origen 2 = usuario creado desde configuración por admin)
+    const webhookResult = await sendUserCredentialsToWebhook({
+      email,
+      password: finalPassword,
+      origen: 2,
+    })
+    if (!webhookResult.sent && webhookResult.error) {
+      console.warn(`[POST /api/settings/users] Webhook no enviado: ${webhookResult.error}`)
     }
 
     return NextResponse.json({ 

@@ -120,15 +120,16 @@ export default function ClientsPage() {
       // Note: Supabase will enforce foreign key constraints if ON DELETE RESTRICT is set
       // If the constraint allows, the deletion will proceed
       // Historical records will maintain the client_id reference
-      const { error: deleteError } = await supabase
+      const { data: deletedRows, error: deleteError } = await supabase
         .from('clients')
         .delete()
         .eq('id', selectedClient.id)
         .eq('company_id', user?.company_id) // Additional security: ensure user can only delete their company's clients
+        .select('id')
 
       if (deleteError) {
         // Handle foreign key constraint violations
-        if (deleteError.message.includes('foreign key') || 
+        if (deleteError.message.includes('foreign key') ||
             deleteError.message.includes('violates foreign key constraint') ||
             deleteError.code === '23503') {
           alert(
@@ -139,6 +140,14 @@ export default function ClientsPage() {
           return
         }
         throw deleteError
+      }
+
+      // RLS or permissions may allow "success" with 0 rows deleted; treat that as failure
+      if (!deletedRows?.length) {
+        alert(
+          'No se pudo eliminar el cliente. Puede que falte una política de permisos en la base de datos (RLS DELETE en la tabla clients).'
+        )
+        return
       }
 
       // Success

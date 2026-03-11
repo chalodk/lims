@@ -1,5 +1,6 @@
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
+import { sendUserCredentialsToWebhook, type UserCredentialsOrigen } from './userCredentialsWebhook'
 
 /**
  * Tipos para el servicio de creación de usuarios
@@ -11,6 +12,8 @@ export interface CreateUserOptions {
   companyId: string
   clientId: string
   roleName?: string // Default: 'consumidor'
+  /** Si se define, al crear el usuario se envían credenciales al webhook (1=desde cliente, 2=desde configuración) */
+  webhookOrigen?: UserCredentialsOrigen
 }
 
 export interface CreateUserResult {
@@ -263,7 +266,7 @@ export async function getRoleIdByName(roleName: string): Promise<{ roleId: numbe
  * Maneja rollback si falla cualquier paso
  */
 export async function createUserAtomically(options: CreateUserOptions): Promise<CreateUserResult> {
-  const { email, name, rut, companyId, clientId, roleName = 'consumidor' } = options
+  const { email, name, rut, companyId, clientId, roleName = 'consumidor', webhookOrigen } = options
 
   // 1. Validar email
   if (!validateEmail(email)) {
@@ -410,6 +413,17 @@ export async function createUserAtomically(options: CreateUserOptions): Promise<
     }
 
     // 9. Éxito
+    if (webhookOrigen) {
+      const webhookResult = await sendUserCredentialsToWebhook({
+        email: email.trim(),
+        password: passwordResult.password,
+        origen: webhookOrigen,
+      })
+      if (!webhookResult.sent && webhookResult.error) {
+        console.warn(`[createUserAtomically] Webhook no enviado: ${webhookResult.error}`)
+      }
+    }
+
     return {
       success: true,
       userId: authUserId,

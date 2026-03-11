@@ -279,21 +279,28 @@ export default function AddResultModal({
         setIsValidated(false)
       }
       
-      // Ensure samples are loaded before setting sample_id
+      // Load all option lists BEFORE setFormData so selects show correct labels on first render
       await fetchSamples()
-      
-      // Set basic form data (only if not validated)
-      if (result.status === 'validated') {
-        // Still load the data to display it, but fields will be disabled
+      if (result.sample_id) {
+        await fetchSampleTests(result.sample_id)
       }
+      await Promise.all([fetchReports(), fetchUsers()])
       
-      setFormData(prev => ({
-        ...prev,
-        sample_id: result.sample_id || '',
-        sample_test_id: result.sample_test_id || '',
-        methodology: result.methodology || '',
-        methodologies: result.methodology ? [result.methodology] : [],
-        identification_techniques: [],
+      setFormData(prev => {
+        const findingsObj = result.findings && typeof result.findings === 'object' ? result.findings as { methodologies?: string[], identification_techniques?: string[] } : null
+        const methodologies = Array.isArray(findingsObj?.methodologies)
+          ? findingsObj.methodologies
+          : (result.methodology ? [result.methodology] : [])
+        const identificationTechniques = Array.isArray(findingsObj?.identification_techniques)
+          ? findingsObj.identification_techniques
+          : []
+        return {
+          ...prev,
+          sample_id: result.sample_id || '',
+          sample_test_id: result.sample_test_id || '',
+          methodology: result.methodology || '',
+          methodologies,
+          identification_techniques: identificationTechniques,
         findings: result.findings ? (typeof result.findings === 'string' ? result.findings : JSON.stringify(result.findings, null, 2)) : '',
         conclusion: result.conclusion || '',
         diagnosis: result.diagnosis || '',
@@ -309,15 +316,12 @@ export default function AddResultModal({
         validated_by: result.validated_by || '',
         validation_date: result.validation_date ? new Date(result.validation_date).toISOString().slice(0, 16) : '',
         status: result.status || 'pending'
-      }))
+      }
+      })
       
-      // Set selected analysis area from test_area
       if (result.test_area) {
         setSelectedAnalysisArea(result.test_area)
       }
-      
-      // Load reports and users for selectors
-      await Promise.all([fetchReports(), fetchUsers()])
       
       // Parse findings JSON and populate specific data structures
       if (result.findings && typeof result.findings === 'object') {
@@ -405,11 +409,6 @@ export default function AddResultModal({
                 }]
           })
         }
-      }
-      
-      // Load sample tests for the selected sample
-      if (result.sample_id) {
-        await fetchSampleTests(result.sample_id)
       }
     } catch (error) {
       console.error('Error loading result data:', error)
@@ -2335,6 +2334,12 @@ export default function AddResultModal({
       const url = resultId ? `/api/results/${resultId}` : '/api/results'
       const method = resultId ? 'PATCH' : 'POST'
 
+      // For PATCH, merge methodologies and identification_techniques into findings so the API stores them (same shape as on create)
+      const findingsToSend =
+        resultId && findings && typeof findings === 'object'
+          ? { ...findings, methodologies: formData.methodologies, identification_techniques: formData.identification_techniques }
+          : findings
+
       const requestBody: Record<string, unknown> = {
         sample_id: formData.sample_id,
         sample_test_id: formData.sample_test_id || null,
@@ -2342,7 +2347,7 @@ export default function AddResultModal({
         methodology: formData.methodology || null,
         methodologies: formData.methodologies,
         identification_techniques: formData.identification_techniques,
-        findings: findings,
+        findings: findingsToSend,
         conclusion: formData.conclusion || null,
         diagnosis: formData.diagnosis || null,
         pathogen_identified: formData.pathogen_identified || null,

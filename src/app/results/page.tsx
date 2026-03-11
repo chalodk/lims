@@ -25,6 +25,7 @@ export default function ResultsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [testAreaFilter, setTestAreaFilter] = useState<string>('all')
+  const [pageSize, setPageSize] = useState<20 | 50 | 100>(20)
   const [selectedResultId, setSelectedResultId] = useState<string | null>(null)
   const [showViewModal, setShowViewModal] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -33,7 +34,8 @@ export default function ResultsPage() {
   const fetchResults = useCallback(async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/results')
+      const params = new URLSearchParams({ limit: String(pageSize) })
+      const response = await fetch(`/api/results?${params}`)
       if (!response.ok) throw new Error('Failed to fetch results')
       
       const data = await response.json()
@@ -46,7 +48,7 @@ export default function ResultsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [pageSize])
 
   useEffect(() => {
     fetchResults()
@@ -101,7 +103,7 @@ export default function ResultsPage() {
 
         {/* Filters and Search */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -139,6 +141,23 @@ export default function ResultsPage() {
                 {testAreas.map(area => (
                   <option key={area.value} value={area.value}>{area.label}</option>
                 ))}
+              </select>
+            </div>
+
+            {/* Page size: results per page */}
+            <div>
+              <label htmlFor="page-size" className="sr-only">
+                Resultados por página
+              </label>
+              <select
+                id="page-size"
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value) as 20 | 50 | 100)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              >
+                <option value={20}>Mostrar 20</option>
+                <option value={50}>Mostrar 50</option>
+                <option value={100}>Mostrar 100</option>
               </select>
             </div>
 
