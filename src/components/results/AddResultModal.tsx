@@ -2462,7 +2462,7 @@ export default function AddResultModal({
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
         
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full max-w-[calc(100vw-2rem)]">
           <form onSubmit={handleSubmit}>
             <div className="bg-white px-6 pt-6 pb-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
@@ -2503,104 +2503,98 @@ export default function AddResultModal({
               </div>
             ) : (
             <div className="bg-white px-6 py-6 max-h-[70vh] overflow-y-auto">
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                {/* Sample Selection */}
-                <div className="sm:col-span-2">
-                  <h4 className="text-md font-medium text-gray-900 mb-4">Selección de Muestra y Análisis</h4>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Muestra *
-                  </label>
-                  <select
-                    required
-                    value={formData.sample_id}
-                    onChange={(e) => setFormData(prev => ({ ...prev, sample_id: e.target.value, sample_test_id: '' }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
-                    disabled={!!preselectedSampleId || !!resultId || isLoadingResult || isValidated}
-                  >
-                    <option value="">Seleccionar muestra</option>
-                    {loadingSamples ? (
-                      <option disabled>Cargando muestras...</option>
-                    ) : (
-                      samples.map(sample => (
-                        <option key={sample.id} value={sample.id}>
-                          {sample.code} - {sample.clients?.name} ({sample.species})
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Análisis *
-                  </label>
-                  <select
-                    required
-                    value={formData.sample_test_id}
-                    onChange={(e) => setFormData(prev => ({ ...prev, sample_test_id: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
-                    disabled={!formData.sample_id || isValidated}
-                  >
-                    <option value="">Seleccionar análisis</option>
-                    {loadingTests ? (
-                      <option disabled>Cargando análisis...</option>
-                    ) : (
-                      sampleTests.map(test => (
-                        <option key={test.id} value={test.id}>
-                          {test.test_catalog?.name} ({test.test_catalog?.area}) - {test.methods?.name}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </div>
-
-                {/* Sample Info Display */}
-                {selectedSample && (
-                  <div className="sm:col-span-2 bg-blue-50 rounded-lg p-4">
-                    <h5 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
-                      <TestTube className="h-4 w-4 mr-2" />
-                      Información del Solicitante
-                    </h5>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-500">Código:</span> {selectedSample.code}
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Cliente:</span> {selectedSample.clients?.name}
-                      </div>
-                      <div>
-                        <span className="text-gray-500">RUT:</span> {selectedSample.clients?.rut}
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Email:</span> {selectedSample.clients?.contact_email}
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Especie:</span> {selectedSample.species}
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Fecha:</span> {new Date(selectedSample.received_date).toLocaleDateString()}
-                      </div>
+              <div className="flex flex-col gap-8">
+                {/* Section: Sample and Analysis */}
+                <section className="space-y-4">
+                  <h4 className="text-md font-medium text-gray-900">Selección de Muestra y Análisis</h4>
+                  <div className="grid grid-cols-1 gap-4 min-w-0 sm:grid-cols-2">
+                    <div className="min-w-0">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Muestra *
+                      </label>
+                      <select
+                        required
+                        value={formData.sample_id}
+                        onChange={(e) => setFormData(prev => ({ ...prev, sample_id: e.target.value, sample_test_id: '' }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 min-w-0"
+                        disabled={!!preselectedSampleId || !!resultId || isLoadingResult || isValidated}
+                      >
+                        <option value="">Seleccionar muestra</option>
+                        {loadingSamples ? (
+                          <option disabled>Cargando muestras...</option>
+                        ) : (
+                          samples.map(sample => (
+                            <option key={sample.id} value={sample.id}>
+                              {sample.code} - {sample.clients?.name} ({sample.species})
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+                    <div className="min-w-0">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Análisis *
+                      </label>
+                      <select
+                        required
+                        value={formData.sample_test_id}
+                        onChange={(e) => setFormData(prev => ({ ...prev, sample_test_id: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 min-w-0"
+                        disabled={!formData.sample_id || isValidated}
+                      >
+                        <option value="">Seleccionar análisis</option>
+                        {loadingTests ? (
+                          <option disabled>Cargando análisis...</option>
+                        ) : (
+                          sampleTests.map(test => (
+                            <option key={test.id} value={test.id}>
+                              {test.test_catalog?.name} ({test.test_catalog?.area}) - {test.methods?.name}
+                            </option>
+                          ))
+                        )}
+                      </select>
                     </div>
                   </div>
-                )}
+                  {selectedSample && (
+                    <div className="bg-blue-50 rounded-lg p-4 min-w-0">
+                      <h5 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                        <TestTube className="h-4 w-4 mr-2 flex-shrink-0" />
+                        Información del Solicitante
+                      </h5>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm min-w-0 sm:grid-cols-3">
+                        <div className="truncate" title={selectedSample.code}>
+                          <span className="text-gray-500">Código:</span> {selectedSample.code}
+                        </div>
+                        <div className="truncate" title={selectedSample.clients?.name}>
+                          <span className="text-gray-500">Cliente:</span> {selectedSample.clients?.name}
+                        </div>
+                        <div className="truncate" title={selectedSample.clients?.rut ?? ''}>
+                          <span className="text-gray-500">RUT:</span> {selectedSample.clients?.rut}
+                        </div>
+                        <div className="truncate" title={selectedSample.clients?.contact_email ?? ''}>
+                          <span className="text-gray-500">Email:</span> {selectedSample.clients?.contact_email || '—'}
+                        </div>
+                        <div className="truncate" title={selectedSample.species}>
+                          <span className="text-gray-500">Especie:</span> {selectedSample.species}
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Fecha:</span> {new Date(selectedSample.received_date).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </section>
 
-                {/* Result Information */}
-                <div className="sm:col-span-2">
-                  <h4 className="text-md font-medium text-gray-900 mb-4 mt-6">Información del Resultado</h4>
+                {/* Section: Result Information */}
+                <section className="space-y-4">
+                  <h4 className="text-md font-medium text-gray-900">Información del Resultado</h4>
                   {selectedAnalysisArea && (
-                    <div className="mb-4 p-2 bg-green-50 rounded-lg">
+                    <div className="p-2 bg-green-50 rounded-lg min-w-0">
                       <p className="text-sm text-green-700">
                         <span className="font-medium">Formato de resultado:</span> {selectedAnalysisArea}
                       </p>
                     </div>
                   )}
-                </div>
-
-                {/* Methodology Selection */}
-                <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-3">
                     Metodología *
                   </label>
@@ -2618,10 +2612,6 @@ export default function AddResultModal({
                       </label>
                     ))}
                   </div>
-                </div>
-
-                {/* Identification Techniques */}
-                <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-3">
                     Técnica de identificación *
                   </label>
@@ -2639,189 +2629,176 @@ export default function AddResultModal({
                       </label>
                     ))}
                   </div>
-                </div>
+                </section>
 
                 {renderResultFormatFields()}
 
-                {/* Rich Text Areas */}
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Diagnóstico
-                  </label>
-                  <RichTextEditor
-                    value={formData.diagnosis}
-                    onChange={(value) => setFormData(prev => ({ ...prev, diagnosis: value }))}
-                    placeholder="Diagnóstico detallado del análisis..."
-                    disabled={isValidated}
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Conclusión
-                  </label>
-                  <RichTextEditor
-                    value={formData.conclusion}
-                    onChange={(value) => setFormData(prev => ({ ...prev, conclusion: value }))}
-                    placeholder="Conclusiones del análisis..."
-                    disabled={isValidated}
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Recomendaciones
-                  </label>
-                  <RichTextEditor
-                    value={formData.recommendations}
-                    onChange={(value) => setFormData(prev => ({ ...prev, recommendations: value }))}
-                    placeholder="Recomendaciones para el cliente..."
-                    disabled={isValidated}
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Hallazgos Técnicos (JSON)
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={formData.findings}
-                    onChange={(e) => setFormData(prev => ({ ...prev, findings: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 font-mono text-sm disabled:bg-gray-100"
-                    placeholder='{"observaciones": "...", "mediciones": "...", "notas": "..."}'
-                    readOnly={selectedAnalysisArea.toLowerCase().includes('nematolog') || selectedAnalysisArea.toLowerCase().includes('virolog') || selectedAnalysisArea.toLowerCase().includes('fitopatolog') || isValidated}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {selectedAnalysisArea.toLowerCase().includes('nematolog') 
-                      ? 'Generado automáticamente basado en los datos de nematología'
-                      : selectedAnalysisArea.toLowerCase().includes('virolog')
-                      ? 'Generado automáticamente basado en los datos de virología'
-                      : selectedAnalysisArea.toLowerCase().includes('fitopatolog')
-                      ? 'Generado automáticamente basado en los datos de fitopatología'
-                      : 'Formato JSON opcional para datos estructurados'
-                    }
-                  </p>
-                </div>
+                {/* Rich Text and Findings */}
+                <section className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Diagnóstico
+                    </label>
+                    <RichTextEditor
+                      value={formData.diagnosis}
+                      onChange={(value) => setFormData(prev => ({ ...prev, diagnosis: value }))}
+                      placeholder="Diagnóstico detallado del análisis..."
+                      disabled={isValidated}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Conclusión
+                    </label>
+                    <RichTextEditor
+                      value={formData.conclusion}
+                      onChange={(value) => setFormData(prev => ({ ...prev, conclusion: value }))}
+                      placeholder="Conclusiones del análisis..."
+                      disabled={isValidated}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Recomendaciones
+                    </label>
+                    <RichTextEditor
+                      value={formData.recommendations}
+                      onChange={(value) => setFormData(prev => ({ ...prev, recommendations: value }))}
+                      placeholder="Recomendaciones para el cliente..."
+                      disabled={isValidated}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Hallazgos Técnicos (JSON)
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={formData.findings}
+                      onChange={(e) => setFormData(prev => ({ ...prev, findings: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 font-mono text-sm disabled:bg-gray-100 min-w-0"
+                      placeholder='{"observaciones": "...", "mediciones": "...", "notas": "..."}'
+                      readOnly={selectedAnalysisArea.toLowerCase().includes('nematolog') || selectedAnalysisArea.toLowerCase().includes('virolog') || selectedAnalysisArea.toLowerCase().includes('fitopatolog') || isValidated}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {selectedAnalysisArea.toLowerCase().includes('nematolog') 
+                        ? 'Generado automáticamente basado en los datos de nematología'
+                        : selectedAnalysisArea.toLowerCase().includes('virolog')
+                        ? 'Generado automáticamente basado en los datos de virología'
+                        : selectedAnalysisArea.toLowerCase().includes('fitopatolog')
+                        ? 'Generado automáticamente basado en los datos de fitopatología'
+                        : 'Formato JSON opcional para datos estructurados'
+                      }
+                    </p>
+                  </div>
+                </section>
 
                 {/* Additional Fields for Edit Mode */}
                 {resultId && (
-                  <>
-                    <div className="sm:col-span-2 lg:col-span-3">
-                      <h4 className="text-md font-medium text-gray-900 mb-4 mt-6">Información Adicional</h4>
+                  <section className="space-y-4">
+                    <h4 className="text-md font-medium text-gray-900">Información Adicional</h4>
+                    <div className="grid grid-cols-1 gap-4 min-w-0 sm:grid-cols-2">
+                      <div className="min-w-0">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Informe
+                        </label>
+                        <select
+                          value={formData.report_id}
+                          onChange={(e) => setFormData(prev => ({ ...prev, report_id: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 min-w-0"
+                        >
+                          <option value="">Sin informe asignado</option>
+                          {reports.map(report => (
+                            <option key={report.id} value={report.id}>
+                              {report.id_display || report.id}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="min-w-0">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Estado
+                        </label>
+                        <select
+                          value={formData.status}
+                          onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 min-w-0"
+                          disabled={isValidated}
+                        >
+                          <option value="pending">Pendiente</option>
+                          <option value="completed">Completado</option>
+                          <option value="validated">Validado</option>
+                        </select>
+                      </div>
+                      <div className="min-w-0">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Realizado Por
+                        </label>
+                        <select
+                          value={formData.performed_by}
+                          onChange={(e) => setFormData(prev => ({ ...prev, performed_by: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 min-w-0"
+                          disabled={isValidated}
+                        >
+                          <option value="">Sin asignar</option>
+                          {users.map(userOpt => (
+                            <option key={userOpt.id} value={userOpt.id}>
+                              {userOpt.name} ({userOpt.email})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="min-w-0">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Fecha de Realización
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={formData.performed_at}
+                          onChange={(e) => setFormData(prev => ({ ...prev, performed_at: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 min-w-0"
+                          disabled={isValidated}
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Validado Por
+                        </label>
+                        <select
+                          value={formData.validated_by}
+                          onChange={(e) => setFormData(prev => ({ 
+                            ...prev, 
+                            validated_by: e.target.value,
+                            validation_date: e.target.value ? (formData.validation_date || new Date().toISOString().slice(0, 16)) : ''
+                          }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 min-w-0"
+                          disabled={isValidated}
+                        >
+                          <option value="">Sin validar</option>
+                          {users.map(userOpt => (
+                            <option key={userOpt.id} value={userOpt.id}>
+                              {userOpt.name} ({userOpt.email})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="min-w-0">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Fecha de Validación
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={formData.validation_date}
+                          onChange={(e) => setFormData(prev => ({ ...prev, validation_date: e.target.value }))}
+                          disabled={!formData.validated_by || isValidated}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 min-w-0"
+                        />
+                        {!formData.validated_by && !isValidated && (
+                          <p className="text-xs text-gray-500 mt-1">Asigne un validador primero</p>
+                        )}
+                      </div>
                     </div>
-
-                    {/* Report ID */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Informe
-                      </label>
-                      <select
-                        value={formData.report_id}
-                        onChange={(e) => setFormData(prev => ({ ...prev, report_id: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                      >
-                        <option value="">Sin informe asignado</option>
-                        {reports.map(report => (
-                          <option key={report.id} value={report.id}>
-                            {report.id_display || report.id}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Status */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Estado
-                      </label>
-                      <select
-                        value={formData.status}
-                        onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
-                        disabled={isValidated}
-                      >
-                        <option value="pending">Pendiente</option>
-                        <option value="completed">Completado</option>
-                        <option value="validated">Validado</option>
-                      </select>
-                    </div>
-
-                    {/* Performed By */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Realizado Por
-                      </label>
-                      <select
-                        value={formData.performed_by}
-                        onChange={(e) => setFormData(prev => ({ ...prev, performed_by: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
-                        disabled={isValidated}
-                      >
-                        <option value="">Sin asignar</option>
-                        {users.map(userOpt => (
-                          <option key={userOpt.id} value={userOpt.id}>
-                            {userOpt.name} ({userOpt.email})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Performed At */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Fecha de Realización
-                      </label>
-                      <input
-                        type="datetime-local"
-                        value={formData.performed_at}
-                        onChange={(e) => setFormData(prev => ({ ...prev, performed_at: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
-                        disabled={isValidated}
-                      />
-                    </div>
-
-                    {/* Validated By */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Validado Por
-                      </label>
-                      <select
-                        value={formData.validated_by}
-                        onChange={(e) => setFormData(prev => ({ 
-                          ...prev, 
-                          validated_by: e.target.value,
-                          validation_date: e.target.value ? (formData.validation_date || new Date().toISOString().slice(0, 16)) : ''
-                        }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
-                        disabled={isValidated}
-                      >
-                        <option value="">Sin validar</option>
-                        {users.map(userOpt => (
-                          <option key={userOpt.id} value={userOpt.id}>
-                            {userOpt.name} ({userOpt.email})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Validation Date */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Fecha de Validación
-                      </label>
-                      <input
-                        type="datetime-local"
-                        value={formData.validation_date}
-                        onChange={(e) => setFormData(prev => ({ ...prev, validation_date: e.target.value }))}
-                        disabled={!formData.validated_by || isValidated}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
-                      />
-                      {!formData.validated_by && !isValidated && (
-                        <p className="text-xs text-gray-500 mt-1">Asigne un validador primero</p>
-                      )}
-                    </div>
-                  </>
+                  </section>
                 )}
               </div>
             </div>
