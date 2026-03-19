@@ -5,9 +5,10 @@ import { useAuth } from '@/hooks/useAuth'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import ViewResultModal from '@/components/results/ViewResultModal'
 import AddResultModal from '@/components/results/AddResultModal'
+import DeleteResultConfirmModal from '@/components/results/DeleteResultConfirmModal'
 import { ResultWithRelations } from '@/types/database'
 import { formatDate } from '@/lib/utils/formatters'
-import { getResultStatusBadge, getResultTypeBadge, getSeverityBadge } from '@/lib/utils/badges'
+import { getResultStatusBadge, getResultTypeBadge } from '@/lib/utils/badges'
 import { 
   Plus,
   Search,
@@ -15,7 +16,8 @@ import {
   Loader2,
   Eye,
   Edit2,
-  Filter
+  Filter,
+  Trash2
 } from 'lucide-react'
 
 export default function ResultsPage() {
@@ -30,6 +32,9 @@ export default function ResultsPage() {
   const [showViewModal, setShowViewModal] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingResultId, setEditingResultId] = useState<string | null>(null)
+  const [resultPendingDelete, setResultPendingDelete] = useState<ResultWithRelations | null>(null)
+  const [isDeletingResult, setIsDeletingResult] = useState(false)
+  const [deleteResultError, setDeleteResultError] = useState<string | null>(null)
 
   const fetchResults = useCallback(async () => {
     try {
@@ -70,6 +75,36 @@ export default function ResultsPage() {
 
   const canCreateResults = userRole && ['admin', 'validador', 'comun'].includes(userRole)
   const canEditResults = userRole && ['admin', 'validador'].includes(userRole)
+  const canDeleteResults = canEditResults
+
+  const mapDeleteResultError = (apiMessage: string) => {
+    if (apiMessage === 'Cannot delete validated results') {
+      return 'No se pueden eliminar resultados validados.'
+    }
+    return apiMessage
+  }
+
+  const handleConfirmDeleteResult = async () => {
+    if (!resultPendingDelete) return
+    setIsDeletingResult(true)
+    setDeleteResultError(null)
+    try {
+      const response = await fetch(`/api/results/${resultPendingDelete.id}`, { method: 'DELETE' })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        const message =
+          typeof payload.error === 'string' ? mapDeleteResultError(payload.error) : 'No se pudo eliminar el resultado.'
+        setDeleteResultError(message)
+        return
+      }
+      setResultPendingDelete(null)
+      await fetchResults()
+    } catch {
+      setDeleteResultError('Error de red al eliminar. Intenta de nuevo.')
+    } finally {
+      setIsDeletingResult(false)
+    }
+  }
 
   const testAreas = [
     { value: 'nematologia', label: 'Nematología' },
@@ -284,6 +319,19 @@ export default function ResultsPage() {
                               <Edit2 className="h-4 w-4" />
                             </button>
                           )}
+                          {canDeleteResults && result.status !== 'validated' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeleteResultError(null)
+                                setResultPendingDelete(result)
+                              }}
+                              className="text-red-600 hover:text-red-900"
+                              title="Eliminar resultado"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -317,6 +365,21 @@ export default function ResultsPage() {
           setEditingResultId(null)
         }}
         resultId={editingResultId}
+      />
+
+      <DeleteResultConfirmModal
+        isOpen={!!resultPendingDelete}
+        onClose={() => {
+          if (!isDeletingResult) {
+            setResultPendingDelete(null)
+            setDeleteResultError(null)
+          }
+        }}
+        onConfirm={handleConfirmDeleteResult}
+        sampleCode={resultPendingDelete?.samples?.code || '—'}
+        testAreaLabel={resultPendingDelete?.test_area ?? null}
+        isDeleting={isDeletingResult}
+        errorMessage={deleteResultError}
       />
     </DashboardLayout>
   )
