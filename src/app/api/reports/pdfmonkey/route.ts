@@ -862,8 +862,18 @@ export async function POST(request: NextRequest) {
         console.warn('PDFMonkey: results not found or inaccessible', { targetIds, resultsError })
         return NextResponse.json({ error: 'Results not found' }, { status: 404 })
       }
-      
-      resultados = (resultsData as unknown) as ResultadoData[]
+
+      // Postgres/Supabase does not return rows in the same order as the .in() id list; reorder to match request/selection order.
+      const fetchedRows = resultsData as unknown as ResultadoData[]
+      const resultsById = new Map(fetchedRows.map((row) => [row.id, row]))
+      const orderedResultados: ResultadoData[] = []
+      for (const id of targetIds) {
+        const row = resultsById.get(id)
+        if (row) {
+          orderedResultados.push(row)
+        }
+      }
+      resultados = orderedResultados
       
       // Validate that all results belong to the same client
       if (resultados.length > 1) {
@@ -897,8 +907,8 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      // Get report info: prioritize report_id from request body, then from first result
-      const firstResult = resultsData[0]
+      // Get report info: prioritize report_id from request body, then from first result (in selection order)
+      const firstResult = resultados[0]
       const reportIdToUse = report_id || firstResult.report_id
       
       if (reportIdToUse) {
