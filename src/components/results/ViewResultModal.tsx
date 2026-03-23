@@ -643,7 +643,7 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
                         <div>
                           <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Diagnóstico</label>
                           <div 
-                            className="text-sm text-gray-900 prose prose-sm max-w-none"
+                            className="text-sm text-gray-900 prose prose-sm max-w-none [&_p]:whitespace-pre-wrap [&_li]:whitespace-pre-wrap [&_h1]:whitespace-pre-wrap [&_h2]:whitespace-pre-wrap [&_h3]:whitespace-pre-wrap"
                             dangerouslySetInnerHTML={{ __html: result.diagnosis }}
                           />
                         </div>
@@ -652,7 +652,7 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
                         <div>
                           <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Conclusión</label>
                           <div 
-                            className="text-sm text-gray-900 prose prose-sm max-w-none"
+                            className="text-sm text-gray-900 prose prose-sm max-w-none [&_p]:whitespace-pre-wrap [&_li]:whitespace-pre-wrap [&_h1]:whitespace-pre-wrap [&_h2]:whitespace-pre-wrap [&_h3]:whitespace-pre-wrap"
                             dangerouslySetInnerHTML={{ __html: result.conclusion }}
                           />
                         </div>
@@ -666,7 +666,7 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
                   <div className="bg-green-50 rounded-lg p-4">
                     <h4 className="text-sm font-medium text-gray-900 mb-3">Recomendaciones</h4>
                     <div 
-                      className="text-sm text-gray-900 prose prose-sm max-w-none"
+                      className="text-sm text-gray-900 prose prose-sm max-w-none [&_p]:whitespace-pre-wrap [&_li]:whitespace-pre-wrap [&_h1]:whitespace-pre-wrap [&_h2]:whitespace-pre-wrap [&_h3]:whitespace-pre-wrap"
                       dangerouslySetInnerHTML={{ __html: result.recommendations }}
                     />
                   </div>

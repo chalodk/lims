@@ -53,7 +53,46 @@ interface ResultadoData {
     taken_by: 'client' | 'lab' | null
     sampling_method: string | null
   } | null
+  sample_test_id?: string | null
+  /** Relación 1:1 vía results.sample_test_id → sample_tests (misma forma que GET /api/results/[id]). */
+  sample_tests?: {
+    test_catalog?: { name?: string; area?: string; code?: string } | null
+  } | null
 }
+
+/** Columnas y joins alineados con la carga de resultados para PDF (incl. nombre del ensayo en test_catalog). */
+const RESULTS_SELECT_FOR_PDF = `
+  id,
+  sample_id,
+  sample_test_id,
+  test_area,
+  result_type,
+  findings,
+  methodology,
+  performed_by,
+  performed_at,
+  validated_by,
+  validation_date,
+  conclusion,
+  diagnosis,
+  recommendations,
+  report_id,
+  samples:sample_id (
+    id,
+    code,
+    species,
+    variety,
+    rootstock,
+    planting_year,
+    received_date,
+    suspected_pathogen,
+    taken_by,
+    sampling_method
+  ),
+  sample_tests (
+    test_catalog (name, area, code)
+  )
+`
 
 // Analysis defaults for different test types
 const ANALYSIS_DEFAULTS = {
@@ -72,6 +111,115 @@ const ANALYSIS_DEFAULTS = {
     tipoAnalisisDescripcion: "Determinación de patógenos vegetales.",
     metodologiaDescripcion: "Se efectuaron tres diluciones (10⁻¹, 10⁻² y 10⁻³) de cada muestra de suelo previamente tamizadas. Posteriormente se extrajo 1 ml de cada dilución, sembrándolas en placas de Petri con medios de cultivos específicos para el desarrollo de hongos. Después del período de incubación, se hizo el recuento del número de colonias presentes en las placas correspondientes a las tres diluciones de cada muestra de suelo. Los resultados se expresan en número de colonias de hongos por muestra analizada."
   }
+}
+
+function parseFindingsRecord(findings: ResultadoData['findings'] | unknown): Record<string, unknown> | null {
+  if (findings == null) return null
+  if (typeof findings === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(findings)
+      return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null
+    } catch {
+      return null
+    }
+  }
+  if (typeof findings === 'object' && !Array.isArray(findings)) {
+    return findings as Record<string, unknown>
+  }
+  return null
+}
+
+/**
+ * Narrativa de metodología desde findings (methodologies / identification_techniques),
+ * como los guarda AddResultModal al marcar checkboxes.
+ * Une valores únicos de todos los resultados del informe.
+ */
+function buildMetodologiaDescripcionFromFindings(resultados: ResultadoData[]): string | null {
+  const methodologyLabels = new Set<string>()
+  const techniqueLabels = new Set<string>()
+
+  for (const resultado of resultados) {
+    const record = parseFindingsRecord(resultado?.findings)
+    if (!record) continue
+
+    const methodologies = record.methodologies
+    if (Array.isArray(methodologies)) {
+      for (const item of methodologies) {
+        if (typeof item === 'string' && item.trim() !== '') methodologyLabels.add(item.trim())
+      }
+    }
+
+    const identificationTechniques = record.identification_techniques
+    if (Array.isArray(identificationTechniques)) {
+      for (const item of identificationTechniques) {
+        if (typeof item === 'string' && item.trim() !== '') techniqueLabels.add(item.trim())
+      }
+    }
+  }
+
+  if (methodologyLabels.size === 0 && techniqueLabels.size === 0) return null
+
+  const sentenceParts: string[] = []
+  if (methodologyLabels.size > 0) {
+    sentenceParts.push(
+      `Para la determinación se utilizó: ${Array.from(methodologyLabels).join(', ')}.`
+    )
+  }
+  if (techniqueLabels.size > 0) {
+    sentenceParts.push(`Técnica(s) de identificación: ${Array.from(techniqueLabels).join(', ')}.`)
+  }
+  return sentenceParts.join(' ')
+}
+
+function resolveMetodologiaDescripcion(
+  resultados: ResultadoData[],
+  fallbackDefault: string
+): string {
+  const explicitMethodology = resultados[0]?.methodology?.trim()
+  if (explicitMethodology) return explicitMethodology
+
+  const fromFindings = buildMetodologiaDescripcionFromFindings(resultados)
+  if (fromFindings) return fromFindings
+
+  return fallbackDefault
+}
+
+function uniqueTestCatalogNamesInOrder(resultados: ResultadoData[]): string[] {
+  const seen = new Set<string>()
+  const ordered: string[] = []
+  for (const resultado of resultados) {
+    const catalogName = resultado.sample_tests?.test_catalog?.name?.trim()
+    if (catalogName && !seen.has(catalogName)) {
+      seen.add(catalogName)
+      ordered.push(catalogName)
+    }
+  }
+  return ordered
+}
+
+/**
+ * HTML from TipTap collapses visually without CSS; PDF engines do the same.
+ * Outer wrapper with pre-wrap so leading spaces and breaks inside paragraphs survive in PDFMonkey output.
+ */
+function wrapHtmlPreservingWhitespaceForPdf(html: string | null | undefined): string {
+  if (html == null || html.trim() === '') return ''
+  return `<div style="white-space:pre-wrap;">${html}</div>`
+}
+
+/**
+ * Descripción del tipo de análisis desde test_catalog.name (elección de ensayo al asociar sample_tests).
+ * results.test_area solo guarda el área genérica (p. ej. nematologia), no el nombre del catálogo.
+ */
+function resolveTipoAnalisisDescripcionFromCatalog(
+  resultados: ResultadoData[],
+  fallbackDefault: string
+): string {
+  const names = uniqueTestCatalogNamesInOrder(resultados)
+  if (names.length === 0) return fallbackDefault
+  if (names.length === 1) return names[0]
+  return names.join('; ')
 }
 
 // PDF Templates mapping - easily extensible for new analysis types
@@ -538,22 +686,30 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           numeroMuestras: resultados.length.toString()
         },
         tipoMuestra: {
-          descripcion: resultados[0]?.conclusion || 'Muestra de suelo para análisis fitopatológico. Recuento de colonias.'
+          descripcion:
+            wrapHtmlPreservingWhitespaceForPdf(resultados[0]?.conclusion) ||
+            'Muestra de suelo para análisis fitopatológico. Recuento de colonias.'
         },
         metodologia: {
-          descripcion: resultados[0]?.methodology || defaults.metodologiaDescripcion
+          descripcion: resolveMetodologiaDescripcion(resultados, defaults.metodologiaDescripcion)
         },
         resultados: resultadosData,
         diagnostico: {
-          descripcion: resultados
-            .map(r => r?.diagnosis)
-            .filter(d => d && d.trim() !== '')
-            .join('\n') || 
-            resultados
-              .map(r => r?.conclusion)
-              .filter(c => c && c.trim() !== '')
-              .join('\n') || 
-            'Análisis fitopatológico completado. Los microorganismos identificados corresponden a la flora natural del suelo.'
+          descripcion: (() => {
+            const diagnosisJoined = resultados
+              .map((r) => r?.diagnosis)
+              .filter((d): d is string => Boolean(d && d.trim() !== ''))
+              .join('\n')
+            const conclusionJoined = resultados
+              .map((r) => r?.conclusion)
+              .filter((c): c is string => Boolean(c && c.trim() !== ''))
+              .join('\n')
+            const richHtml = diagnosisJoined || conclusionJoined
+            if (!richHtml) {
+              return 'Análisis fitopatológico completado. Los microorganismos identificados corresponden a la flora natural del suelo.'
+            }
+            return wrapHtmlPreservingWhitespaceForPdf(richHtml)
+          })()
         },
         notaResultados: 'Los resultados solamente son válidos sólo para las muestras analizadas las que fueron proporcionadas por el cliente.',
         analista: {
@@ -660,10 +816,10 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           fechaEntrega: resultados[0]?.validation_date ? formatDate(resultados[0].validation_date) : formatDate(currentDate.toISOString())
         },
         tipoAnalisis: {
-          descripcion: defaults.tipoAnalisisDescripcion
+          descripcion: resolveTipoAnalisisDescripcionFromCatalog(resultados, defaults.tipoAnalisisDescripcion)
         },
         metodologia: {
-          descripcion: resultados[0]?.methodology || defaults.metodologiaDescripcion
+          descripcion: resolveMetodologiaDescripcion(resultados, defaults.metodologiaDescripcion)
         },
         procedimientoMuestreo: {
           procedimientoUtilizado: resultados[0]?.samples?.sampling_method || 'No especificado',
@@ -671,15 +827,21 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         },
         resultados: resultadosPayload,
         conclusiones: {
-          descripcion: resultados
-            .map(r => r?.conclusion)
-            .filter(c => c && c.trim() !== '')
-            .join('\n') || 
-            resultados
-              .map(r => r?.diagnosis)
-              .filter(d => d && d.trim() !== '')
-              .join('\n') || 
-            'La muestra analizada no presentó nematodos fitoparásitos, sólo nematodos de vida libre o benéficos.'
+          descripcion: (() => {
+            const conclusionJoined = resultados
+              .map((r) => r?.conclusion)
+              .filter((c): c is string => Boolean(c && c.trim() !== ''))
+              .join('\n')
+            const diagnosisJoined = resultados
+              .map((r) => r?.diagnosis)
+              .filter((d): d is string => Boolean(d && d.trim() !== ''))
+              .join('\n')
+            const richHtml = conclusionJoined || diagnosisJoined
+            if (!richHtml) {
+              return 'La muestra analizada no presentó nematodos fitoparásitos, sólo nematodos de vida libre o benéficos.'
+            }
+            return wrapHtmlPreservingWhitespaceForPdf(richHtml)
+          })()
         },
         analista: {
           nombre: 'DRA. LUCIA RIVERA C.',
@@ -855,7 +1017,7 @@ export async function POST(request: NextRequest) {
       // If we have result_ids, fetch all results
       const { data: resultsData, error: resultsError } = await supabase
         .from('results')
-        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date, suspected_pathogen, taken_by, sampling_method)')
+        .select(RESULTS_SELECT_FOR_PDF)
         .in('id', targetIds)
       
       if (resultsError || !resultsData || resultsData.length === 0) {
@@ -931,7 +1093,7 @@ export async function POST(request: NextRequest) {
       // If we have result_id, fetch the result directly and get report/client info from it
       const { data: resultData, error: resultError } = await supabase
         .from('results')
-        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date, suspected_pathogen, taken_by, sampling_method)')
+        .select(RESULTS_SELECT_FOR_PDF)
         .eq('id', result_id)
         .single()
       
@@ -979,7 +1141,7 @@ export async function POST(request: NextRequest) {
       // Try to fetch result data from results table using report_id
       const { data: resultData, error: resultError } = await supabase
         .from('results')
-        .select('id, sample_id, test_area, result_type, findings, methodology, performed_by, performed_at, validated_by, validation_date, conclusion, diagnosis, recommendations, report_id, samples:sample_id (id, code, species, variety, rootstock, planting_year, received_date, suspected_pathogen, taken_by, sampling_method)')
+        .select(RESULTS_SELECT_FOR_PDF)
         .eq('report_id', report_id)
         .single()
       

@@ -7,6 +7,11 @@ import Underline from '@tiptap/extension-underline'
 import Placeholder from '@tiptap/extension-placeholder'
 import { useEffect, useRef } from 'react'
 import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Link as LinkIcon, Heading1, Heading2, Heading3, RemoveFormatting } from 'lucide-react'
+import {
+  PreserveSignificantSpaces,
+  normalizeLeadingAsciiSpacesInRichHtml,
+  runNormalizeSignificantSpaces,
+} from '@/extensions/tiptapPreserveSignificantSpaces'
 
 interface RichTextEditorProps {
   value: string
@@ -26,6 +31,9 @@ export default function RichTextEditor({
   const isInternalChange = useRef(false)
 
   const editor = useEditor({
+    parseOptions: {
+      preserveWhitespace: 'full',
+    },
     extensions: [
       StarterKit.configure({
         heading: {
@@ -44,10 +52,16 @@ export default function RichTextEditor({
       Placeholder.configure({
         placeholder,
       }),
+      PreserveSignificantSpaces,
     ],
-    content: value,
+    content: normalizeLeadingAsciiSpacesInRichHtml(value),
     editable: !disabled,
     immediatelyRender: false,
+    onCreate: ({ editor }) => {
+      queueMicrotask(() => {
+        runNormalizeSignificantSpaces(editor)
+      })
+    },
     onUpdate: ({ editor }) => {
       isInternalChange.current = true
       onChange(editor.getHTML())
@@ -56,7 +70,11 @@ export default function RichTextEditor({
 
   useEffect(() => {
     if (editor && !isInternalChange.current && value !== editor.getHTML()) {
-      editor.commands.setContent(value, { emitUpdate: false })
+      const normalizedFromServer = normalizeLeadingAsciiSpacesInRichHtml(value)
+      editor.commands.setContent(normalizedFromServer, { emitUpdate: false })
+      queueMicrotask(() => {
+        runNormalizeSignificantSpaces(editor)
+      })
     }
     isInternalChange.current = false
   }, [value, editor])
@@ -88,6 +106,14 @@ export default function RichTextEditor({
           font-size: 0.875rem;
           line-height: 1.5;
           color: #111827;
+          white-space: pre-wrap;
+        }
+        .rich-text-editor .ProseMirror p,
+        .rich-text-editor .ProseMirror li,
+        .rich-text-editor .ProseMirror h1,
+        .rich-text-editor .ProseMirror h2,
+        .rich-text-editor .ProseMirror h3 {
+          white-space: pre-wrap;
         }
         .rich-text-editor .ProseMirror p {
           margin: 0 0 0.25rem 0;
