@@ -24,6 +24,7 @@ interface AddResultModalProps {
 
 const METHOD_OPTIONS = [
   'Tamizado de Cobb y Embudo de Baermann',
+  'Método de Fenwick',
   'Centrífuga',
   'Incubación y Tamizado de Cobb',
   'Placa petri',
