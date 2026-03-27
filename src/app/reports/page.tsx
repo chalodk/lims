@@ -4,6 +4,11 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
 import DashboardLayout from '@/components/layout/DashboardLayout'
+import {
+  BulkRowSelectionCheckbox,
+  BulkSelectAllHeaderCheckbox,
+  BulkSelectionToolbarRow,
+} from '@/components/BulkSelectionTableToolbar'
 import CreateReportModal from '@/components/reports/CreateReportModal'
 import ViewReportModal from '@/components/reports/ViewReportModal'
 import SamplesDisplay from '@/components/reports/SamplesDisplay'
@@ -763,62 +768,33 @@ export default function ReportsPage() {
             <div className="overflow-x-auto">
               <table className="w-full table-auto">
                 <thead className="bg-gray-50 border-b border-gray-200">
-                  {selectedReports.size > 0 ? (
-                    <tr>
-                      <th colSpan={9} className="px-3 py-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <input
-                              type="checkbox"
-                              checked={selectedReports.size === filteredReports.length}
-                              onChange={handleSelectAll}
-                              className="h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
-                            />
-                            <span className="text-sm font-medium text-gray-700">
-                              {selectedReports.size} informe(s) seleccionado(s)
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {(userRole === 'admin' || userRole === 'validador') && (
-                              <button
-                                onClick={handleBulkValidate}
-                                disabled={isBulkValidating}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                              >
-                                {isBulkValidating ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Check className="h-4 w-4" />
-                                )}
-                                Validar
-                              </button>
-                            )}
-                            {(userRole === 'admin' || userRole === 'comun') && (
-                              <button
-                                onClick={handleBulkDelete}
-                                disabled={isBulkDeleting}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                              >
-                                {isBulkDeleting ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                                Borrar
-                              </button>
-                            )}
-                            <button
-                              onClick={clearSelection}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200 transition-colors"
-                            >
-                              <X className="h-4 w-4" />
-                              Cancelar
-                            </button>
-                          </div>
-                        </div>
-                      </th>
-                    </tr>
-                  ) : (
+                  <BulkSelectionToolbarRow
+                    columnSpan={9}
+                    selectedCount={selectedReports.size}
+                    filteredRowCount={filteredReports.length}
+                    selectionSummaryText={`${selectedReports.size} informe(s) seleccionado(s)`}
+                    onSelectAll={handleSelectAll}
+                    onClearSelection={clearSelection}
+                    validateAction={
+                      userRole === 'admin' || userRole === 'validador'
+                        ? {
+                            onClick: handleBulkValidate,
+                            disabled: isBulkValidating,
+                            isLoading: isBulkValidating,
+                          }
+                        : null
+                    }
+                    deleteAction={
+                      userRole === 'admin' || userRole === 'comun'
+                        ? {
+                            onClick: handleBulkDelete,
+                            disabled: isBulkDeleting,
+                            isLoading: isBulkDeleting,
+                          }
+                        : null
+                    }
+                  />
+                  {selectedReports.size === 0 ? (
                   <tr>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-14">
                       Tipo
@@ -845,18 +821,16 @@ export default function ReportsPage() {
                       Acciones
                     </th>
                     {(userRole === 'admin' || userRole === 'validador' || userRole === 'comun') && (
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
-                        <input
-                          type="checkbox"
-                          checked={selectedReports.size === filteredReports.length && filteredReports.length > 0}
-                          onChange={handleSelectAll}
-                          className="h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
-                          title="Seleccionar todos"
-                        />
-                      </th>
+                      <BulkSelectAllHeaderCheckbox
+                        checked={
+                          selectedReports.size === filteredReports.length &&
+                          filteredReports.length > 0
+                        }
+                        onChange={handleSelectAll}
+                      />
                     )}
                   </tr>
-                  )}
+                  ) : null}
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredReports.map((report) => {
@@ -1033,14 +1007,10 @@ export default function ReportsPage() {
                         </div>
                       </td>
                       {(userRole === 'admin' || userRole === 'validador' || userRole === 'comun') && (
-                        <td className="px-3 py-4 text-center">
-                          <input
-                            type="checkbox"
-                            checked={selectedReports.has(report.id)}
-                            onChange={() => handleSelectReport(report.id)}
-                            className="h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
-                          />
-                        </td>
+                        <BulkRowSelectionCheckbox
+                          checked={selectedReports.has(report.id)}
+                          onChange={() => handleSelectReport(report.id)}
+                        />
                       )}
                     </tr>
                     )

@@ -3,6 +3,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import DashboardLayout from '@/components/layout/DashboardLayout'
+import {
+  BulkRowSelectionCheckbox,
+  BulkSelectAllHeaderCheckbox,
+  BulkSelectionToolbarRow,
+} from '@/components/BulkSelectionTableToolbar'
 import ViewResultModal from '@/components/results/ViewResultModal'
 import AddResultModal from '@/components/results/AddResultModal'
 import DeleteResultConfirmModal from '@/components/results/DeleteResultConfirmModal'
@@ -35,6 +40,9 @@ export default function ResultsPage() {
   const [resultPendingDelete, setResultPendingDelete] = useState<ResultWithRelations | null>(null)
   const [isDeletingResult, setIsDeletingResult] = useState(false)
   const [deleteResultError, setDeleteResultError] = useState<string | null>(null)
+  const [selectedResults, setSelectedResults] = useState<Set<string>>(new Set())
+  const [isBulkValidating, setIsBulkValidating] = useState(false)
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
 
   const fetchResults = useCallback(async () => {
     try {
@@ -76,6 +84,133 @@ export default function ResultsPage() {
   const canCreateResults = userRole && ['admin', 'validador', 'comun'].includes(userRole)
   const canEditResults = userRole && ['admin', 'validador'].includes(userRole)
   const canDeleteResults = canEditResults
+  const canUseResultBulkActions = canEditResults
+
+  const handleSelectResult = (resultId: string) => {
+    setSelectedResults((previousSelection) => {
+      const nextSelection = new Set(previousSelection)
+      if (nextSelection.has(resultId)) {
+        nextSelection.delete(resultId)
+      } else {
+        nextSelection.add(resultId)
+      }
+      return nextSelection
+    })
+  }
+
+  const handleSelectAllFilteredResults = () => {
+    if (selectedResults.size === filteredResults.length) {
+      setSelectedResults(new Set())
+    } else {
+      setSelectedResults(new Set(filteredResults.map((resultRow) => resultRow.id)))
+    }
+  }
+
+  const clearResultSelection = () => {
+    setSelectedResults(new Set())
+  }
+
+  const handleBulkValidateResults = async () => {
+    const selectedIds = Array.from(selectedResults)
+    const selectedRows = results.filter((row) => selectedIds.includes(row.id))
+    const alreadyValidated = selectedRows.filter((row) => row.status === 'validated')
+    if (alreadyValidated.length > 0) {
+      alert(
+        `${alreadyValidated.length} resultado(s) ya están validados. Se omitirán.`
+      )
+    }
+    const validatableRows = selectedRows.filter((row) => row.status !== 'validated')
+    if (validatableRows.length === 0) {
+      alert('No hay resultados que se puedan validar.')
+      return
+    }
+    if (
+      !confirm(
+        `¿Estás seguro de que quieres validar ${validatableRows.length} resultado(s)?`
+      )
+    ) {
+      return
+    }
+
+    setIsBulkValidating(true)
+    let successCount = 0
+    let errorCount = 0
+    for (const resultRow of validatableRows) {
+      try {
+        const validationResponse = await fetch(`/api/results/${resultRow.id}/validate`, {
+          method: 'PATCH',
+        })
+        if (validationResponse.ok) {
+          successCount++
+        } else {
+          errorCount++
+        }
+      } catch {
+        errorCount++
+      }
+    }
+    setIsBulkValidating(false)
+    clearResultSelection()
+    await fetchResults()
+    if (errorCount > 0) {
+      alert(
+        `Se validaron ${successCount} resultado(s). ${errorCount} resultado(s) no se pudieron validar.`
+      )
+    } else {
+      alert(`Se validaron ${successCount} resultado(s) exitosamente.`)
+    }
+  }
+
+  const handleBulkDeleteResults = async () => {
+    const selectedIds = Array.from(selectedResults)
+    const selectedRows = results.filter((row) => selectedIds.includes(row.id))
+    const validatedRows = selectedRows.filter((row) => row.status === 'validated')
+    if (validatedRows.length > 0) {
+      alert(
+        `No se pueden eliminar ${validatedRows.length} resultado(s) porque están validados. Se omitirán.`
+      )
+    }
+    const deletableRows = selectedRows.filter((row) => row.status !== 'validated')
+    if (deletableRows.length === 0) {
+      alert('No hay resultados que se puedan eliminar.')
+      return
+    }
+    if (
+      !confirm(
+        `¿Estás seguro de que quieres eliminar ${deletableRows.length} resultado(s)? Esta acción no se puede deshacer.`
+      )
+    ) {
+      return
+    }
+
+    setIsBulkDeleting(true)
+    let successCount = 0
+    let errorCount = 0
+    for (const resultRow of deletableRows) {
+      try {
+        const deleteResponse = await fetch(`/api/results/${resultRow.id}`, {
+          method: 'DELETE',
+        })
+        if (deleteResponse.ok) {
+          successCount++
+        } else {
+          errorCount++
+        }
+      } catch {
+        errorCount++
+      }
+    }
+    setIsBulkDeleting(false)
+    clearResultSelection()
+    await fetchResults()
+    if (errorCount > 0) {
+      alert(
+        `Se eliminaron ${successCount} resultado(s). ${errorCount} resultado(s) no se pudieron eliminar.`
+      )
+    } else {
+      alert(`Se eliminaron ${successCount} resultado(s) exitosamente.`)
+    }
+  }
 
   const mapDeleteResultError = (apiMessage: string) => {
     if (apiMessage === 'Cannot delete validated results') {
@@ -236,29 +371,66 @@ export default function ResultsPage() {
             <div className="overflow-x-auto">
               <table className="w-full table-auto">
                 <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">
-                      Muestra
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
-                      Área de Análisis
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
-                      Estado
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
-                      Resultado
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
-                      Patógeno
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell whitespace-nowrap">
-                      Fecha
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32 sticky right-0 bg-gray-50 z-10">
-                      Acciones
-                    </th>
-                  </tr>
+                  <BulkSelectionToolbarRow
+                    columnSpan={8}
+                    selectedCount={selectedResults.size}
+                    filteredRowCount={filteredResults.length}
+                    selectionSummaryText={`${selectedResults.size} resultado(s) seleccionado(s)`}
+                    onSelectAll={handleSelectAllFilteredResults}
+                    onClearSelection={clearResultSelection}
+                    validateAction={
+                      canUseResultBulkActions
+                        ? {
+                            onClick: handleBulkValidateResults,
+                            disabled: isBulkValidating,
+                            isLoading: isBulkValidating,
+                          }
+                        : null
+                    }
+                    deleteAction={
+                      canDeleteResults
+                        ? {
+                            onClick: handleBulkDeleteResults,
+                            disabled: isBulkDeleting,
+                            isLoading: isBulkDeleting,
+                          }
+                        : null
+                    }
+                  />
+                  {selectedResults.size === 0 ? (
+                    <tr>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">
+                        Muestra
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
+                        Área de Análisis
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                        Estado
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                        Resultado
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
+                        Patógeno
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell whitespace-nowrap">
+                        Fecha
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32 sticky right-0 bg-gray-50 z-10">
+                        Acciones
+                      </th>
+                      {canUseResultBulkActions && (
+                        <BulkSelectAllHeaderCheckbox
+                          checked={
+                            selectedResults.size === filteredResults.length &&
+                            filteredResults.length > 0
+                          }
+                          onChange={handleSelectAllFilteredResults}
+                        />
+                      )}
+                    </tr>
+                  ) : null}
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredResults.map((result) => (
@@ -334,6 +506,12 @@ export default function ResultsPage() {
                           )}
                         </div>
                       </td>
+                      {canUseResultBulkActions && (
+                        <BulkRowSelectionCheckbox
+                          checked={selectedResults.has(result.id)}
+                          onChange={() => handleSelectResult(result.id)}
+                        />
+                      )}
                     </tr>
                   ))}
                 </tbody>
