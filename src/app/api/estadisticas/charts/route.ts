@@ -65,6 +65,63 @@ function monthKeyFromReceivedDate(receivedDate: string | null): string | null {
   return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
+/** Tiempo de ingreso de la muestra al laboratorio (ms desde epoch). */
+function sampleIngressTimeMs(sample: {
+  received_at: string | null
+  received_date: string | null
+} | null): number | null {
+  if (!sample) return null
+  if (sample.received_at) {
+    const parsed = Date.parse(sample.received_at)
+    return Number.isNaN(parsed) ? null : parsed
+  }
+  if (sample.received_date) {
+    const raw = sample.received_date.trim()
+    let parsed = Date.parse(raw)
+    if (!Number.isNaN(parsed)) return parsed
+    parsed = Date.parse(`${raw}T12:00:00.000Z`)
+    return Number.isNaN(parsed) ? null : parsed
+  }
+  return null
+}
+
+/**
+ * Promedio en horas: validation_date del resultado menos ingreso de muestra.
+ * (En esquema: validation_date ≈ momento de validación.)
+ */
+type SampleIngressSlice = {
+  received_at: string | null
+  received_date: string | null
+}
+
+type ValidatedLeadRow = {
+  validation_date: string | null
+  samples: SampleIngressSlice | SampleIngressSlice[] | null
+}
+
+function computeAverageValidationLeadHours(rows: ValidatedLeadRow[]): { averageHours: number; resultCount: number } {
+  let totalHours = 0
+  let usedCount = 0
+  for (const row of rows) {
+    const sampleRaw = row.samples
+    const sample = Array.isArray(sampleRaw) ? sampleRaw[0] ?? null : sampleRaw
+    const ingressMs = sampleIngressTimeMs(sample)
+    const validationMs = row.validation_date ? Date.parse(row.validation_date) : NaN
+    if (ingressMs === null || Number.isNaN(validationMs)) continue
+    const deltaMs = validationMs - ingressMs
+    if (deltaMs < 0) continue
+    totalHours += deltaMs / (1000 * 60 * 60)
+    usedCount += 1
+  }
+  if (usedCount === 0) {
+    return { averageHours: 0, resultCount: 0 }
+  }
+  return {
+    averageHours: Math.round((totalHours / usedCount) * 10) / 10,
+    resultCount: usedCount
+  }
+}
+
 async function fetchAllPages<T>(
   fetchRange: (
     fromInclusive: number,
@@ -184,9 +241,41 @@ export async function GET() {
       }))
       .sort((a, b) => b.count - a.count)
 
+    const validatedLeadRows = (await fetchAllPages<ValidatedLeadRow>(async (fromInclusive, toInclusive) => {
+      if (companyId) {
+        return supabase
+          .from('results')
+          .select(
+            `
+            validation_date,
+            samples!inner ( received_at, received_date, company_id )
+          `
+          )
+          .eq('status', 'validated')
+          .not('validation_date', 'is', null)
+          .eq('samples.company_id', companyId)
+          .range(fromInclusive, toInclusive)
+      }
+      return supabase
+        .from('results')
+        .select(
+          `
+          validation_date,
+          samples ( received_at, received_date )
+        `
+        )
+        .eq('status', 'validated')
+        .not('validation_date', 'is', null)
+        .range(fromInclusive, toInclusive)
+    })) as ValidatedLeadRow[]
+
+    const { averageHours, resultCount } = computeAverageValidationLeadHours(validatedLeadRows)
+
     return NextResponse.json({
       samplesByMonth,
-      resultsByType
+      resultsByType,
+      averageLeadTimeHours: averageHours,
+      averageLeadTimeResultCount: resultCount
     })
   } catch (error) {
     console.error('Error fetching chart statistics:', error)

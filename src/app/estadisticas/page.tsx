@@ -27,7 +27,8 @@ export default function EstadisticasPage() {
     totalClients: 0,
     pendingResults: 0,
     completedToday: 0,
-    averageProcessingTime: 0
+    averageProcessingTime: null as number | null,
+    averageLeadTimeResultCount: 0
   })
   const [samplesByMonth, setSamplesByMonth] = useState<SamplesByMonthRow[]>([])
   const [resultsByType, setResultsByType] = useState<ResultsByTypeRow[]>([])
@@ -63,22 +64,35 @@ export default function EstadisticasPage() {
           completedTodayCount = dashboardStats?.overview?.completedToday ?? 0
         }
 
+        let samplesByMonthData: SamplesByMonthRow[] = []
+        let resultsByTypeData: ResultsByTypeRow[] = []
+        let averageHours: number | null = null
+        let averageLeadCount = 0
+
         if (chartsResponse.ok) {
           const chartsPayload = await chartsResponse.json()
-          setSamplesByMonth(Array.isArray(chartsPayload.samplesByMonth) ? chartsPayload.samplesByMonth : [])
-          setResultsByType(Array.isArray(chartsPayload.resultsByType) ? chartsPayload.resultsByType : [])
-        } else {
-          setSamplesByMonth([])
-          setResultsByType([])
+          samplesByMonthData = Array.isArray(chartsPayload.samplesByMonth) ? chartsPayload.samplesByMonth : []
+          resultsByTypeData = Array.isArray(chartsPayload.resultsByType) ? chartsPayload.resultsByType : []
+          const rawAvg = chartsPayload.averageLeadTimeHours
+          const rawCount = chartsPayload.averageLeadTimeResultCount
+          if (typeof rawAvg === 'number' && !Number.isNaN(rawAvg)) {
+            averageHours = rawAvg
+          }
+          if (typeof rawCount === 'number') {
+            averageLeadCount = rawCount
+          }
         }
 
+        setSamplesByMonth(samplesByMonthData)
+        setResultsByType(resultsByTypeData)
         setStats({
           totalSamples: samplesResult.count || 0,
           totalResults: resultsResult.count || 0,
           totalClients: clientsResult.count || 0,
           pendingResults: pendingWork,
           completedToday: completedTodayCount,
-          averageProcessingTime: 0 // TODO: Calculate average processing time
+          averageProcessingTime: averageHours,
+          averageLeadTimeResultCount: averageLeadCount
         })
       } catch (error) {
         console.error('Error fetching statistics:', error)
@@ -175,9 +189,22 @@ export default function EstadisticasPage() {
               <div className="p-2 bg-indigo-100 rounded-lg">
                 <TrendingUp className="h-6 w-6 text-indigo-600" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Tiempo Promedio</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.averageProcessingTime}h</p>
+              <div className="ml-4 min-w-0 flex-1">
+                <p className="text-sm font-medium text-gray-600">Tiempo promedio</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {stats.averageLeadTimeResultCount === 0
+                    ? '—'
+                    : `${stats.averageProcessingTime?.toLocaleString('es', {
+                        maximumFractionDigits: 1
+                      })} h`}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {stats.averageLeadTimeResultCount > 0
+                    ? `Ingreso de muestra → validación del resultado · ${stats.averageLeadTimeResultCount} validado${
+                        stats.averageLeadTimeResultCount === 1 ? '' : 's'
+                      }`
+                    : 'Solo resultados con validación e ingreso de muestra fechados'}
+                </p>
               </div>
             </div>
           </div>
