@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { X, UserPlus, Loader2, Mail, Lock, Eye, EyeOff, Shield, Building2 } from 'lucide-react'
+import { X, UserPlus, Loader2, Mail, Lock, Eye, EyeOff, Shield, Building2, Sparkles, CheckCircle2, SkipForward, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
 
@@ -17,6 +17,8 @@ interface Client {
   name: string
   rut: string | null
 }
+
+type ModalTabId = 'manual' | 'orphan_emails'
 
 interface CreateUserModalProps {
   isOpen: boolean
@@ -34,6 +36,29 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
   const [clients, setClients] = useState<Client[]>([])
   const [isLoadingRoles, setIsLoadingRoles] = useState(false)
   const [isLoadingClients, setIsLoadingClients] = useState(false)
+  const [activeTab, setActiveTab] = useState<ModalTabId>('manual')
+  const [potentialClientEmails, setPotentialClientEmails] = useState<string[]>([])
+  const [isLoadingPotentialEmails, setIsLoadingPotentialEmails] = useState(false)
+  const [potentialEmailsFetchError, setPotentialEmailsFetchError] = useState<string | null>(null)
+  const [isCreatingPotentialUsers, setIsCreatingPotentialUsers] = useState(false)
+  const [potentialCreationError, setPotentialCreationError] = useState<string | null>(null)
+  type PotentialCreationResult = {
+    email: string
+    status: 'created' | 'skipped' | 'error'
+    reason?: string
+    errorCode?: string
+    webhookSent?: boolean
+    webhookError?: string
+  }
+  const [potentialCreationSummary, setPotentialCreationSummary] = useState<{
+    created: number
+    skipped: number
+    errors: number
+    results: PotentialCreationResult[]
+  } | null>(null)
+  const isDevEnvironment = process.env.NODE_ENV === 'development'
+  const [devCreationLimit, setDevCreationLimit] = useState<string>('')
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -82,12 +107,38 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
     }
   }, [user?.company_id])
 
+  const fetchPotentialClientEmails = useCallback(async () => {
+    setIsLoadingPotentialEmails(true)
+    setPotentialEmailsFetchError(null)
+    try {
+      const response = await fetch('/api/settings/orphan-client-emails')
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al cargar correos pendientes')
+      }
+      const emails = data.potentialEmails as string[] | undefined
+      setPotentialClientEmails(Array.isArray(emails) ? emails : [])
+    } catch (err) {
+      console.error('Error fetching potential client emails:', err)
+      setPotentialEmailsFetchError(err instanceof Error ? err.message : 'Error al cargar la lista')
+      setPotentialClientEmails([])
+    } finally {
+      setIsLoadingPotentialEmails(false)
+    }
+  }, [])
+
   // Cargar roles al abrir el modal
   useEffect(() => {
     if (isOpen) {
       fetchRoles()
     }
   }, [isOpen, fetchRoles])
+
+  useEffect(() => {
+    if (isOpen && activeTab === 'orphan_emails') {
+      fetchPotentialClientEmails()
+    }
+  }, [isOpen, activeTab, fetchPotentialClientEmails])
 
   // Cargar clientes cuando se selecciona rol "consumidor" y limpiar contraseña si usa default
   useEffect(() => {
@@ -165,8 +216,12 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
     }
   }
 
+  const handleDismissPotentialCreationSummary = () => {
+    setPotentialCreationSummary(null)
+  }
+
   const handleClose = () => {
-    if (!isSubmitting) {
+    if (!isSubmitting && !isCreatingPotentialUsers) {
       setFormData({
         name: '',
         email: '',
@@ -176,7 +231,53 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
       })
       setError(null)
       setSuccess(false)
+      setActiveTab('manual')
+      setPotentialClientEmails([])
+      setPotentialEmailsFetchError(null)
+      setPotentialCreationError(null)
+      setPotentialCreationSummary(null)
       onClose()
+    }
+  }
+
+  const handleCreateUsersFromPotentialEmails = async () => {
+    if (potentialClientEmails.length === 0) return
+    setIsCreatingPotentialUsers(true)
+    setPotentialCreationError(null)
+    setPotentialCreationSummary(null)
+    try {
+      let emailsToSend = potentialClientEmails
+      if (isDevEnvironment && devCreationLimit.trim() !== '') {
+        const parsedLimit = Number.parseInt(devCreationLimit, 10)
+        if (Number.isFinite(parsedLimit) && parsedLimit > 0) {
+          emailsToSend = potentialClientEmails.slice(0, parsedLimit)
+        }
+      }
+      const response = await fetch('/api/settings/orphan-client-emails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails: emailsToSend }),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al crear usuarios')
+      }
+      const summary = {
+        created: data.summary?.created ?? 0,
+        skipped: data.summary?.skipped ?? 0,
+        errors: data.summary?.errors ?? 0,
+        results: Array.isArray(data.results) ? (data.results as PotentialCreationResult[]) : [],
+      }
+      setPotentialCreationSummary(summary)
+      await fetchPotentialClientEmails()
+      if (summary.created > 0) {
+        onSuccess()
+      }
+    } catch (err) {
+      console.error('Error creando usuarios desde correos huérfanos:', err)
+      setPotentialCreationError(err instanceof Error ? err.message : 'Error inesperado')
+    } finally {
+      setIsCreatingPotentialUsers(false)
     }
   }
 
@@ -195,32 +296,66 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={handleClose} />
         
         <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-          <form onSubmit={handleSubmit}>
-            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-                    <UserPlus className="h-6 w-6 text-green-600" />
-                  </div>
-                  <div className="ml-4">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900">
-                      Crear Usuario
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      Crea un nuevo usuario en el sistema
-                    </p>
-                  </div>
+          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+                  <UserPlus className="h-6 w-6 text-green-600" />
                 </div>
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="rounded-md text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"
-                  disabled={isSubmitting}
-                >
-                  <X className="h-6 w-6" />
-                </button>
+                <div className="ml-4">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                    Crear Usuario
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    Crea un nuevo usuario en el sistema
+                  </p>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="rounded-md text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"
+                disabled={isSubmitting || isCreatingPotentialUsers}
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
 
+            <div className="flex rounded-lg border border-gray-200 p-0.5 bg-gray-50 mb-4" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'manual'}
+                onClick={() => setActiveTab('manual')}
+                disabled={isSubmitting || isCreatingPotentialUsers}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  activeTab === 'manual'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                } disabled:opacity-50`}
+              >
+                <UserPlus className="h-4 w-4 shrink-0 text-green-600" />
+                Manual
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'orphan_emails'}
+                onClick={() => setActiveTab('orphan_emails')}
+                disabled={isSubmitting || isCreatingPotentialUsers}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  activeTab === 'orphan_emails'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                } disabled:opacity-50`}
+              >
+                <Sparkles className="h-4 w-4 shrink-0 text-violet-600" />
+                Pendientes
+              </button>
+            </div>
+
+            {activeTab === 'manual' ? (
+          <form id="create-user-manual-form" onSubmit={handleSubmit}>
               {error && (
                 <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-400 rounded-md">
                   <div className="flex">
@@ -389,33 +524,243 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
                   </div>
                 )}
               </div>
-            </div>
+          </form>
+            ) : potentialCreationSummary ? (
+              <div className="flex flex-col min-h-[280px]">
+                <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                  Resultado del procesamiento
+                </h4>
+                {(() => {
+                  const summary = potentialCreationSummary
+                  const createdResults = summary.results.filter((r) => r.status === 'created')
+                  const webhookSentCount = createdResults.filter((r) => r.webhookSent === true).length
+                  const webhookFailedResults = createdResults.filter((r) => r.webhookSent === false)
+                  return (
+                    <>
+                      <div className="grid grid-cols-3 gap-2 mb-3">
+                        <div className="rounded-lg border border-green-200 bg-green-50 px-2 py-3 text-center">
+                          <div className="text-2xl font-bold tabular-nums text-green-800">{summary.created}</div>
+                          <div className="text-xs font-medium text-green-700 mt-0.5">Creados</div>
+                        </div>
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-3 text-center">
+                          <div className="text-2xl font-bold tabular-nums text-amber-800">{summary.skipped}</div>
+                          <div className="text-xs font-medium text-amber-700 mt-0.5">Saltados</div>
+                        </div>
+                        <div className="rounded-lg border border-red-200 bg-red-50 px-2 py-3 text-center">
+                          <div className="text-2xl font-bold tabular-nums text-red-800">{summary.errors}</div>
+                          <div className="text-xs font-medium text-red-700 mt-0.5">Errores</div>
+                        </div>
+                      </div>
+                      {createdResults.length > 0 && (
+                        <p className="text-xs text-gray-600 mb-2">
+                          Webhook n8n: {webhookSentCount} de {createdResults.length} enviados
+                          {webhookFailedResults.length > 0 && ` · ${webhookFailedResults.length} fallaron`}
+                        </p>
+                      )}
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">
+                        Detalle por correo
+                      </p>
+                      <ul className="flex-1 rounded-md border border-gray-200 bg-gray-50/80 max-h-64 overflow-y-auto divide-y divide-gray-200">
+                        {summary.results.map((result, resultIndex) => {
+                          const isWebhookFailure =
+                            result.status === 'created' && result.webhookSent === false
+                          return (
+                            <li key={`detail-${resultIndex}-${result.email}`} className="px-3 py-2.5 text-sm">
+                              <div className="flex items-start gap-2">
+                                {result.status === 'created' && (
+                                  <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600 mt-0.5" aria-hidden />
+                                )}
+                                {result.status === 'skipped' && (
+                                  <SkipForward className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" aria-hidden />
+                                )}
+                                {result.status === 'error' && (
+                                  <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" aria-hidden />
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                    <span
+                                      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide font-semibold ${
+                                        result.status === 'created'
+                                          ? 'bg-green-100 text-green-800'
+                                          : result.status === 'skipped'
+                                            ? 'bg-amber-100 text-amber-800'
+                                            : 'bg-red-100 text-red-800'
+                                      }`}
+                                    >
+                                      {result.status === 'created'
+                                        ? 'Creado'
+                                        : result.status === 'skipped'
+                                          ? 'Saltado'
+                                          : 'Error'}
+                                    </span>
+                                    <span className="font-mono text-gray-900 truncate" title={result.email}>
+                                      {result.email}
+                                    </span>
+                                  </div>
+                                  {result.reason && (
+                                    <p className="mt-0.5 text-xs text-gray-600">{result.reason}</p>
+                                  )}
+                                  {result.errorCode && (
+                                    <p className="mt-0.5 text-xs text-gray-500">Código: {result.errorCode}</p>
+                                  )}
+                                  {result.status === 'created' && result.webhookSent === true && (
+                                    <p className="mt-0.5 text-xs text-green-700">Webhook enviado</p>
+                                  )}
+                                  {isWebhookFailure && (
+                                    <p className="mt-0.5 text-xs text-orange-800">
+                                      Webhook: {result.webhookError || 'no enviado'}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </>
+                  )
+                })()}
+              </div>
+            ) : (
+              <div className="flex flex-col min-h-[220px]">
+                <p className="text-sm text-gray-600 mb-3">
+                  Lista única de correos de contacto de clientes de tu compañía que aún no coinciden con ningún usuario registrado (candidatos a crear cuenta).
+                </p>
+                {potentialEmailsFetchError && (
+                  <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">
+                    {potentialEmailsFetchError}
+                  </div>
+                )}
+                {potentialCreationError && (
+                  <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">
+                    {potentialCreationError}
+                  </div>
+                )}
+                {isDevEnvironment && (
+                  <div className="mb-3 p-2.5 rounded-md border border-dashed border-amber-300 bg-amber-50">
+                    <label htmlFor="dev_creation_limit" className="block text-xs font-semibold text-amber-900 uppercase tracking-wide">
+                      Límite de prueba (sólo dev)
+                    </label>
+                    <div className="mt-1 flex items-center gap-2">
+                      <input
+                        type="number"
+                        id="dev_creation_limit"
+                        min={1}
+                        step={1}
+                        value={devCreationLimit}
+                        onChange={(e) => setDevCreationLimit(e.target.value)}
+                        placeholder="Ej: 1"
+                        disabled={isCreatingPotentialUsers}
+                        className="block w-24 px-2 py-1 text-sm border border-amber-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-amber-500 disabled:opacity-50"
+                      />
+                      <span className="text-xs text-amber-800">
+                        Si está vacío se procesan todos los {potentialClientEmails.length} correos.
+                      </span>
+                    </div>
+                  </div>
+                )}
+                <div className="flex-1 rounded-md border border-gray-200 bg-gray-50/80 max-h-56 overflow-y-auto">
+                  {isLoadingPotentialEmails ? (
+                    <div className="flex items-center justify-center py-10 gap-2 text-gray-500 text-sm">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Cargando…
+                    </div>
+                  ) : potentialClientEmails.length === 0 ? (
+                    <p className="py-10 px-4 text-center text-sm text-gray-500">
+                      No hay correos pendientes: todos los correos de contacto de clientes ya existen como usuarios en el sistema.
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-gray-200">
+                      {potentialClientEmails.map((emailAddress) => (
+                        <li
+                          key={emailAddress}
+                          className="px-3 py-2.5 text-sm text-gray-900 font-mono truncate"
+                          title={emailAddress}
+                        >
+                          {emailAddress}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCreateUsersFromPotentialEmails}
+                  disabled={isLoadingPotentialEmails || isCreatingPotentialUsers || potentialClientEmails.length === 0}
+                  className="mt-4 w-full inline-flex justify-center items-center gap-2 rounded-md border border-transparent shadow-sm px-4 py-2.5 bg-violet-600 text-base font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isCreatingPotentialUsers ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Creando usuarios…
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      Crear usuarios
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
 
             <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-              <button
-                type="submit"
-                disabled={isSubmitting || success}
-                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                    Creando...
-                  </>
-                ) : (
-                  'Crear Usuario'
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={handleClose}
-                disabled={isSubmitting}
-                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Cancelar
-              </button>
+              {activeTab === 'manual' ? (
+                <>
+                  <button
+                    type="submit"
+                    form="create-user-manual-form"
+                    disabled={isSubmitting || success}
+                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                        Creando...
+                      </>
+                    ) : (
+                      'Crear Usuario'
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    disabled={isSubmitting}
+                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancelar
+                  </button>
+                </>
+              ) : potentialCreationSummary ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleDismissPotentialCreationSummary}
+                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-violet-600 text-base font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500 sm:ml-3 sm:w-auto sm:text-sm"
+                  >
+                    Cerrar resultado
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    disabled={isSubmitting || isCreatingPotentialUsers}
+                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancelar
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  disabled={isSubmitting || isCreatingPotentialUsers}
+                  className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancelar
+                </button>
+              )}
             </div>
-          </form>
         </div>
       </div>
     </div>

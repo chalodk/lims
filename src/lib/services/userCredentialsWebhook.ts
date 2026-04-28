@@ -35,7 +35,8 @@ export async function sendUserCredentialsToWebhook(
   const disableAuth = process.env.USER_CREDENTIALS_WEBHOOK_DISABLE_AUTH === 'true'
 
   if (!webhookUrl) {
-    return { sent: false }
+    console.warn('[userCredentialsWebhook] USER_CREDENTIALS_WEBHOOK_URL no configurada; webhook omitido')
+    return { sent: false, error: 'USER_CREDENTIALS_WEBHOOK_URL no configurada' }
   }
 
   const headers: Record<string, string> = {
@@ -68,6 +69,9 @@ export async function sendUserCredentialsToWebhook(
       }
     }
 
+    console.log(
+      `[userCredentialsWebhook] Webhook enviado OK (origen=${payload.origen}, email=${payload.email})`
+    )
     return { sent: true }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)

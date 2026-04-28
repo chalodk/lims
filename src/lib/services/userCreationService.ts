@@ -22,6 +22,10 @@ export interface CreateUserResult {
   warning?: string
   error?: string
   errorCode?: 'EMAIL_EXISTS' | 'CLIENT_LIMIT_REACHED' | 'INVALID_EMAIL' | 'INVALID_RUT' | 'ROLE_NOT_FOUND' | 'AUTH_ERROR' | 'PROFILE_ERROR' | 'UNKNOWN_ERROR'
+  /** Estado del envío al webhook de credenciales (solo cuando se solicitó vía webhookOrigen) */
+  webhookSent?: boolean
+  webhookError?: string
+  webhookSkippedReason?: 'NO_ORIGEN'
 }
 
 /**
@@ -413,23 +417,42 @@ export async function createUserAtomically(options: CreateUserOptions): Promise<
     }
 
     // 9. Éxito
+    let webhookSent: boolean | undefined
+    let webhookError: string | undefined
+    let webhookSkippedReason: 'NO_ORIGEN' | undefined
+
     if (webhookOrigen) {
+      console.log(
+        `[createUserAtomically] Disparando webhook con origen=${webhookOrigen} para ${email.trim()}`
+      )
       const webhookResult = await sendUserCredentialsToWebhook({
         email: email.trim(),
         password: passwordResult.password,
         origen: webhookOrigen,
       })
-      if (!webhookResult.sent && webhookResult.error) {
-        console.warn(`[createUserAtomically] Webhook no enviado: ${webhookResult.error}`)
+      webhookSent = webhookResult.sent
+      webhookError = webhookResult.error
+      if (!webhookResult.sent) {
+        console.warn(
+          `[createUserAtomically] Webhook no enviado: ${webhookResult.error || 'sin detalle'}`
+        )
       }
+    } else {
+      console.log(
+        `[createUserAtomically] webhookOrigen no especificado para ${email.trim()}; webhook omitido`
+      )
+      webhookSkippedReason = 'NO_ORIGEN'
     }
 
     return {
       success: true,
       userId: authUserId,
-      warning: passwordResult.isRandom 
-        ? 'Se generó una contraseña aleatoria porque el RUT era muy corto' 
-        : undefined
+      warning: passwordResult.isRandom
+        ? 'Se generó una contraseña aleatoria porque el RUT era muy corto'
+        : undefined,
+      webhookSent,
+      webhookError,
+      webhookSkippedReason,
     }
 
   } catch (error) {

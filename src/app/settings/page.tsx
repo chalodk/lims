@@ -35,9 +35,12 @@ export default function SettingsPage() {
   const [linkingUser, setLinkingUser] = useState<UserProfile | null>(null)
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false)
 
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = useCallback(async (options?: { silent?: boolean }) => {
+    const showFullPageLoader = !options?.silent
     try {
-      setIsLoading(true)
+      if (showFullPageLoader) {
+        setIsLoading(true)
+      }
       setError(null)
       
       // Construir URL con parámetro de búsqueda único
@@ -58,7 +61,9 @@ export default function SettingsPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar usuarios')
     } finally {
-      setIsLoading(false)
+      if (showFullPageLoader) {
+        setIsLoading(false)
+      }
     }
   }, [searchQuery])
 
@@ -88,7 +93,9 @@ export default function SettingsPage() {
   }
 
   const handleEditSuccess = () => {
-    fetchUsers() // Recargar la lista de usuarios
+    // Sin pantalla de carga completa: si no, se desmonta la página y los modales abiertos
+    // (p. ej. resumen de creación masiva desde Pendientes IA) pierden su estado.
+    void fetchUsers({ silent: true })
   }
 
   const handleLinkClient = (userId: string) => {
