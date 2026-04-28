@@ -17,7 +17,7 @@ import {
   FlaskConical,
   Loader2
 } from 'lucide-react'
-import Image from 'next/image'
+import AppBrandingLogo from '@/components/branding/AppBrandingLogo'
 import UserProfileDropdown from '@/components/UserProfileDropdown'
 
 interface DashboardLayoutProps {
@@ -100,17 +100,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 shrink-0">
-            <div className="flex items-center space-x-3">
-              <Image
-                src={
-                  'https://mknzstzwhbfoyxzfudfw.supabase.co/storage/v1/object/public/images/ORG_logo_NEMACHILE_(R)_01.08.23.ai.png'
-                }
-                alt="Logo"
-                width={140}
-                height={42}
-                className="w-[140px] h-auto max-w-full"
-                priority
-              />
+            <div className="flex items-center space-x-3 min-w-0">
+              <AppBrandingLogo variant="sidebar" />
             </div>
             <button
               onClick={() => setSidebarOpen(false)}

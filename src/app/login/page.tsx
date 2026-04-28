@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { Eye, EyeOff, Loader2, Mail, Lock } from 'lucide-react'
-import Image from 'next/image'
+import AppBrandingLogo from '@/components/branding/AppBrandingLogo'
 import { getAuthErrorMessage } from '@/lib/utils/authErrors'
 
 export default function LoginPage() {
@@ -78,13 +78,7 @@ export default function LoginPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <Image
-              src="https://mknzstzwhbfoyxzfudfw.supabase.co/storage/v1/object/public/images/ORG_logo_NEMACHILE_(R)_01.08.23.ai.png"
-              alt="Logo del Laboratorio"
-              width={250}
-              height={100}
-              className="h-auto"
-            />
+            <AppBrandingLogo variant="login" />
           </div>
         </div>
 
