@@ -42,6 +42,7 @@ interface DashboardStats {
     activeSamples: number
     pendingWork: number
     completedWork: number
+    completedToday?: number
     totalReports: number
   }
 }

@@ -3,15 +3,22 @@
 import { useState, useEffect } from 'react'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { 
-  BarChart3, 
-  TrendingUp, 
-  Users, 
+import {
+  TrendingUp,
+  Users,
   TestTube,
   Calendar,
   Clock,
   CheckCircle
 } from 'lucide-react'
+import {
+  SamplesByMonthChart,
+  type SamplesByMonthRow
+} from '@/components/estadisticas/SamplesByMonthChart'
+import {
+  ResultsByTypeChart,
+  type ResultsByTypeRow
+} from '@/components/estadisticas/ResultsByTypeChart'
 
 export default function EstadisticasPage() {
   const [stats, setStats] = useState({
@@ -22,26 +29,55 @@ export default function EstadisticasPage() {
     completedToday: 0,
     averageProcessingTime: 0
   })
+  const [samplesByMonth, setSamplesByMonth] = useState<SamplesByMonthRow[]>([])
+  const [resultsByType, setResultsByType] = useState<ResultsByTypeRow[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         const supabase = getSupabaseClient()
-        
-        // Fetch basic statistics
-        const [samplesResult, resultsResult, clientsResult] = await Promise.all([
-          supabase.from('samples').select('id', { count: 'exact' }),
-          supabase.from('results').select('id', { count: 'exact' }),
-          supabase.from('clients').select('id', { count: 'exact' })
-        ])
+
+        const now = new Date()
+        const completedDayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+        const completedDayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+        const statsQuery = new URLSearchParams({
+          completedDayStart: completedDayStart.toISOString(),
+          completedDayEnd: completedDayEnd.toISOString()
+        })
+
+        const [samplesResult, resultsResult, clientsResult, dashboardStatsResponse, chartsResponse] =
+          await Promise.all([
+            supabase.from('samples').select('id', { count: 'exact' }),
+            supabase.from('results').select('id', { count: 'exact' }),
+            supabase.from('clients').select('id', { count: 'exact' }),
+            fetch(`/api/dashboard/stats?${statsQuery.toString()}`),
+            fetch('/api/estadisticas/charts')
+          ])
+
+        let pendingWork = 0
+        let completedTodayCount = 0
+        if (dashboardStatsResponse.ok) {
+          const dashboardStats = await dashboardStatsResponse.json()
+          pendingWork = dashboardStats?.overview?.pendingWork ?? 0
+          completedTodayCount = dashboardStats?.overview?.completedToday ?? 0
+        }
+
+        if (chartsResponse.ok) {
+          const chartsPayload = await chartsResponse.json()
+          setSamplesByMonth(Array.isArray(chartsPayload.samplesByMonth) ? chartsPayload.samplesByMonth : [])
+          setResultsByType(Array.isArray(chartsPayload.resultsByType) ? chartsPayload.resultsByType : [])
+        } else {
+          setSamplesByMonth([])
+          setResultsByType([])
+        }
 
         setStats({
           totalSamples: samplesResult.count || 0,
           totalResults: resultsResult.count || 0,
           totalClients: clientsResult.count || 0,
-          pendingResults: 0, // TODO: Calculate pending results
-          completedToday: 0, // TODO: Calculate completed today
+          pendingResults: pendingWork,
+          completedToday: completedTodayCount,
           averageProcessingTime: 0 // TODO: Calculate average processing time
         })
       } catch (error) {
@@ -150,25 +186,21 @@ export default function EstadisticasPage() {
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Muestras por Mes</h3>
-            <div className="flex items-center justify-center h-64 text-gray-500">
-              <div className="text-center">
-                <BarChart3 className="h-12 w-12 mx-auto mb-2" />
-                <p>Gráfico de muestras por mes</p>
-                <p className="text-sm">(Próximamente)</p>
-              </div>
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Muestras por mes</h3>
+              <p className="text-sm text-gray-500">Últimos 12 meses según fecha de registro</p>
             </div>
+            <SamplesByMonthChart data={samplesByMonth} />
           </div>
 
           <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Resultados por Tipo</h3>
-            <div className="flex items-center justify-center h-64 text-gray-500">
-              <div className="text-center">
-                <BarChart3 className="h-12 w-12 mx-auto mb-2" />
-                <p>Gráfico de resultados por tipo</p>
-                <p className="text-sm">(Próximamente)</p>
-              </div>
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Resultados por tipo de análisis</h3>
+              <p className="text-sm text-gray-500">
+                Cantidad de resultados según área / tipo de análisis registrado en cada resultado
+              </p>
             </div>
+            <ResultsByTypeChart data={resultsByType} />
           </div>
         </div>
       </div>

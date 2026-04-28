@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -18,6 +18,17 @@ export async function GET() {
       .single()
 
     const companyId = userData?.company_id
+
+    const { searchParams } = new URL(request.url)
+    const completedDayStartParam = searchParams.get('completedDayStart')
+    const completedDayEndParam = searchParams.get('completedDayEnd')
+    const now = new Date()
+    const completedRangeStart = completedDayStartParam
+      ? new Date(completedDayStartParam)
+      : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0))
+    const completedRangeEnd = completedDayEndParam
+      ? new Date(completedDayEndParam)
+      : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999))
 
     // Query for sample statistics
     let sampleStats: Array<{ status: string }> = []
@@ -102,6 +113,47 @@ export async function GET() {
     const pendingWork = resultCounts.pending + sampleCounts.processing + sampleCounts.validation
     const completedWork = resultCounts.completed + resultCounts.validated
 
+    let completedToday = 0
+    {
+      const validatedQuery = companyId
+        ? supabase
+            .from('results')
+            .select('id, samples!inner(company_id)', { count: 'exact', head: true })
+            .eq('samples.company_id', companyId)
+            .eq('status', 'validated')
+            .gte('validation_date', completedRangeStart.toISOString())
+            .lte('validation_date', completedRangeEnd.toISOString())
+        : supabase
+            .from('results')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'validated')
+            .gte('validation_date', completedRangeStart.toISOString())
+            .lte('validation_date', completedRangeEnd.toISOString())
+
+      const completedOnlyQuery = companyId
+        ? supabase
+            .from('results')
+            .select('id, samples!inner(company_id)', { count: 'exact', head: true })
+            .eq('samples.company_id', companyId)
+            .eq('status', 'completed')
+            .gte('updated_at', completedRangeStart.toISOString())
+            .lte('updated_at', completedRangeEnd.toISOString())
+        : supabase
+            .from('results')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'completed')
+            .gte('updated_at', completedRangeStart.toISOString())
+            .lte('updated_at', completedRangeEnd.toISOString())
+
+      const [{ count: validatedTodayCount }, { count: completedOnlyTodayCount }] = await Promise.all([
+        validatedQuery,
+        completedOnlyQuery
+      ])
+
+      completedToday =
+        (validatedTodayCount ?? 0) + (completedOnlyTodayCount ?? 0)
+    }
+
     return NextResponse.json({
       samples: sampleCounts,
       results: resultCounts,
@@ -110,6 +162,7 @@ export async function GET() {
         activeSamples,
         pendingWork,
         completedWork,
+        completedToday,
         totalReports: reportCounts.total
       }
     })
