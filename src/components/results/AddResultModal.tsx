@@ -246,6 +246,7 @@ export default function AddResultModal({
         .from('users')
         .select('id, name, email')
         .eq('company_id', user.company_id)
+        .neq('roles.name', 'consumidor')
         .order('name', { ascending: true })
 
       if (error) throw error

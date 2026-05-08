@@ -399,6 +399,15 @@ export default function ResultsPage() {
                   />
                   {selectedResults.size === 0 ? (
                     <tr>
+                      {canUseResultBulkActions && (
+                        <BulkSelectAllHeaderCheckbox
+                          checked={
+                            selectedResults.size === filteredResults.length &&
+                            filteredResults.length > 0
+                          }
+                          onChange={handleSelectAllFilteredResults}
+                        />
+                      )}
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">
                         Muestra
                       </th>
@@ -420,21 +429,18 @@ export default function ResultsPage() {
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32 sticky right-0 bg-gray-50 z-10">
                         Acciones
                       </th>
-                      {canUseResultBulkActions && (
-                        <BulkSelectAllHeaderCheckbox
-                          checked={
-                            selectedResults.size === filteredResults.length &&
-                            filteredResults.length > 0
-                          }
-                          onChange={handleSelectAllFilteredResults}
-                        />
-                      )}
                     </tr>
                   ) : null}
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredResults.map((result) => (
                     <tr key={result.id} className="group hover:bg-gray-50">
+                      {canUseResultBulkActions && (
+                        <BulkRowSelectionCheckbox
+                          checked={selectedResults.has(result.id)}
+                          onChange={() => handleSelectResult(result.id)}
+                        />
+                      )}
                       <td className="px-3 py-4">
                         <div className="flex items-center min-w-0">
                           <FlaskConical className="h-6 w-6 text-green-600 mr-2 flex-shrink-0" />
@@ -506,12 +512,6 @@ export default function ResultsPage() {
                           )}
                         </div>
                       </td>
-                      {canUseResultBulkActions && (
-                        <BulkRowSelectionCheckbox
-                          checked={selectedResults.has(result.id)}
-                          onChange={() => handleSelectResult(result.id)}
-                        />
-                      )}
                     </tr>
                   ))}
                 </tbody>
