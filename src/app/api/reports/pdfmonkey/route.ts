@@ -94,6 +94,16 @@ const RESULTS_SELECT_FOR_PDF = `
   )
 `
 
+function extractColumnLabels(resultados: ResultadoData[]): Record<string, string> | null {
+  for (const r of resultados) {
+    const f = r?.findings
+    if (f && typeof f === 'object' && 'columnLabels' in f) {
+      return (f as Record<string, unknown>).columnLabels as Record<string, string>
+    }
+  }
+  return null
+}
+
 // Analysis defaults for different test types
 const ANALYSIS_DEFAULTS = {
   nematologia: {
@@ -339,6 +349,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           negativo: virusNames.length === 1 ? `Resultado de análisis negativo a ${virusNames[0]}` : 'Resultado de análisis negativo',
           positivo: virusNames.length === 1 ? `Resultado de análisis positivo a ${virusNames[0]}` : 'Resultado de análisis positivo'
         },
+        columnLabels: extractColumnLabels(resultados),
         analista: {
           nombre: 'DRA. LUCIA RIVERA C.',
           titulo: 'Ing. Agrónomo MSc.',
@@ -452,6 +463,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         diagnostico: {
           descripcion: 'Los resultados de los análisis de detección precoz efectuados en las muestras demostraron diferentes niveles de severidad. Se evaluó la presencia del patógeno utilizando la escala de severidad establecida, permitiendo determinar el potencial de inoculo en las muestras analizadas.'
         },
+        columnLabels: extractColumnLabels(resultados),
         analista: {
           nombre: 'DRA. LUCIA RIVERA C.',
           titulo: 'Ing. Agrónomo MSc.',
@@ -593,6 +605,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           negativo: 'Resultado de análisis negativo a la(s) bacteria(s) analizada(s)',
           positivo: 'Resultado de análisis positivo a la(s) bacteria(s) analizada(s)'
         },
+        columnLabels: extractColumnLabels(resultados),
         analista: {
           nombre: 'DRA. LUCIA RIVERA C.',
           titulo: 'Ing. Agrónomo MSc.',
@@ -602,7 +615,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
       }
     }
   },
-  
+
   phytopatology: {
     templateId: '5AA9EEB6-73F7-4370-AF58-F932A541100B', // Phytopatology template ID
     payloadBuilder: (report, client, resultados, analystName) => {
@@ -712,6 +725,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           })()
         },
         notaResultados: 'Los resultados solamente son válidos sólo para las muestras analizadas las que fueron proporcionadas por el cliente.',
+        columnLabels: extractColumnLabels(resultados),
         analista: {
           nombre: 'DRA. LUCIA RIVERA C.',
           titulo: 'Ing. Agrónomo MSc.',
@@ -843,6 +857,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
             return wrapHtmlPreservingWhitespaceForPdf(richHtml)
           })()
         },
+        columnLabels: extractColumnLabels(resultados),
         analista: {
           nombre: 'DRA. LUCIA RIVERA C.',
           titulo: 'Ing. Agrónomo MSc.',

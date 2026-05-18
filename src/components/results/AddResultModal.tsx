@@ -40,6 +40,46 @@ const IDENTIFICATION_TECHNIQUE_OPTIONS = [
   'ELISA'
 ]
 
+const DEFAULT_COLUMN_LABELS: Record<string, Record<string, string>> = {
+  nematology: {
+    name: 'Género y/o especie identificada',
+    quantity: 'N° nematodos/250 cm³ de suelo'
+  },
+  virology: {
+    identification: 'Identificación',
+    method: 'Técnica utilizada',
+    virus: 'Virus',
+    result: 'Resultado'
+  },
+  bacteriology: {
+    identification: 'Identificación',
+    method: 'Técnica utilizada',
+    microorganism: 'Bacteria',
+    result: 'Resultado'
+  },
+  phytopathology: {
+    sampleNumber: 'N° de muestra',
+    identification: 'Identificación de la muestra',
+    microorganism: 'Microorganismo Identificado',
+    colonyCount: 'Recuento de microorganismos (N° de colonias/dilución)',
+    dilution: 'Dilución utilizada',
+    dilution10_1: '10⁻¹',
+    dilution10_2: '10⁻²',
+    dilution10_3: '10⁻³'
+  },
+  early_detection: {
+    sampleCode: 'Código Muestra',
+    identification: 'Identificación',
+    variety: 'Variedad',
+    unitsEvaluated: 'Unidades Evaluadas',
+    severityScale: 'Escala de Severidad',
+    severity0: '0',
+    severity1: '1',
+    severity2: '2',
+    severity3: '3'
+  }
+}
+
 // Helper function to map analysis IDs to names for different analysis types
 const mapAnalysisIdsToNames = (
   tests: Array<{method?: string, virus?: string, microorganism?: string, [key: string]: unknown}>, 
@@ -70,7 +110,29 @@ const mapAnalysisIdsToNames = (
   })
 }
 
-export default function AddResultModal({ 
+function EditableTh({ label, labelKey, columnLabels, setColumnLabels, className, colSpan, disabled }: {
+  label: string
+  labelKey: string
+  columnLabels: Record<string, string>
+  setColumnLabels: React.Dispatch<React.SetStateAction<Record<string, string>>>
+  className?: string
+  colSpan?: number
+  disabled?: boolean
+}) {
+  return (
+    <th className={className} colSpan={colSpan}>
+      <input
+        type="text"
+        value={columnLabels[labelKey] ?? label}
+        onChange={(e) => setColumnLabels(prev => ({ ...prev, [labelKey]: e.target.value }))}
+        className="bg-transparent border-none text-xs font-medium text-gray-500 uppercase tracking-wider w-full focus:outline-none focus:ring-1 focus:ring-blue-300 rounded px-1"
+        disabled={disabled}
+      />
+    </th>
+  )
+}
+
+export default function AddResultModal({
   isOpen, 
   onClose, 
   onSuccess, 
@@ -153,6 +215,8 @@ export default function AddResultModal({
       }
     }]
   })
+
+  const [columnLabels, setColumnLabels] = useState<Record<string, string>>({})
 
   const [availableMethods, setAvailableMethods] = useState<Array<{id: string, name: string}>>([])
   const [availableAnalytes, setAvailableAnalytes] = useState<Array<{id: string, scientific_name: string}>>([])
@@ -324,7 +388,12 @@ export default function AddResultModal({
       if (result.test_area) {
         setSelectedAnalysisArea(result.test_area)
       }
-      
+
+      // Load saved column labels from findings if present
+      if (result.findings && typeof result.findings === 'object' && 'columnLabels' in result.findings) {
+        setColumnLabels((result.findings as Record<string, unknown>).columnLabels as Record<string, string>)
+      }
+
       // Parse findings JSON and populate specific data structures
       if (result.findings && typeof result.findings === 'object') {
         const findings = result.findings
@@ -459,6 +528,7 @@ export default function AddResultModal({
           status: 'pending'
         })
         setSelectedAnalysisArea('')
+        setColumnLabels({})
         setNematologyData({
           negativeQuantity: '',
           positiveNematodes: [{ name: '', quantity: '' }]
@@ -518,6 +588,21 @@ export default function AddResultModal({
       setSelectedAnalysisArea('')
     }
   }, [formData.sample_test_id, sampleTests])
+
+  // Set default column labels when analysis area changes (skip if editing — labels load from existing result)
+  useEffect(() => {
+    if (!selectedAnalysisArea || resultId) return
+    const area = selectedAnalysisArea.toLowerCase()
+    let areaKey = ''
+    if (area.includes('nematolog')) areaKey = 'nematology'
+    else if (area.includes('virolog')) areaKey = 'virology'
+    else if (area.includes('bacteriolog')) areaKey = 'bacteriology'
+    else if (area.includes('fitopatolog')) areaKey = 'phytopathology'
+    else if (area.includes('deteccion') || area.includes('precoz')) areaKey = 'early_detection'
+    if (areaKey && DEFAULT_COLUMN_LABELS[areaKey]) {
+      setColumnLabels({ ...DEFAULT_COLUMN_LABELS[areaKey] })
+    }
+  }, [selectedAnalysisArea, resultId])
 
   const fetchMethodsAndAnalytes = useCallback(async () => {
     if (!user?.company_id) return
@@ -1223,41 +1308,25 @@ export default function AddResultModal({
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-green-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        N° de muestra
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Identificación de la muestra
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Microorganismo Identificado
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" colSpan={3}>
-                        Recuento de microorganismos (N° de colonias/dilución)
-                      </th>
+                      <EditableTh label="N° de muestra" labelKey="sampleNumber" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <EditableTh label="Identificación de la muestra" labelKey="identification" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <EditableTh label="Microorganismo Identificado" labelKey="microorganism" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <EditableTh label="Recuento de microorganismos (N° de colonias/dilución)" labelKey="colonyCount" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" colSpan={3} disabled={isValidated} />
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Acciones
                       </th>
                     </tr>
                     <tr className="bg-green-100">
                       <th colSpan={3}></th>
-                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                        Dilución utilizada
-                      </th>
+                      <EditableTh label="Dilución utilizada" labelKey="dilution" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase" disabled={isValidated} />
                       <th colSpan={2}></th>
                       <th></th>
                     </tr>
                     <tr className="bg-green-100">
                       <th colSpan={3}></th>
-                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
-                        10⁻¹
-                      </th>
-                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
-                        10⁻²
-                      </th>
-                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
-                        10⁻³
-                      </th>
+                      <EditableTh label="10⁻¹" labelKey="dilution10_1" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-center text-xs font-medium text-gray-500" disabled={isValidated} />
+                      <EditableTh label="10⁻²" labelKey="dilution10_2" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-center text-xs font-medium text-gray-500" disabled={isValidated} />
+                      <EditableTh label="10⁻³" labelKey="dilution10_3" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-center text-xs font-medium text-gray-500" disabled={isValidated} />
                       <th></th>
                     </tr>
                   </thead>
@@ -1436,18 +1505,10 @@ export default function AddResultModal({
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Identificación
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Técnica utilizada
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Virus
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Resultado
-                      </th>
+                      <EditableTh label="Identificación" labelKey="identification" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <EditableTh label="Técnica utilizada" labelKey="method" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <EditableTh label="Virus" labelKey="virus" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <EditableTh label="Resultado" labelKey="result" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Acciones
                       </th>
@@ -1624,18 +1685,10 @@ export default function AddResultModal({
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Identificación
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Técnica utilizada
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Bacteria
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Resultado
-                      </th>
+                      <EditableTh label="Identificación" labelKey="identification" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <EditableTh label="Técnica utilizada" labelKey="method" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <EditableTh label="Bacteria" labelKey="microorganism" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <EditableTh label="Resultado" labelKey="result" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Acciones
                       </th>
@@ -1842,12 +1895,8 @@ export default function AddResultModal({
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-green-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Género y/o especie identificada
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          N° nematodos/250 cm³ de suelo
-                        </th>
+                        <EditableTh label="Género y/o especie identificada" labelKey="name" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                        <EditableTh label="N° nematodos/250 cm³ de suelo" labelKey="quantity" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Acciones
                         </th>
@@ -2092,21 +2141,11 @@ export default function AddResultModal({
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Código Muestra
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Identificación
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Variedad
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Unidades Evaluadas
-                      </th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" colSpan={4}>
-                        Escala de Severidad
-                      </th>
+                      <EditableTh label="Código Muestra" labelKey="sampleCode" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <EditableTh label="Identificación" labelKey="identification" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <EditableTh label="Variedad" labelKey="variety" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <EditableTh label="Unidades Evaluadas" labelKey="unitsEvaluated" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <EditableTh label="Escala de Severidad" labelKey="severityScale" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" colSpan={4} disabled={isValidated} />
                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Acciones
                       </th>
@@ -2116,18 +2155,10 @@ export default function AddResultModal({
                       <th></th>
                       <th></th>
                       <th></th>
-                      <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-l">
-                        0
-                      </th>
-                      <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        1
-                      </th>
-                      <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        2
-                      </th>
-                      <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        3
-                      </th>
+                      <EditableTh label="0" labelKey="severity0" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-l" disabled={isValidated} />
+                      <EditableTh label="1" labelKey="severity1" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <EditableTh label="2" labelKey="severity2" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <EditableTh label="3" labelKey="severity3" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
                       <th></th>
                     </tr>
                   </thead>
@@ -2341,6 +2372,11 @@ export default function AddResultModal({
         resultId && findings && typeof findings === 'object'
           ? { ...findings, methodologies: formData.methodologies, identification_techniques: formData.identification_techniques }
           : findings
+
+      // Embed column labels into findings
+      if (findingsToSend && typeof findingsToSend === 'object' && Object.keys(columnLabels).length > 0) {
+        (findingsToSend as Record<string, unknown>).columnLabels = columnLabels
+      }
 
       const requestBody: Record<string, unknown> = {
         sample_id: formData.sample_id,

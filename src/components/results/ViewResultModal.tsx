@@ -77,7 +77,31 @@ function isPhytopathologyFindings(f: unknown): f is PhytopathologyFindings {
   )
 }
 
-import { 
+const DEFAULT_COLUMN_LABELS: Record<string, Record<string, string>> = {
+  nematology: { name: 'Nemátodo', quantity: 'Cantidad nematodos/250 cm³ de suelo' },
+  virology: { identification: 'Identificación', method: 'Técnica utilizada', virus: 'Virus', result: 'Resultado' },
+  bacteriology: { identification: 'Identificación', method: 'Técnica utilizada', microorganism: 'Bacteria', result: 'Resultado' },
+  phytopathology: {
+    sampleNumber: 'N° de muestra', identification: 'Identificación de la muestra',
+    microorganism: 'Microorganismo Identificado', colonyCount: 'Recuento de microorganismos (N° de colonias/dilución)',
+    dilution: 'Dilución utilizada', dilution10_1: '10⁻¹', dilution10_2: '10⁻²', dilution10_3: '10⁻³'
+  },
+  early_detection: {
+    sampleCode: 'Código Muestra', identification: 'Identificación', variety: 'Variedad',
+    unitsEvaluated: 'Unidades Evaluadas', severityScale: 'Escala de Severidad',
+    severity0: '0', severity1: '1', severity2: '2', severity3: '3'
+  }
+}
+
+function getColumnLabel(findings: unknown, areaKey: string, labelKey: string, fallback: string): string {
+  if (findings && typeof findings === 'object' && 'columnLabels' in findings) {
+    const labels = (findings as Record<string, unknown>).columnLabels as Record<string, string> | undefined
+    if (labels?.[labelKey]) return labels[labelKey]
+  }
+  return DEFAULT_COLUMN_LABELS[areaKey]?.[labelKey] || fallback
+}
+
+import {
   FlaskConical,
   X,
   Calendar,
@@ -281,10 +305,10 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Nemátodo
+                  {getColumnLabel(findings, 'nematology', 'name', 'Nemátodo')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cantidad nematodos/250 cm³ de suelo
+                  {getColumnLabel(findings, 'nematology', 'quantity', 'Cantidad nematodos/250 cm³ de suelo')}
                 </th>
               </tr>
             </thead>
@@ -325,16 +349,16 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Identificación
+                  {getColumnLabel(findings, 'virology', 'identification', 'Identificación')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Técnica utilizada
+                  {getColumnLabel(findings, 'virology', 'method', 'Técnica utilizada')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Virus
+                  {getColumnLabel(findings, 'virology', 'virus', 'Virus')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Resultado
+                  {getColumnLabel(findings, 'virology', 'result', 'Resultado')}
                 </th>
               </tr>
             </thead>
@@ -391,35 +415,35 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
             <thead className="bg-yellow-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  N° de muestra
+                  {getColumnLabel(findings, 'phytopathology', 'sampleNumber', 'N° de muestra')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Identificación de la muestra
+                  {getColumnLabel(findings, 'phytopathology', 'identification', 'Identificación de la muestra')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Microorganismo Identificado
+                  {getColumnLabel(findings, 'phytopathology', 'microorganism', 'Microorganismo Identificado')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" colSpan={3}>
-                  Recuento de microorganismos (N° de colonias/dilución)
+                  {getColumnLabel(findings, 'phytopathology', 'colonyCount', 'Recuento de microorganismos (N° de colonias/dilución)')}
                 </th>
               </tr>
               <tr className="bg-yellow-100">
                 <th colSpan={3}></th>
                 <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                  Dilución utilizada
+                  {getColumnLabel(findings, 'phytopathology', 'dilution', 'Dilución utilizada')}
                 </th>
                 <th colSpan={2}></th>
               </tr>
               <tr className="bg-yellow-100">
                 <th colSpan={3}></th>
                 <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
-                  10⁻¹
+                  {getColumnLabel(findings, 'phytopathology', 'dilution10_1', '10⁻¹')}
                 </th>
                 <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
-                  10⁻²
+                  {getColumnLabel(findings, 'phytopathology', 'dilution10_2', '10⁻²')}
                 </th>
                 <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
-                  10⁻³
+                  {getColumnLabel(findings, 'phytopathology', 'dilution10_3', '10⁻³')}
                 </th>
               </tr>
             </thead>
