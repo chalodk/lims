@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     // Verificar que el usuario es admin usando una consulta con JOIN
     const { data: currentUser, error: userError } = await supabase
       .from('users')
-      .select('role_id, roles(name)')
+      .select('role_id, company_id, roles(name)')
       .eq('id', user.id)
       .single()
 
@@ -28,19 +28,21 @@ export async function GET(request: NextRequest) {
     // Verificar rol admin
     type RoleData = { id: number; name: string } | { id: number; name: string }[]
     const roleData = currentUser.roles as RoleData
-    const role = Array.isArray(roleData) 
-      ? roleData[0]?.name 
+    const role = Array.isArray(roleData)
+      ? roleData[0]?.name
       : roleData?.name
 
     if (role !== 'admin') {
       return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 })
     }
 
+    const companyId = currentUser.company_id
+
     // Obtener parámetro de búsqueda único
     const { searchParams } = new URL(request.url)
     const searchQuery = searchParams.get('search')?.trim()
 
-    // Construir consulta base - obtener TODOS los usuarios, incluso los que no tienen rol
+    // Construir consulta base - obtener solo usuarios de la misma company
     // La sintaxis de Supabase con roles() hace LEFT JOIN automáticamente
     let query = supabase
       .from('users')
@@ -61,7 +63,7 @@ export async function GET(request: NextRequest) {
           rut
         )
       `)
-      // No aplicar ningún filtro que excluya usuarios sin role_id
+      .eq('company_id', companyId)
 
     // Aplicar filtro de búsqueda única que busca en nombre, email o rol
     if (searchQuery) {
@@ -178,11 +180,15 @@ export async function GET(request: NextRequest) {
         interface AuthUserInfo {
           id: string
           email?: string
-          user_metadata?: { name?: string }
+          user_metadata?: { name?: string; company_id?: string }
           created_at?: string
         }
         unauthorizedUsers = (authUsers.users || [])
-          .filter((authUser: AuthUserInfo) => !publicUserIds.has(authUser.id))
+          .filter((authUser: AuthUserInfo) => {
+            if (publicUserIds.has(authUser.id)) return false
+            if (companyId && authUser.user_metadata?.company_id && authUser.user_metadata.company_id !== companyId) return false
+            return true
+          })
           .map((authUser: AuthUserInfo) => ({
             id: authUser.id,
             name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Sin nombre',
