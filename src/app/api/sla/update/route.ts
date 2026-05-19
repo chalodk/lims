@@ -2,31 +2,56 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { SLAService } from '@/lib/services/slaService'
 
+async function getAuthAndCompany(request: NextRequest) {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { supabase, user: null, companyId: null }
+  }
+
+  const { data: userData } = await supabase
+    .from('users')
+    .select('company_id')
+    .eq('id', user.id)
+    .single()
+
+  return { supabase, user, companyId: userData?.company_id || null }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { supabase, user, companyId } = await getAuthAndCompany(request)
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
-
-    // Check if user is admin or has permission to run SLA updates
-    // You might want to add a specific permission check here
 
     const body = await request.json()
     const { sample_id } = body
 
-    const slaService = new SLAService()
+    const slaService = new SLAService(supabase)
 
     if (sample_id) {
-      // Update specific sample
+      // Verify the sample belongs to user's company before updating
+      if (companyId) {
+        const { data: sample } = await supabase
+          .from('samples')
+          .select('company_id')
+          .eq('id', sample_id)
+          .single()
+
+        if (!sample || sample.company_id !== companyId) {
+          return NextResponse.json({ error: 'Muestra no encontrada' }, { status: 404 })
+        }
+      }
+
       const success = await slaService.updateSampleSLAStatus(sample_id)
-      
+
       if (success) {
-        return NextResponse.json({ 
+        return NextResponse.json({
           message: 'SLA status updated successfully',
-          sample_id 
+          sample_id
         })
       } else {
         return NextResponse.json(
@@ -35,9 +60,8 @@ export async function POST(request: NextRequest) {
         )
       }
     } else {
-      // Update all samples
       const result = await slaService.updateAllSLAStatuses()
-      
+
       return NextResponse.json({
         message: 'SLA status update completed',
         updated: result.updated,
@@ -47,17 +71,27 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error updating SLA status:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Error interno del servidor' },
       { status: 500 }
     )
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const slaService = new SLAService()
-    const stats = await slaService.getSLAStats()
-    const samplesNeedingAttention = await slaService.getSamplesNeedingAttention()
+    const { supabase, user, companyId } = await getAuthAndCompany(request)
+
+    if (!user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    if (!companyId) {
+      return NextResponse.json({ error: 'Usuario sin empresa asignada' }, { status: 400 })
+    }
+
+    const slaService = new SLAService(supabase)
+    const stats = await slaService.getSLAStats(companyId)
+    const samplesNeedingAttention = await slaService.getSamplesNeedingAttention(companyId)
 
     return NextResponse.json({
       stats,
@@ -66,7 +100,7 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching SLA information:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Error interno del servidor' },
       { status: 500 }
     )
   }

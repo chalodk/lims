@@ -64,7 +64,7 @@ CREATE POLICY "company isolation" ON samples
 
 ### Con company_id (la mayoria)
 
-`samples`, `clients`, `projects`, `reports`, `users`, `action_logs`, `invitations`, `sample_files`, `sample_units`, `unit_results`
+`samples`, `clients`, `projects`, `reports`, `users`, `action_logs`, `invitations`, `sample_files`, `sample_units`
 
 Filtrado directo: `.eq('company_id', companyId)`
 
@@ -72,7 +72,7 @@ Filtrado directo: `.eq('company_id', companyId)`
 
 `results` → via `samples.sample_id`
 `sample_tests` → via `samples.sample_id`
-`unit_results` → via `sample_units.sample_id` (aunque esta tabla SI tiene company_id)
+`unit_results` → via `sample_units.sample_id → samples.company_id` (no tiene company_id directo)
 
 Filtrado via `!inner` join: `.select('*, samples!inner(id)').eq('samples.company_id', companyId)`
 

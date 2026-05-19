@@ -9,7 +9,7 @@ Este documento describe el esquema de la base de datos, las tablas principales, 
 - **Motor**: PostgreSQL 15 (via Supabase)
 - **API de consulta**: PostgREST (REST sobre PostgreSQL)
 - **Auth**: GoTrue (usuarios en `auth.users`, perfil en `public.users`)
-- **RLS**: Row Level Security habilitado en tablas principales
+- **RLS**: Row Level Security scripteado pero NO desplegado en produccion aun (ver `scripts/enable-rls-complete.sql` y `docs/AS-IS-estado-actual.md`)
 - **Funciones**: SECURITY DEFINER para operaciones privilegiadas
 
 ## Tablas principales (35 tablas en `public`)

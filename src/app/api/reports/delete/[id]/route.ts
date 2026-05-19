@@ -10,35 +10,45 @@ export async function DELETE(
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    const { data: userData } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('id', user.id)
+      .single()
+
+    const companyId = userData?.company_id
+    if (!companyId) {
+      return NextResponse.json({ error: 'Usuario sin empresa asignada' }, { status: 400 })
     }
 
     const { id: reportId } = await params
 
     if (!reportId) {
-      return NextResponse.json({ error: 'Report ID is required' }, { status: 400 })
+      return NextResponse.json({ error: 'ID de reporte requerido' }, { status: 400 })
     }
 
-    // First check if report exists and get its data
+    // Verify report exists and belongs to user's company
     const { data: report, error: fetchError } = await supabase
       .from('reports')
-      .select('id, status')
+      .select('id, status, company_id')
       .eq('id', reportId)
+      .eq('company_id', companyId)
       .single()
 
     if (fetchError || !report) {
-      return NextResponse.json({ error: 'Report not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Reporte no encontrado' }, { status: 404 })
     }
 
-    // Prevent deletion of sent reports
     if (report.status === 'sent') {
       return NextResponse.json(
-        { error: 'Cannot delete sent reports' }, 
+        { error: 'No se pueden eliminar reportes enviados' },
         { status: 400 }
       )
     }
 
-    // Update associated results to remove report_id reference
     const { error: updateResultsError } = await supabase
       .from('results')
       .update({ report_id: null })
@@ -47,21 +57,21 @@ export async function DELETE(
     if (updateResultsError) {
       console.error('Error updating results:', updateResultsError)
       return NextResponse.json(
-        { error: 'Failed to update associated results' },
+        { error: 'Error al actualizar los resultados asociados' },
         { status: 500 }
       )
     }
 
-    // Delete the report
     const { error: deleteError } = await supabase
       .from('reports')
       .delete()
       .eq('id', reportId)
+      .eq('company_id', companyId)
 
     if (deleteError) {
       console.error('Error deleting report:', deleteError)
       return NextResponse.json(
-        { error: 'Failed to delete report' },
+        { error: 'Error al eliminar el reporte' },
         { status: 500 }
       )
     }
@@ -70,7 +80,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Error in DELETE /api/reports/delete/[id]:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Error interno del servidor' },
       { status: 500 }
     )
   }

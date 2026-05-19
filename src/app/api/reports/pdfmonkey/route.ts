@@ -1007,7 +1007,19 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    // Get user's company for multi-tenant isolation
+    const { data: userData } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('id', user.id)
+      .single()
+
+    const userCompanyId = userData?.company_id
+    if (!userCompanyId) {
+      return NextResponse.json({ error: 'Usuario sin empresa asignada' }, { status: 400 })
     }
 
     const body = await request.json()
@@ -1029,15 +1041,27 @@ export async function POST(request: NextRequest) {
     let resultados: ResultadoData[] = []
 
     if (targetIds.length > 0) {
+      // Verify all result_ids belong to samples in the user's company
+      const { data: ownedResultIds, error: ownedError } = await supabase
+        .from('results')
+        .select('id, samples!inner(company_id)')
+        .in('id', targetIds)
+        .eq('samples.company_id', userCompanyId)
+
+      if (ownedError || !ownedResultIds || ownedResultIds.length === 0) {
+        return NextResponse.json({ error: 'Resultados no encontrados' }, { status: 404 })
+      }
+
       // If we have result_ids, fetch all results
       const { data: resultsData, error: resultsError } = await supabase
         .from('results')
         .select(RESULTS_SELECT_FOR_PDF)
         .in('id', targetIds)
-      
+        .eq('samples.company_id', userCompanyId)
+
       if (resultsError || !resultsData || resultsData.length === 0) {
         console.warn('PDFMonkey: results not found or inaccessible', { targetIds, resultsError })
-        return NextResponse.json({ error: 'Results not found' }, { status: 404 })
+        return NextResponse.json({ error: 'Resultados no encontrados' }, { status: 404 })
       }
 
       // Postgres/Supabase does not return rows in the same order as the .in() id list; reorder to match request/selection order.
@@ -1105,16 +1129,28 @@ export async function POST(request: NextRequest) {
         }
       }
     } else if (result_id) {
+      // Verify the result belongs to a sample in the user's company
+      const { data: ownedResultData, error: ownedResultError } = await supabase
+        .from('results')
+        .select('id, samples!inner(company_id)')
+        .eq('id', result_id)
+        .eq('samples.company_id', userCompanyId)
+        .single()
+
+      if (ownedResultError || !ownedResultData) {
+        return NextResponse.json({ error: 'Resultado no encontrado' }, { status: 404 })
+      }
+
       // If we have result_id, fetch the result directly and get report/client info from it
       const { data: resultData, error: resultError } = await supabase
         .from('results')
         .select(RESULTS_SELECT_FOR_PDF)
         .eq('id', result_id)
         .single()
-      
+
       if (resultError || !resultData) {
         console.warn('PDFMonkey: result not found or inaccessible', { result_id, resultError })
-        return NextResponse.json({ error: 'Result not found' }, { status: 404 })
+        return NextResponse.json({ error: 'Resultado no encontrado' }, { status: 404 })
       }
       
       resultados = [(resultData as unknown) as ResultadoData]
@@ -1142,8 +1178,9 @@ export async function POST(request: NextRequest) {
       // Legacy behavior: fetch report first, then try to find associated result
       const { data: reportData, error: reportError } = await supabase
         .from('reports')
-        .select('id, created_at, client_id, test_areas')
+        .select('id, created_at, client_id, test_areas, company_id')
         .eq('id', report_id)
+        .eq('company_id', userCompanyId)
         .single()
 
       if (reportError || !reportData) {
@@ -1158,6 +1195,7 @@ export async function POST(request: NextRequest) {
         .from('results')
         .select(RESULTS_SELECT_FOR_PDF)
         .eq('report_id', report_id)
+        .eq('samples.company_id', userCompanyId)
         .single()
       
       if (resultError) {

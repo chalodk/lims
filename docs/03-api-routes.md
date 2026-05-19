@@ -1,8 +1,11 @@
 # 03 — API Routes
 
+> **Estado**: TO-BE. Varios endpoints documentados no estan implementados aun. Ver `docs/AS-IS-estado-actual.md` para el inventario real.
+> Última actualización: 2026-05-19.
+
 ## Proposito
 
-Este documento cataloga los 45 endpoints REST del LIMS, explica los patrones de codificacion, y documenta las reglas que toda ruta API debe seguir.
+Este documento cataloga los endpoints REST del LIMS (implementados y planificados), explica los patrones de codificacion, y documenta las reglas que toda ruta API debe seguir.
 
 ## Patron universal
 
@@ -115,11 +118,11 @@ Nunca hacer `try/catch` generico que oculte el error. `withAuth` ya atrapa excep
 
 | Metodo | Ruta | Auth | Descripcion |
 |---|---|---|---|
-| POST | `/api/auth/signup` | No | Registro de usuario |
-| POST | `/api/auth/setup-company` | withAuth | Crear empresa + asignar admin |
-| POST | `/api/auth/accept-invite` | withAuth | Aceptar invitacion |
+| POST | `/api/auth/signup` | No | [NO IMPLEMENTADO] Registro de usuario |
+| POST | `/api/auth/setup-company` | withAuth | [NO IMPLEMENTADO] Crear empresa + asignar admin |
+| POST | `/api/auth/accept-invite` | Token | Aceptar invitacion (publico, basado en token) |
 | PATCH | `/api/auth/user` | withAuth | Actualizar datos del usuario |
-| POST | `/api/auth/setup` | withAuth | Setup post-registro (log action) |
+| POST | `/api/auth/setup` | withAuth | [NO IMPLEMENTADO] Setup post-registro (log action) |
 
 ### Samples
 
@@ -153,8 +156,8 @@ Nunca hacer `try/catch` generico que oculte el error. `withAuth` ya atrapa excep
 
 | Metodo | Ruta | Descripcion |
 |---|---|---|
-| GET | `/api/reports` | Listar reportes |
-| POST | `/api/reports` | Crear reporte (dispara PDFMonkey) |
+| GET | `/api/reports` | [NO IMPLEMENTADO] Listar reportes |
+| POST | `/api/reports` | [NO IMPLEMENTADO] Crear reporte (dispara PDFMonkey) |
 | GET | `/api/reports/[sampleId]/render` | Renderizar reporte |
 | POST | `/api/reports/[sampleId]/render` | Generar PDF de reporte |
 | DELETE | `/api/reports/delete/[id]` | Eliminar reporte |
@@ -170,10 +173,10 @@ Nunca hacer `try/catch` generico que oculte el error. `withAuth` ya atrapa excep
 
 | Metodo | Ruta | Descripcion |
 |---|---|---|
-| GET | `/api/clients` | Listar clientes |
+| GET | `/api/clients` | [NO IMPLEMENTADO] Listar clientes |
 | POST | `/api/clients` | Crear cliente |
-| PUT | `/api/clients/[id]` | Actualizar cliente |
-| DELETE | `/api/clients/[id]` | Eliminar cliente |
+| PUT | `/api/clients/[id]` | [NO IMPLEMENTADO] Actualizar cliente |
+| DELETE | `/api/clients/[id]` | [NO IMPLEMENTADO] Eliminar cliente |
 
 ### Settings (admin)
 
@@ -207,11 +210,11 @@ Nunca hacer `try/catch` generico que oculte el error. `withAuth` ya atrapa excep
 | POST | `/api/invitations` | Crear invitacion |
 | POST | `/api/sla/update` | Actualizar estado SLA |
 | POST | `/api/cron/sla-update` | Cron job de SLA (protegido por CRON_SECRET) |
-| GET | `/api/projects` | Listar proyectos |
-| POST | `/api/projects` | Crear proyecto |
-| GET | `/api/tests` | Catalogo de tests |
-| GET | `/api/methods` | Catalogo de metodos |
-| GET | `/api/analytes` | Catalogo de analitos |
+| GET | `/api/projects` | [NO IMPLEMENTADO] Listar proyectos |
+| POST | `/api/projects` | [NO IMPLEMENTADO] Crear proyecto |
+| GET | `/api/tests` | [NO IMPLEMENTADO] Catalogo de tests |
+| GET | `/api/methods` | [NO IMPLEMENTADO] Catalogo de metodos |
+| GET | `/api/analytes` | [NO IMPLEMENTADO] Catalogo de analitos |
 | GET | `/api/units/[id]/results` | Resultados de unidad |
 | POST | `/api/units/[id]/results` | Crear resultado de unidad |
 

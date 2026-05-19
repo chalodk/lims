@@ -1,6 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+async function verifyUnitOwnership(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  sampleUnitId: string,
+  userId: string
+) {
+  const { data: userData } = await supabase
+    .from('users')
+    .select('company_id')
+    .eq('id', userId)
+    .single()
+
+  const companyId = userData?.company_id
+  if (!companyId) {
+    return { authorized: false, error: 'Usuario sin empresa asignada', status: 400 }
+  }
+
+  // Two-hop verification: sample_units.sample_id → samples.company_id
+  const { data: unit } = await supabase
+    .from('sample_units')
+    .select('sample_id, samples!inner(company_id)')
+    .eq('id', sampleUnitId)
+    .single()
+
+  const sampleCompanyId = unit && Array.isArray(unit.samples) && unit.samples.length > 0
+    ? (unit.samples[0] as Record<string, unknown>).company_id
+    : null
+
+  if (!unit || sampleCompanyId !== companyId) {
+    return { authorized: false, error: 'Unidad no encontrada', status: 404 }
+  }
+
+  return { authorized: true, companyId }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -11,10 +45,15 @@ export async function GET(
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const { data, error } = await supabase
+    const { authorized, error, status } = await verifyUnitOwnership(supabase, resolvedParams.id, user.id)
+    if (!authorized) {
+      return NextResponse.json({ error }, { status })
+    }
+
+    const { data, error: queryError } = await supabase
       .from('unit_results')
       .select(`
         *,
@@ -23,15 +62,15 @@ export async function GET(
       `)
       .eq('sample_unit_id', resolvedParams.id)
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (queryError) {
+      return NextResponse.json({ error: 'Error al obtener los resultados' }, { status: 500 })
     }
 
     return NextResponse.json(data)
   } catch (error) {
     console.error('Error fetching unit results:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Error interno del servidor' },
       { status: 500 }
     )
   }
@@ -47,27 +86,31 @@ export async function POST(
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    const { authorized, error, status } = await verifyUnitOwnership(supabase, resolvedParams.id, user.id)
+    if (!authorized) {
+      return NextResponse.json({ error }, { status })
     }
 
     const body = await request.json()
-    const { 
-      test_id, 
-      method_id, 
-      analyte, 
-      result_value, 
-      result_flag = 'na', 
-      notes 
+    const {
+      test_id,
+      method_id,
+      analyte,
+      result_value,
+      result_flag = 'na',
+      notes
     } = body
 
     if (!test_id) {
       return NextResponse.json(
-        { error: 'test_id is required' },
+        { error: 'test_id es requerido' },
         { status: 400 }
       )
     }
 
-    // Check if result already exists for this unit/test combination
     const { data: existing } = await supabase
       .from('unit_results')
       .select('id')
@@ -76,8 +119,7 @@ export async function POST(
       .single()
 
     if (existing) {
-      // Update existing result
-      const { data, error } = await supabase
+      const { data, error: updateError } = await supabase
         .from('unit_results')
         .update({
           method_id,
@@ -94,14 +136,13 @@ export async function POST(
         `)
         .single()
 
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
+      if (updateError) {
+        return NextResponse.json({ error: 'Error al actualizar el resultado' }, { status: 500 })
       }
 
       return NextResponse.json(data)
     } else {
-      // Create new result
-      const { data, error } = await supabase
+      const { data, error: insertError } = await supabase
         .from('unit_results')
         .insert({
           sample_unit_id: resolvedParams.id,
@@ -119,8 +160,8 @@ export async function POST(
         `)
         .single()
 
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
+      if (insertError) {
+        return NextResponse.json({ error: 'Error al crear el resultado' }, { status: 500 })
       }
 
       return NextResponse.json(data, { status: 201 })
@@ -128,7 +169,7 @@ export async function POST(
   } catch (error) {
     console.error('Error creating/updating unit result:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Error interno del servidor' },
       { status: 500 }
     )
   }

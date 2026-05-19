@@ -84,13 +84,9 @@ NODE_ENV=production
 
 ### Health check
 
-Railway necesita un endpoint para health check. Usar una ruta publica ligera:
+Railway necesita un endpoint para health check. Crear un endpoint especifico `GET /api/health` que devuelva 200.
 
-```
-GET /api/auth/signup  (devuelve 405 Method Not Allowed, pero la conexion funciona)
-```
-
-O crear un endpoint especifico `GET /api/health` que devuelva 200.
+**NOTA**: `GET /api/auth/signup` no existe como ruta implementada. No usar para health check.
 
 ### Cron job — SLA update
 

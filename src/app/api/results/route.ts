@@ -71,35 +71,47 @@ export async function GET(request: NextRequest) {
       query = query.eq('sample_id', sample_id)
     }
 
-    // Filter by company - results should only show for samples from user's company
-    // We'll filter this in the query by joining properly
-    let baseQuery = query
-    
+    // Filter by company using !inner join (avoids .in() anti-pattern with large arrays)
     if (userData?.company_id) {
-      // We need to filter by samples that belong to the user's company
-      // First get sample IDs from the user's company
-      const { data: companySamples } = await supabase
-        .from('samples')
-        .select('id')
-        .eq('company_id', userData.company_id)
-      
-      if (companySamples && companySamples.length > 0) {
-        const sampleIds = companySamples.map(s => s.id)
-        baseQuery = baseQuery.in('sample_id', sampleIds)
-      } else {
-        // No samples for this company, return empty results
-        return NextResponse.json({
-          data: [],
-          pagination: { page, limit, total: 0, pages: 0 }
-        })
-      }
+      // Rebuild query with inner join on samples to filter by company_id
+      // PostgREST: INNER JOIN samples ON results.sample_id = samples.id WHERE samples.company_id = $1
+      query = supabase
+        .from('results')
+        .select(`
+          *,
+          sample_tests (
+            id,
+            test_catalog (id, name, area),
+            methods (id, name)
+          ),
+          samples!inner (
+            id,
+            code,
+            species,
+            clients (id, name)
+          ),
+          performed_by_user:users!performed_by (id, name, email),
+          validated_by_user:users!validated_by (id, name, email)
+        `, { count: 'exact' })
+        .eq('samples.company_id', userData.company_id)
+
+      // Re-apply filters on the new query
+      if (status) query = query.eq('status', status)
+      if (test_area) query = query.eq('test_area', test_area)
+      if (sample_id) query = query.eq('sample_id', sample_id)
+    } else {
+      // User has no company assigned, return empty
+      return NextResponse.json({
+        data: [],
+        pagination: { page, limit, total: 0, pages: 0 }
+      })
     }
 
     // Apply pagination
     const from = (page - 1) * limit
     const to = from + limit - 1
 
-    const { data, error, count } = await baseQuery
+    const { data, error, count } = await query
       .order('created_at', { ascending: false })
       .range(from, to)
 

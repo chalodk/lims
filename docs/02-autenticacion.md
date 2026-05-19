@@ -1,5 +1,8 @@
 # 02 — Sistema de Autenticacion
 
+> **Estado**: TO-BE con divergencias. Ver `docs/AS-IS-estado-actual.md` para el estado real del código.
+> Última actualización: 2026-05-19.
+
 ## Proposito
 
 Este documento describe el sistema completo de autenticacion y autorizacion: como se registran los usuarios, como se validan las sesiones, el sistema de roles, y como se protegen las rutas.
@@ -27,9 +30,9 @@ POST /api/auth/signup (publico, sin auth)
 ```
 
 **Archivos clave**:
-- `src/app/api/auth/signup/route.ts` — endpoint publico
+- `src/app/signup/page.tsx` — formulario de registro (usa Supabase Auth UI directamente)
 - `scripts/signup-rpc-functions.sql` — `create_user_profile` RPC
-- `src/app/signup/page.tsx` — formulario de registro
+- **NOTA**: `POST /api/auth/signup` esta documentado pero NO implementado aun.
 
 **Restriccion de branding**: si el host es `nemachile`, el signup devuelve 403. Controlado en `src/lib/branding/hostBranding.ts`.
 
@@ -61,9 +64,9 @@ POST /api/auth/setup-company (con withAuth)
 ```
 
 **Archivos clave**:
-- `src/app/api/auth/setup-company/route.ts`
 - `src/app/setup-company/page.tsx` — UI post-registro
 - `scripts/signup-rpc-functions.sql` — `create_company_and_assign_admin` RPC
+- **NOTA**: `POST /api/auth/setup-company` esta documentado pero NO implementado aun.
 
 ## withAuth() — el wrapper universal
 
@@ -111,7 +114,7 @@ Los roles se asignan via `users.role_id → roles.id`. El nombre del rol esta en
 
 Rutas publicas (sin auth):   /login, /signup, /auth/callback
 Rutas protegidas (auth):     todo lo demas
-API routes:                  el middleware las deja pasar (withAuth maneja la auth)
+API routes:                  el middleware las intercepta y devuelve 401 si no hay sesion (withAuth se usaria para validacion adicional)
 ```
 
 **Redirects automaticos**:

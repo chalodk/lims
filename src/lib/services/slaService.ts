@@ -1,5 +1,9 @@
 import { getSupabaseClient } from '@/lib/supabase/singleton'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { SLAType, SLAStatus } from '@/types/database'
+import type { Database } from '@/types/database'
+
+type SupabaseClientLike = SupabaseClient<Database> | ReturnType<typeof getSupabaseClient>
 
 interface SampleWithClientArray {
   id: string
@@ -11,7 +15,11 @@ interface SampleWithClientArray {
 }
 
 export class SLAService {
-  private supabase = getSupabaseClient()
+  private supabase: SupabaseClientLike
+
+  constructor(supabaseClient?: SupabaseClientLike) {
+    this.supabase = supabaseClient || getSupabaseClient()
+  }
 
   /**
    * Calculate due date based on received date and SLA type
@@ -159,7 +167,7 @@ export class SLAService {
   /**
    * Get SLA statistics for dashboard
    */
-  async getSLAStats(): Promise<{
+  async getSLAStats(companyId?: string): Promise<{
     total: number
     on_time: number
     at_risk: number
@@ -167,10 +175,16 @@ export class SLAService {
     express: number
   }> {
     try {
-      const { data, error } = await this.supabase
+      let query = this.supabase
         .from('samples')
         .select('sla_status, sla_type')
         .neq('status', 'completed')
+
+      if (companyId) {
+        query = query.eq('company_id', companyId)
+      }
+
+      const { data, error } = await query
 
       if (error || !data) {
         return { total: 0, on_time: 0, at_risk: 0, breached: 0, express: 0 }
@@ -212,40 +226,26 @@ export class SLAService {
   /**
    * Get samples that need attention based on SLA status
    */
-  async getSamplesNeedingAttention(): Promise<{
+  async getSamplesNeedingAttention(companyId?: string): Promise<{
     at_risk: Array<{ id: string; code: string; client_id: string; due_date: string; status: string; clients: { name: string } | null }>
     breached: Array<{ id: string; code: string; client_id: string; due_date: string; status: string; clients: { name: string } | null }>
     express_due_soon: Array<{ id: string; code: string; client_id: string; due_date: string; status: string; clients: { name: string } | null }>
   }> {
     try {
+      const buildQuery = () => {
+        const query = this.supabase
+          .from('samples')
+          .select(`
+            id, code, client_id, due_date, status,
+            clients!inner (name)
+          `)
+        return companyId ? query.eq('company_id', companyId) : query
+      }
+
       const [atRiskResult, breachedResult, expressResult] = await Promise.all([
-        // At-risk samples
-        this.supabase
-          .from('samples')
-          .select(`
-            id, code, client_id, due_date, status,
-            clients!inner (name)
-          `)
-          .eq('sla_status', 'at_risk')
-          .neq('status', 'completed'),
-
-        // Breached samples
-        this.supabase
-          .from('samples')
-          .select(`
-            id, code, client_id, due_date, status,
-            clients!inner (name)
-          `)
-          .eq('sla_status', 'breached')
-          .neq('status', 'completed'),
-
-        // Express samples due within 2 days
-        this.supabase
-          .from('samples')
-          .select(`
-            id, code, client_id, due_date, status,
-            clients!inner (name)
-          `)
+        buildQuery().eq('sla_status', 'at_risk').neq('status', 'completed'),
+        buildQuery().eq('sla_status', 'breached').neq('status', 'completed'),
+        buildQuery()
           .eq('sla_type', 'express')
           .neq('status', 'completed')
           .lte('due_date', new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])

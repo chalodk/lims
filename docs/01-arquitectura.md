@@ -1,5 +1,8 @@
 # 01 — Arquitectura General
 
+> **Estado**: TO-BE / Parcialmente implementado. Ver `docs/AS-IS-estado-actual.md` para el estado real del código.
+> Última actualización: 2026-05-19.
+
 ## Proposito
 
 Este documento describe la arquitectura de alto nivel del LIMS, las decisiones de diseno fundamentales, y como se conectan las capas del sistema. Es el punto de partida para entender el proyecto como un todo.
@@ -27,7 +30,8 @@ Este documento describe la arquitectura de alto nivel del LIMS, las decisiones d
 │  │  Middleware (routing, auth redirects)            │   │
 │  └──────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────┐   │
-│  │  API Routes (45 endpoints)                       │   │
+│  │  API Routes (35 endpoints implementados,          │   │
+│  │  13 documentados pero no implementados)           │   │
 │  │  ┌──────────┐ ┌──────────┐ ┌──────────────────┐  │   │
 │  │  │ withAuth │ │ Services │ │ PDFMonkey Builders│ │   │
 │  │  │ wrapper  │ │ (3 files)│ │ (6 builders)     │  │   │
@@ -57,12 +61,14 @@ Este documento describe la arquitectura de alto nivel del LIMS, las decisiones d
 
 **Implicacion**: compartir tipos entre API y frontend es trivial (mismo repo, mismo `src/types/`). Pero hay que ser disciplinado con la separacion logica — no importar codigo de servidor en componentes cliente.
 
-### 2. withAuth() como unica puerta de autenticacion
+### 2. withAuth() como unica puerta de autenticacion (NO ADOPTADO AUN)
 
-Toda ruta API usa `withAuth()` de `src/lib/auth/api-auth.ts`. No hay autenticacion manual en ninguna ruta. Esto garantiza:
+Toda ruta API DEBERIA usar `withAuth()` de `src/lib/auth/api-auth.ts`. No hay autenticacion manual en ninguna ruta. Esto garantiza:
 - Un solo lugar para cambiar el comportamiento de auth
 - Mensajes de error consistentes
 - El cliente Supabase correcto (server, cookie-based) siempre disponible
+
+**Estado actual**: el wrapper `withAuth()` existe en `src/lib/auth/api-auth.ts` pero 0/35 rutas lo importan. Cada ruta implementa la autenticacion manualmente con `createClient()` + `getUser()`. Ver `docs/AS-IS-estado-actual.md`.
 
 ### 3. PostgREST como capa de acceso a datos
 
@@ -102,7 +108,8 @@ Operaciones que requieren bypassear RLS (como crear un perfil de usuario sin ten
 | `src/app/(paginas)/` | Pages con Server Components | Hybrid |
 | `src/components/` | Componentes React reutilizables | Client (la mayoria) |
 | `src/lib/services/` | Logica de negocio pura | Server-only |
-| `src/lib/reports/` | Generacion de PDFs | Server-only |
+| `src/lib/reports/` | Servicio de reportes (`reportService.ts`) | Server-only |
+| `src/app/api/reports/pdfmonkey/route.ts` | Logica de generacion PDF (builders inline, ~1400 lineas) | Server-only |
 | `src/lib/auth/` | withAuth(), constantes | Server-only |
 | `src/lib/supabase/` | Clientes Supabase (server + browser) | Server + Client |
 | `src/lib/branding/` | Deteccion de marca blanca | Server |
