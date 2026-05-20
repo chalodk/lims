@@ -1,8 +1,18 @@
 # 04 — Base de Datos
 
+> Última actualización: 2026-05-20.
+
 ## Proposito
 
 Este documento describe el esquema de la base de datos, las tablas principales, las relaciones, las politicas RLS, y las funciones SECURITY DEFINER.
+
+## Documentos relacionados
+
+| Doc | Relacion |
+|---|---|
+| `03-api-routes.md` | Como se consulta la DB desde los endpoints |
+| `06-multi-tenant.md` | Modelo de company_id, tablas con/sin tenant |
+| `07-reportes-pdf.md` | Tablas relacionadas con reportes |
 
 ## Stack de datos
 
@@ -81,12 +91,14 @@ companies ──┬── users ────────────────
 
 ## RLS (Row Level Security)
 
-RLS esta habilitado en tablas principales. Las politicas usan funciones helper:
+**Estado actual**: RLS NO esta habilitado en produccion. Los scripts estan listos en `scripts/` (`enable-rls-complete.sql`, `rls-policies.sql`) pero aun no se ejecutaron. La unica capa de aislamiento multi-tenant es el filtro manual `company_id` en las rutas API.
+
+Las politicas RLS usaran estas funciones helper (definidas en los scripts):
 
 - `get_user_company_id()` → devuelve el `company_id` del usuario autenticado
 - `is_admin()` → verifica si el usuario tiene rol admin
 
-### Ejemplos de politicas
+### Ejemplos de politicas (planificadas)
 
 ```sql
 -- samples: usuarios ven solo las muestras de su company

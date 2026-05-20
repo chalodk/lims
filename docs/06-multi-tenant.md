@@ -1,8 +1,19 @@
 # 06 — Sistema Multi-Tenant
 
+> Última actualización: 2026-05-20.
+
 ## Proposito
 
 Este documento describe como el LIMS aisla datos entre empresas (tenants), el sistema de branding por host, y las reglas para mantener la separacion.
+
+## Documentos relacionados
+
+| Doc | Relacion |
+|---|---|
+| `01-arquitectura.md` | Decision de diseno multi-tenant |
+| `02-autenticacion.md` | Roles por empresa, company_id en usuarios |
+| `03-api-routes.md` | Patrones de filtro A (directo) y B (inner join) |
+| `04-base-de-datos.md` | Tablas con/sin company_id, RLS |
 
 ## Modelo de tenants
 

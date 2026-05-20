@@ -1,11 +1,21 @@
 # 02 — Sistema de Autenticacion
 
 > **Estado**: TO-BE con divergencias. Ver `docs/AS-IS-estado-actual.md` para el estado real del código.
-> Última actualización: 2026-05-19.
+> Última actualización: 2026-05-20.
 
 ## Proposito
 
 Este documento describe el sistema completo de autenticacion y autorizacion: como se registran los usuarios, como se validan las sesiones, el sistema de roles, y como se protegen las rutas.
+
+## Documentos relacionados
+
+| Doc | Relacion |
+|---|---|
+| `01-arquitectura.md` | Arquitectura general, diagrama de capas |
+| `03-api-routes.md` | Patrones de codificacion de endpoints, withAuth en uso |
+| `05-frontend.md` | Reglas de browser client, AuthContext |
+| `06-multi-tenant.md` | Aislamiento via company_id en cada request |
+| `08-deploy-entorno.md` | Variables de entorno de Supabase |
 
 ## Stack de auth
 
@@ -73,28 +83,54 @@ POST /api/auth/setup-company (con withAuth)
 ```ts
 // src/lib/auth/api-auth.ts
 
-export function withAuth(handler) {
-  return async (request, ...args) => {
+type AuthContext = {
+  user: User
+  supabase: SupabaseServerClient
+  params: unknown        // Promise con los params de ruta dinamica
+}
+
+export function withAuth(
+  handler: (request: NextRequest, ctx: AuthContext) => Promise<Response>
+) {
+  return async (request: NextRequest, routeCtx: { params: Promise<unknown> }) => {
     try {
       const { user, supabase } = await authenticateApiRequest()
-      // user: User de GoTrue (id, email, role, etc.)
+      // user: User de GoTrue (id, email, etc.)
       // supabase: server client con JWT del usuario
-      return await handler(request, { user, supabase }, ...args)
+      // params: Promise con route params (ej: { id: string })
+      return await handler(request, { user, supabase, params: routeCtx.params })
     } catch (error) {
       if (error instanceof AuthenticationError) {
-        return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+        return NextResponse.json({ error: error.message }, { status: 401 })
       }
-      // Error real → 500 con mensaje
-      return NextResponse.json({ error: `Error interno: ${error.message}` }, { status: 500 })
+      // Errores inesperados → 500 con mensaje sanitizado
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
   }
 }
+```
+
+**Uso con params de ruta**:
+```ts
+// Ruta sin params: api/samples/route.ts
+export const GET = withAuth(async (_req, { user, supabase }) => { ... })
+
+// Ruta con params: api/samples/[id]/route.ts
+export const GET = withAuth(async (_req, { user, supabase, params }) => {
+  const { id } = await (params as Promise<{ id: string }>)
+  ...
+})
 ```
 
 **authenticateApiRequest() interna**:
 1. `createClient()` → lee cookies del request → crea server client
 2. `supabase.auth.getUser()` → valida JWT contra GoTrue
 3. Si OK → `{ user, supabase }`. Si no → throw `AuthenticationError`
+
+**SupabaseServerClient**: tipo exportado para helpers que necesitan el cliente tipado:
+```ts
+export type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
+```
 
 ## Roles
 
@@ -114,7 +150,7 @@ Los roles se asignan via `users.role_id → roles.id`. El nombre del rol esta en
 
 Rutas publicas (sin auth):   /login, /signup, /auth/callback
 Rutas protegidas (auth):     todo lo demas
-API routes:                  el middleware las intercepta y devuelve 401 si no hay sesion (withAuth se usaria para validacion adicional)
+API routes:                  el middleware las intercepta y devuelve 401 si no hay sesion. withAuth agrega validacion de JWT e inyecta el cliente Supabase server-side
 ```
 
 **Redirects automaticos**:
@@ -152,8 +188,23 @@ createClient() → createServerClient(url, anonKey, { cookies })
 getSupabaseClient() → createBrowserClient(url, anonKey, { auth: { persistSession: true } })
 ```
 - Singleton (una instancia para toda la app)
-- Usado SOLO en: AuthContext (auth listeners), SLA cards (realtime), login/signup
-- NUNCA usar para escrituras a DB desde el navegador
+- Usado SOLO en: AuthContext (auth listeners), SLA cards (realtime), login, signup, test-db (diagnostico)
+- **NUNCA usar para escrituras a DB desde el navegador** — toda mutacion va por API route
+
+### Setup de perfil inicial (ya implementado)
+
+```
+POST /api/auth/setup (con withAuth)
+  │
+  ├─ 1. Recibe name, company_name, specialization, role
+  ├─ 2. Busca el role_id en tabla roles segun el nombre
+  ├─ 3. Inserta perfil en public.users con company_id forzado
+  └─ 4. Registra accion en action_logs via log_action RPC
+```
+
+**Archivos clave**:
+- `src/components/auth/UserSetup.tsx` — formulario de setup post-login
+- `src/app/api/auth/setup/route.ts` — endpoint POST con withAuth
 
 ## Reglas
 

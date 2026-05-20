@@ -1,11 +1,23 @@
 # 01 — Arquitectura General
 
 > **Estado**: TO-BE / Parcialmente implementado. Ver `docs/AS-IS-estado-actual.md` para el estado real del código.
-> Última actualización: 2026-05-19.
+> Última actualización: 2026-05-20.
 
 ## Proposito
 
 Este documento describe la arquitectura de alto nivel del LIMS, las decisiones de diseno fundamentales, y como se conectan las capas del sistema. Es el punto de partida para entender el proyecto como un todo.
+
+## Documentos relacionados
+
+| Doc | Relacion |
+|---|---|
+| `02-autenticacion.md` | Sistema de auth, withAuth(), roles, middleware |
+| `03-api-routes.md` | Catalogo de endpoints, patrones de codificacion |
+| `04-base-de-datos.md` | Esquema DB, PostgREST, RLS |
+| `05-frontend.md` | Organizacion del frontend, reglas browser client vs API |
+| `06-multi-tenant.md` | Aislamiento company_id, capas de defensa |
+| `07-reportes-pdf.md` | Generacion de PDFs, PDFMonkey |
+| `08-deploy-entorno.md` | Deploy en Railway, variables de entorno |
 
 ## Diagrama de capas
 
@@ -30,15 +42,14 @@ Este documento describe la arquitectura de alto nivel del LIMS, las decisiones d
 │  │  Middleware (routing, auth redirects)            │   │
 │  └──────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────┐   │
-│  │  API Routes (35 endpoints implementados,          │   │
-│  │  13 documentados pero no implementados)           │   │
+│  │  API Routes (~39 endpoints, 24+ con withAuth)   │   │
 │  │  ┌──────────┐ ┌──────────┐ ┌──────────────────┐  │   │
-│  │  │ withAuth │ │ Services │ │ PDFMonkey Builders│ │   │
-│  │  │ wrapper  │ │ (3 files)│ │ (6 builders)     │  │   │
+│  │  │ withAuth │ │ Services │ │ pdfmonkey/route  │  │   │
+│  │  │ wrapper  │ │ (3 files)│ │ (~1400 lineas)   │  │   │
 │  │  └──────────┘ └──────────┘ └──────────────────┘  │   │
 │  └──────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────┐   │
-│  │  SSR Pages (Server Components)                   │   │
+│  │  Pages (Client Components + Server Components)   │   │
 │  └──────────────────────────────────────────────────┘   │
 └──────────┬──────────────────────────────────────────────┘
            │ HTTP (PostgREST + GoTrue)
@@ -61,14 +72,15 @@ Este documento describe la arquitectura de alto nivel del LIMS, las decisiones d
 
 **Implicacion**: compartir tipos entre API y frontend es trivial (mismo repo, mismo `src/types/`). Pero hay que ser disciplinado con la separacion logica — no importar codigo de servidor en componentes cliente.
 
-### 2. withAuth() como unica puerta de autenticacion (NO ADOPTADO AUN)
+### 2. withAuth() como unica puerta de autenticacion (ADOPTADO — 24/35 rutas)
 
-Toda ruta API DEBERIA usar `withAuth()` de `src/lib/auth/api-auth.ts`. No hay autenticacion manual en ninguna ruta. Esto garantiza:
+Toda ruta API DEBE usar `withAuth()` de `src/lib/auth/api-auth.ts`. Esto garantiza:
 - Un solo lugar para cambiar el comportamiento de auth
-- Mensajes de error consistentes
+- Mensajes de error consistentes (401 para auth, 500 sanitizado para errores)
 - El cliente Supabase correcto (server, cookie-based) siempre disponible
+- El contexto `{ user, supabase, params }` inyectado automaticamente
 
-**Estado actual**: el wrapper `withAuth()` existe en `src/lib/auth/api-auth.ts` pero 0/35 rutas lo importan. Cada ruta implementa la autenticacion manualmente con `createClient()` + `getUser()`. Ver `docs/AS-IS-estado-actual.md`.
+**Estado actual**: 24 de 35 rutas usan `withAuth()`. Las 11 restantes incluyen rutas publicas legitimas (cron, callback, webhook de PDFMonkey, accept-invite) que no requieren auth de usuario. El wrapper esta en `src/lib/auth/api-auth.ts` y exporta tambien el tipo `SupabaseServerClient` para helpers tipados.
 
 ### 3. PostgREST como capa de acceso a datos
 

@@ -1,8 +1,18 @@
 # 07 — Reportes y PDFMonkey
 
+> Última actualización: 2026-05-20.
+
 ## Proposito
 
 Este documento describe el sistema de generacion de reportes PDF, la integracion con PDFMonkey, y el patron builder por tipo de analisis.
+
+## Documentos relacionados
+
+| Doc | Relacion |
+|---|---|
+| `03-api-routes.md` | Endpoints de reportes |
+| `04-base-de-datos.md` | Tablas reports, report_templates, report_assets |
+| `08-deploy-entorno.md` | Variables PDFMONKEY_API_KEY y templates |
 
 ## Arquitectura de reportes
 
@@ -40,80 +50,30 @@ Descargar          ──GET───▶  /api/reports/pdf/[filename]
 6. Usuario descarga desde /api/reports/pdf/[filename]
 ```
 
-## Tipos de analisis y builders
+## Tipos de analisis y templates
 
-Cada tipo de analisis tiene su propio template PDFMonkey y builder:
+Cada tipo de analisis tiene su propio template PDFMonkey. La logica de construccion de payload esta actualmente en `src/app/api/reports/pdfmonkey/route.ts` (~1400 lineas). Esta planificada la extraccion a builders separados.
 
-| Tipo | Enum | Builder | Template Env Var |
-|---|---|---|---|
-| Virologia | `virology` | `builders/virology.ts` | `PDFMONKEY_TEMPLATE_VIROLOGY` |
-| Fitopatologia | `phytopatology` | `builders/phytopatology.ts` | `PDFMONKEY_TEMPLATE_PHYTOPATOLOGY` |
-| Nematologia | `nematology` | `builders/nematology.ts` | `PDFMONKEY_TEMPLATE_NEMATOLOGY` |
-| Bacteriologia | `bacteriology` | `builders/bacteriology.ts` | `PDFMONKEY_TEMPLATE_BACTERIOLOGY` |
-| Deteccion precoz | `early_detection` | `builders/earlyDetection.ts` | `PDFMONKEY_TEMPLATE_EARLY_DETECTION` |
-| Default | `default` | `builders/default.ts` | `PDFMONKEY_TEMPLATE_DEFAULT` |
-
-## Registry (deteccion automatica)
-
-`src/lib/reports/pdfmonkey/builders/registry.ts`
-
-La funcion `getAnalysisTypeFromTestArea()` determina el tipo:
-
-1. **Primario**: lee `sample_tests.test_catalog.area` del enum (nematologia, fitopatologia, virologia, deteccion_precoz, bacteriologia)
-2. **Fallback**: keyword matching sobre `test_area` (texto)
-3. **Default**: si no se puede determinar
-
-`groupResultadosByAnalysisType()` agrupa resultados por tipo → util si un reporte incluye multiples analisis.
-
-## Builders (patron)
-
-Cada builder exporta una funcion pura:
-
-```ts
-// src/lib/reports/pdfmonkey/builders/virology.ts
-export function buildVirologyPayload(
-  report: ReportData,
-  client: ClientData | null,
-  resultados: ResultadoData[],
-  analyst?: AnalystInfo
-): Record<string, unknown>
-```
-
-El builder mapea los datos del LIMS al formato que espera el template PDFMonkey. Cada template tiene su propia estructura de payload.
-
-### Funciones compartidas entre builders
-
-`src/lib/reports/pdfmonkey/utils.ts` (228 lineas, 10 funciones):
-
-- `formatDateDDMMYYYY` — formateo de fechas
-- `buildSampleIdentification` — identificacion de muestra (codigo, especie, etc.)
-- `buildPersonaTomoMuestra` — quien tomo la muestra
-- `generateReportNumber` — genera numero unico de reporte
-- `parseFindings` — parsea hallazgos de JSON
-- `collectAllTests` — recolecta todos los tests de resultados
-- `buildMetodologiaDescripcionFromFindings` — descripcion de metodologia
-- `resolveMetodologiaDescripcion` — resolucion de metodologia
-- `wrapHtmlPreservingWhitespaceForPdf` — wrapping HTML para PDF
-- `resolveTipoAnalisisDescripcionFromCatalog` — descripcion de tipo de analisis
-
-## Generacion de numero de reporte
-
-`generateReportNumber()` en `utils.ts`:
-
-- **General**: `YYMM-XXXXX` (ej: `2604-00123`)
-- **Nematologia**: `NEM-YYMM-XXXXX` (ej: `NEM-2604-00123`)
-- `Date.now() % 100000` → 100,000 valores unicos por ciclo
-- Antes usaba `Math.random() * 1000` (solo 1,000 valores, riesgo de colision)
+| Tipo | Enum | Template Env Var |
+|---|---|---|
+| Virologia | `virology` | `PDFMONKEY_TEMPLATE_VIROLOGY` |
+| Fitopatologia | `phytopatology` | `PDFMONKEY_TEMPLATE_PHYTOPATOLOGY` |
+| Nematologia | `nematology` | `PDFMONKEY_TEMPLATE_NEMATOLOGY` |
+| Bacteriologia | `bacteriology` | `PDFMONKEY_TEMPLATE_BACTERIOLOGY` |
+| Deteccion precoz | `early_detection` | `PDFMONKEY_TEMPLATE_EARLY_DETECTION` |
+| Default | `default` | `PDFMONKEY_TEMPLATE_DEFAULT` |
 
 ## Endpoints de reportes
 
 | Metodo | Ruta | Proposito |
 |---|---|---|
-| POST | `/api/reports` | Crear reporte + disparar PDFMonkey |
-| GET | `/api/reports` | Listar reportes |
-| GET | `/api/reports/view/[id]` | Vista previa |
+| POST | `/api/reports` | [NO IMPLEMENTADO] Crear reporte + disparar PDFMonkey |
+| GET | `/api/reports` | [NO IMPLEMENTADO] Listar reportes |
+| GET | `/api/reports/[sampleId]/render` | Renderizar preview de reporte |
+| POST | `/api/reports/[sampleId]/render` | Generar PDF de reporte |
+| GET | `/api/reports/view/[id]` | Vista previa de reporte |
 | GET | `/api/reports/pdf/[filename]` | Descargar PDF |
-| POST | `/api/reports/pdfmonkey` | Webhook de PDFMonkey |
+| POST | `/api/reports/pdfmonkey` | Webhook de PDFMonkey (publico) |
 | GET | `/api/reports/templates` | Listar templates |
 | POST | `/api/reports/templates` | Crear template |
 | PATCH | `/api/reports/status/[reportId]` | Actualizar estado |
@@ -122,10 +82,10 @@ El builder mapea los datos del LIMS al formato que espera el template PDFMonkey.
 
 ## Agregar un nuevo tipo de analisis
 
-1. Crear builder en `src/lib/reports/pdfmonkey/builders/nuevoTipo.ts`
-2. Registrar en `registry.ts`: agregar al enum `AnalysisType`, al mapa `AREA_ENUM_TO_TYPE`, y a `PDF_TEMPLATES`
-3. Agregar variable de entorno `PDFMONKEY_TEMPLATE_NUEVO_TIPO`
-4. Si `test_catalog.area` tiene un nuevo valor, agregarlo a `AREA_ENUM_TO_TYPE`
+Actualmente la logica esta en `src/app/api/reports/pdfmonkey/route.ts`. Para agregar un tipo:
+1. Agregar el nuevo `AnalysisType` al enum y al mapa de areas en `pdfmonkey/route.ts`
+2. Agregar variable de entorno `PDFMONKEY_TEMPLATE_NUEVO_TIPO`
+3. Si `test_catalog.area` tiene un nuevo valor, agregarlo al mapa de deteccion
 
 ## Variables de entorno de PDFMonkey
 

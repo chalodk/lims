@@ -1,8 +1,19 @@
 # 05 — Frontend
 
+> Última actualización: 2026-05-20.
+
 ## Proposito
 
 Este documento describe la organizacion del frontend: paginas, componentes, manejo de estado, hooks, y las reglas sobre cuando usar el cliente Supabase del navegador vs llamar a la API.
+
+## Documentos relacionados
+
+| Doc | Relacion |
+|---|---|
+| `01-arquitectura.md` | Arquitectura general, estructura de directorios |
+| `02-autenticacion.md` | AuthContext, useAuth(), roles |
+| `03-api-routes.md` | Endpoints disponibles para llamar via fetch |
+| `06-multi-tenant.md` | Por que el frontend no filtra por company_id |
 
 ## Paginas (13)
 
@@ -91,6 +102,7 @@ Manejo de estado local para reportes (filtros, paginacion, creacion). Usa Zustan
 - **AuthContext.tsx** — `onAuthStateChange`, `refreshSession`, `signOut` (necesita browser client si o si)
 - **SLACards.tsx** — suscripcion realtime `supabase.channel()` (unico caso de realtime)
 - **login/page.tsx** — formulario de login (usa Supabase Auth UI)
+- **signup/page.tsx** — formulario de registro (usa Supabase Auth UI)
 - **test-db/page.tsx** — herramienta de diagnostico (solo desarrollo)
 
 ### NO se permite — debe usar API routes
@@ -100,11 +112,15 @@ Todo lo demas, especialmente:
 - Cualquier SELECT de datos de negocio (muestras, resultados, clientes, reportes)
 - Cualquier query que filtre por `company_id`
 
-La regla es simple: si estas en un componente que no es AuthContext, SLACards, login, o test-db, usa `fetch('/api/...')`.
+La regla es simple: si estas en un componente que no es AuthContext, SLACards, login, signup, o test-db, usa `fetch('/api/...')`.
 
 ## Patrones de formulario
 
-Se usa `react-hook-form` con `zod` para validacion:
+Conviven dos patrones en el codigo:
+
+### Patron A: react-hook-form + zod (recomendado para formularios nuevos)
+
+Usado en modales como `CreateReportModal`. Separa validacion, tipos y UI limpiamente.
 
 ```tsx
 import { useForm } from 'react-hook-form'
@@ -136,6 +152,28 @@ function MyForm() {
   }
 
   return <form onSubmit={handleSubmit(onSubmit)}>...</form>
+}
+```
+
+### Patron B: useState + validacion manual
+
+Usado en formularios mas simples como `EnhancedSampleForm`. Estado plano con `handleInputChange`:
+
+```tsx
+const [formData, setFormData] = useState({ name: '', email: '' })
+
+const handleInputChange = (field: string, value: string) => {
+  setFormData(prev => ({ ...prev, [field]: value }))
+}
+
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault()
+  const res = await fetch('/api/recurso', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(formData)
+  })
+  if (!res.ok) { /* manejar error */ }
 }
 ```
 

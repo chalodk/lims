@@ -1,11 +1,20 @@
 # 03 — API Routes
 
 > **Estado**: TO-BE. Varios endpoints documentados no estan implementados aun. Ver `docs/AS-IS-estado-actual.md` para el inventario real.
-> Última actualización: 2026-05-19.
+> Última actualización: 2026-05-20.
 
 ## Proposito
 
 Este documento cataloga los endpoints REST del LIMS (implementados y planificados), explica los patrones de codificacion, y documenta las reglas que toda ruta API debe seguir.
+
+## Documentos relacionados
+
+| Doc | Relacion |
+|---|---|
+| `01-arquitectura.md` | Arquitectura general, withAuth, flujo de datos |
+| `02-autenticacion.md` | withAuth() en detalle, roles, server client |
+| `06-multi-tenant.md` | Como aplicar filtro company_id en cada endpoint |
+| `07-reportes-pdf.md` | Endpoints de reportes y PDFMonkey |
 
 ## Patron universal
 
@@ -104,13 +113,13 @@ return NextResponse.json({
 
 ## Manejo de errores
 
-- **401**: `withAuth` lo maneja automaticamente
+- **401**: `withAuth` lo maneja automaticamente (AuthenticationError)
 - **400**: validacion de input (campos requeridos, formatos)
 - **404**: recurso no encontrado
 - **409**: conflicto (ej: email duplicado, limite de empresas)
-- **500**: error de DB o error inesperado (`withAuth` lo atrapa y expone el mensaje real)
+- **500**: error interno (`withAuth` atrapa excepciones no manejadas y devuelve mensaje sanitizado: `'Internal server error'`)
 
-Nunca hacer `try/catch` generico que oculte el error. `withAuth` ya atrapa excepciones. Los handlers solo necesitan manejar `if (error)` de las queries de Supabase.
+Los handlers deben devolver errores de DB explicitamente (con `error.message` en desarrollo o mensaje sanitizado en produccion). `withAuth` solo atrapa las excepciones que se escapan del handler — no reemplaza el manejo explicito de `if (error)` en las queries de Supabase.
 
 ## Catalogo de endpoints
 
@@ -122,7 +131,7 @@ Nunca hacer `try/catch` generico que oculte el error. `withAuth` ya atrapa excep
 | POST | `/api/auth/setup-company` | withAuth | [NO IMPLEMENTADO] Crear empresa + asignar admin |
 | POST | `/api/auth/accept-invite` | Token | Aceptar invitacion (publico, basado en token) |
 | PATCH | `/api/auth/user` | withAuth | Actualizar datos del usuario |
-| POST | `/api/auth/setup` | withAuth | [NO IMPLEMENTADO] Setup post-registro (log action) |
+| POST | `/api/auth/setup` | withAuth | Setup post-registro: crea perfil, asigna rol, loguea accion |
 
 ### Samples
 
@@ -173,8 +182,8 @@ Nunca hacer `try/catch` generico que oculte el error. `withAuth` ya atrapa excep
 
 | Metodo | Ruta | Descripcion |
 |---|---|---|
-| GET | `/api/clients` | [NO IMPLEMENTADO] Listar clientes |
-| POST | `/api/clients` | Crear cliente |
+| GET | `/api/clients` | Listar clientes (filtrado por company_id) |
+| POST | `/api/clients` | Crear cliente + opcionalmente usuario consumidor |
 | PUT | `/api/clients/[id]` | [NO IMPLEMENTADO] Actualizar cliente |
 | DELETE | `/api/clients/[id]` | [NO IMPLEMENTADO] Eliminar cliente |
 
@@ -210,10 +219,10 @@ Nunca hacer `try/catch` generico que oculte el error. `withAuth` ya atrapa excep
 | POST | `/api/invitations` | Crear invitacion |
 | POST | `/api/sla/update` | Actualizar estado SLA |
 | POST | `/api/cron/sla-update` | Cron job de SLA (protegido por CRON_SECRET) |
-| GET | `/api/projects` | [NO IMPLEMENTADO] Listar proyectos |
+| GET | `/api/projects` | Listar proyectos (filtrado por company_id) |
 | POST | `/api/projects` | [NO IMPLEMENTADO] Crear proyecto |
-| GET | `/api/tests` | [NO IMPLEMENTADO] Catalogo de tests |
-| GET | `/api/methods` | [NO IMPLEMENTADO] Catalogo de metodos |
+| GET | `/api/test-catalog` | Catalogo de tests activos (global) |
+| GET | `/api/methods` | Catalogo de metodos (global) |
 | GET | `/api/analytes` | [NO IMPLEMENTADO] Catalogo de analitos |
 | GET | `/api/units/[id]/results` | Resultados de unidad |
 | POST | `/api/units/[id]/results` | Crear resultado de unidad |

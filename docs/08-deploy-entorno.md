@@ -1,8 +1,18 @@
 # 08 — Deploy y Entorno
 
+> Última actualización: 2026-05-20.
+
 ## Proposito
 
 Este documento describe como desplegar el LIMS en Railway, las variables de entorno necesarias, y la configuracion de servicios externos.
+
+## Documentos relacionados
+
+| Doc | Relacion |
+|---|---|
+| `01-arquitectura.md` | Estructura del proyecto, standalone output |
+| `02-autenticacion.md` | Variables de entorno Supabase |
+| `07-reportes-pdf.md` | Variables PDFMonkey, webhook |
 
 ## Stack de deploy
 
