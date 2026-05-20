@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/auth/api-auth'
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request, { user, supabase }) => {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const sla_status = searchParams.get('sla_status')
@@ -49,29 +42,20 @@ export async function GET(request: NextRequest) {
         reports (id, status, created_at, rendered_pdf_url)
       `)
 
-    // Apply filters
-    if (status) {
-      query = query.eq('status', status)
-    }
-    if (sla_status) {
-      query = query.eq('sla_status', sla_status)
-    }
-    if (client_id) {
-      query = query.eq('client_id', client_id)
-    }
+    if (status) query = query.eq('status', status)
+    if (sla_status) query = query.eq('sla_status', sla_status)
+    if (client_id) query = query.eq('client_id', client_id)
 
-    // Apply company filter - get user's company_id from users table
     const { data: userData } = await supabase
       .from('users')
       .select('company_id')
       .eq('id', user.id)
       .single()
-    
+
     if (userData?.company_id) {
       query = query.eq('company_id', userData.company_id)
     }
 
-    // Apply pagination
     const from = (page - 1) * limit
     const to = from + limit - 1
 
@@ -94,22 +78,12 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error fetching samples:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-}
+})
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { user, supabase }) => {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const body = await request.json()
     const {
       client_id,
@@ -146,20 +120,15 @@ export async function POST(request: NextRequest) {
     // Calculate due date based on SLA
     const receivedAt = new Date(received_date)
     const dueDate = new Date(receivedAt)
-    
-    // Add business days based on SLA type
     const businessDaysToAdd = sla_type === 'express' ? 4 : 9
     let addedDays = 0
-    
     while (addedDays < businessDaysToAdd) {
       dueDate.setDate(dueDate.getDate() + 1)
-      // Skip weekends (0 = Sunday, 6 = Saturday)
       if (dueDate.getDay() !== 0 && dueDate.getDay() !== 6) {
         addedDays++
       }
     }
 
-    // Get user's company_id from users table
     const { data: userData } = await supabase
       .from('users')
       .select('company_id')
@@ -213,27 +182,18 @@ export async function POST(request: NextRequest) {
     // Create sample_tests records based on analysis selections
     if (analysis_selections && typeof analysis_selections === 'object') {
       const { analysis_types = [], methodologies = [] } = analysis_selections
-
-      // Create sample_tests records for each selected analysis type and methodology combination
       const sampleTestsToCreate = []
 
-      // For now, create basic test records. In a full implementation, you'd:
-      // 1. Look up actual test_catalog entries by area/name
-      // 2. Match methodologies to methods table entries
-      // 3. Create proper relationships
-
-      // Map analysis types to areas for lookup
-      const analysisTypeToArea = {
+      const analysisTypeToArea: Record<string, string> = {
         'Nematológico': 'nematologia',
         'Fitopatológico': 'fitopatologia',
         'Virológico': 'virologia',
         'Bacteriológico': 'bacteriologia',
-        'Entomológico': 'fitopatologia', // Maps to fitopatologia area
+        'Entomológico': 'fitopatologia',
         'Detección precoz de enfermedades': 'deteccion_precoz'
       }
 
-      // Map methodology names to method codes for lookup
-      const methodologyToCode = {
+      const methodologyToCode: Record<string, string> = {
         'Tamizado de Cobb y Embudo de Baermann': 'COBB-BAE',
         'Centrífuga': 'CENTRI',
         'Incubación y Tamizado de Cobb': 'INCUB-COBB',
@@ -243,12 +203,9 @@ export async function POST(request: NextRequest) {
         'Recuento de colonias': 'COL-COUNT'
       }
 
-      // Create sample_tests for each analysis type
       for (const analysisType of analysis_types) {
-        const area = analysisTypeToArea[analysisType as keyof typeof analysisTypeToArea]
-        
+        const area = analysisTypeToArea[analysisType]
         if (area) {
-          // Find test in catalog by area
           const { data: testCatalogEntry } = await supabase
             .from('test_catalog')
             .select('id, default_method_id')
@@ -258,11 +215,9 @@ export async function POST(request: NextRequest) {
             .single()
 
           if (testCatalogEntry) {
-            // Try to find a specific method from the selected methodologies
             let methodId = testCatalogEntry.default_method_id
-
             for (const methodology of methodologies) {
-              const methodCode = methodologyToCode[methodology as keyof typeof methodologyToCode]
+              const methodCode = methodologyToCode[methodology]
               if (methodCode) {
                 const { data: methodEntry } = await supabase
                   .from('methods')
@@ -273,7 +228,7 @@ export async function POST(request: NextRequest) {
 
                 if (methodEntry) {
                   methodId = methodEntry.id
-                  break // Use first matching method
+                  break
                 }
               }
             }
@@ -294,7 +249,6 @@ export async function POST(request: NextRequest) {
 
         if (testError) {
           console.error('Error creating sample_tests:', testError)
-          // Don't fail the whole operation, but log the error
         }
       }
     }
@@ -313,9 +267,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data, { status: 201 })
   } catch (error) {
     console.error('Error creating sample:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-}
+})

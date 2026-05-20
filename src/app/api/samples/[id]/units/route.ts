@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/auth/api-auth'
+import type { SupabaseServerClient } from '@/lib/auth/api-auth'
+
+type ServerClient = SupabaseServerClient
 
 async function verifySampleOwnership(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ServerClient,
   sampleId: string,
   userId: string
 ) {
@@ -30,35 +33,19 @@ async function verifySampleOwnership(
   return { authorized: true, companyId }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const GET = withAuth(async (request, { user, supabase, params }) => {
   try {
-    const resolvedParams = await params
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { id } = await (params as Promise<{ id: string }>)
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-    }
-
-    const { authorized, error, status } = await verifySampleOwnership(supabase, resolvedParams.id, user.id)
+    const { authorized, error, status } = await verifySampleOwnership(supabase, id, user.id)
     if (!authorized) {
       return NextResponse.json({ error }, { status })
     }
 
     const { data, error: queryError } = await supabase
       .from('sample_units')
-      .select(`
-        *,
-        unit_results (
-          *,
-          test_catalog (*),
-          methods (*)
-        )
-      `)
-      .eq('sample_id', resolvedParams.id)
+      .select(`*, unit_results (*, test_catalog (*), methods (*))`)
+      .eq('sample_id', id)
 
     if (queryError) {
       return NextResponse.json({ error: 'Error al obtener las unidades' }, { status: 500 })
@@ -67,27 +54,15 @@ export async function GET(
     return NextResponse.json(data)
   } catch (error) {
     console.error('Error fetching sample units:', error)
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
-}
+})
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const POST = withAuth(async (request, { user, supabase, params }) => {
   try {
-    const resolvedParams = await params
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { id } = await (params as Promise<{ id: string }>)
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-    }
-
-    const { authorized, error, status } = await verifySampleOwnership(supabase, resolvedParams.id, user.id)
+    const { authorized, error, status } = await verifySampleOwnership(supabase, id, user.id)
     if (!authorized) {
       return NextResponse.json({ error }, { status })
     }
@@ -97,11 +72,7 @@ export async function POST(
 
     const { data, error: insertError } = await supabase
       .from('sample_units')
-      .insert({
-        sample_id: resolvedParams.id,
-        code,
-        label
-      })
+      .insert({ sample_id: id, code, label })
       .select()
       .single()
 
@@ -112,9 +83,6 @@ export async function POST(
     return NextResponse.json(data, { status: 201 })
   } catch (error) {
     console.error('Error creating sample unit:', error)
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
-}
+})

@@ -1,26 +1,12 @@
-import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth/api-auth'
 
-/**
- * PATCH /api/auth/user
- * Permite al usuario autenticado actualizar su propio perfil:
- * - Nombre en public.users
- * - Contraseña en auth.users (si se proporciona)
- */
-export async function PATCH(request: NextRequest) {
+export const PATCH = withAuth(async (request, { user, supabase }) => {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
-
     const body = await request.json()
     const { name, currentPassword, newPassword } = body
 
-    // Validar que al menos se esté actualizando algo
     if (!name && !newPassword) {
       return NextResponse.json(
         { error: 'Debes proporcionar al menos un campo para actualizar' },
@@ -28,7 +14,6 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    // Si se está cambiando la contraseña, validar campos requeridos
     if (newPassword) {
       if (!currentPassword) {
         return NextResponse.json(
@@ -46,7 +31,6 @@ export async function PATCH(request: NextRequest) {
 
     // Actualizar nombre en public.users si se proporciona
     if (name !== undefined) {
-      // Verificar si el usuario existe en public.users
       const { data: existingUser, error: fetchError } = await supabase
         .from('users')
         .select('id')
@@ -54,7 +38,6 @@ export async function PATCH(request: NextRequest) {
         .single()
 
       if (fetchError && fetchError.code !== 'PGRST116') {
-        // PGRST116 es "no rows returned", cualquier otro error es un problema real
         console.error('Error al verificar usuario:', fetchError)
         return NextResponse.json(
           { error: 'Error al verificar usuario' },
@@ -63,7 +46,6 @@ export async function PATCH(request: NextRequest) {
       }
 
       if (existingUser) {
-        // Usuario existe, actualizar nombre
         const { error: updateError } = await supabase
           .from('users')
           .update({
@@ -80,7 +62,6 @@ export async function PATCH(request: NextRequest) {
           )
         }
       } else {
-        // Usuario no existe en public.users, crearlo
         const { error: createError } = await supabase
           .from('users')
           .insert({
@@ -102,8 +83,6 @@ export async function PATCH(request: NextRequest) {
 
     // Actualizar contraseña si se proporciona
     if (newPassword && currentPassword) {
-      // Verificar contraseña actual antes de cambiarla
-      // Usar el cliente admin para verificar la contraseña sin afectar la sesión del usuario
       const supabaseAdmin = createAdminClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -115,8 +94,6 @@ export async function PATCH(request: NextRequest) {
         }
       )
 
-      // Intentar hacer sign in con un cliente temporal para validar la contraseña
-      // Esto no afectará la sesión del usuario porque usamos un cliente admin separado
       const tempClient = createAdminClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -140,12 +117,9 @@ export async function PATCH(request: NextRequest) {
         )
       }
 
-      // Si la contraseña actual es correcta, actualizar a la nueva
       const { error: updatePasswordError } = await supabaseAdmin.auth.admin.updateUserById(
         user.id,
-        {
-          password: newPassword
-        }
+        { password: newPassword }
       )
 
       if (updatePasswordError) {
@@ -157,9 +131,7 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      message: 'Cuenta actualizada exitosamente'
-    })
+    return NextResponse.json({ message: 'Cuenta actualizada exitosamente' })
   } catch (error) {
     console.error('Error en PATCH /api/auth/user:', error)
     return NextResponse.json(
@@ -167,4 +139,4 @@ export async function PATCH(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})

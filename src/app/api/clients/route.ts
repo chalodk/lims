@@ -1,27 +1,19 @@
-import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/auth/api-auth'
 import { NextRequest, NextResponse } from 'next/server'
-import { 
-  createUserAtomically, 
+import {
+  createUserAtomically,
   linkExistingUserToClient,
   checkEmailExistsInAuth,
   checkEmailExistsInPublicUsers,
-  type CreateUserOptions 
+  type CreateUserOptions
 } from '@/lib/services/userCreationService'
 
 /**
  * POST /api/clients
  * Crea un nuevo cliente y opcionalmente un usuario consumidor asociado
  */
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { user, supabase }) => {
   try {
-    // Verificar autenticación
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
-
     // Obtener datos del usuario actual para obtener company_id
     const { data: currentUser, error: userError } = await supabase
       .from('users')
@@ -68,9 +60,9 @@ export async function POST(request: NextRequest) {
 
     if (createClientError) {
       console.error('Error al crear cliente:', createClientError)
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'Error al crear cliente',
-        details: createClientError.message 
+        details: createClientError.message
       }, { status: 500 })
     }
 
@@ -78,30 +70,30 @@ export async function POST(request: NextRequest) {
     if (contact_email && contact_email.trim()) {
       try {
         console.log(`🔍 Iniciando creación de usuario consumidor para email: ${contact_email.trim()}`)
-        
+
         // Verificar si el email ya existe
         const authCheck = await checkEmailExistsInAuth(contact_email.trim())
         const publicCheck = await checkEmailExistsInPublicUsers(contact_email.trim())
-        
+
         if (authCheck.exists || publicCheck.exists) {
           // Email ya existe - intentar vincular si es posible
           const userId = authCheck.userId || publicCheck.userId
-          
+
           if (userId) {
             // Si el usuario existe pero no tiene client_id o es diferente, intentar vincular
             if (!publicCheck.clientId || publicCheck.clientId !== newClient.id) {
               const linkResult = await linkExistingUserToClient(userId, newClient.id)
-              
+
               if (linkResult.success) {
                 console.log(`✅ Usuario existente vinculado al cliente ${newClient.id}`)
-                return NextResponse.json({ 
+                return NextResponse.json({
                   message: 'Cliente creado exitosamente',
                   client: newClient,
                   warning: 'El email ya existía en el sistema y fue vinculado al cliente'
                 }, { status: 201 })
               } else {
                 console.warn(`⚠️ No se pudo vincular usuario existente: ${linkResult.error}`)
-                return NextResponse.json({ 
+                return NextResponse.json({
                   client: newClient,
                   warning: `Cliente creado pero el email ya existe y no se pudo vincular: ${linkResult.error}`
                 }, { status: 201 })
@@ -109,7 +101,7 @@ export async function POST(request: NextRequest) {
             } else {
               // Ya está vinculado al mismo cliente
               console.log(`ℹ️ Email ya está vinculado a este cliente`)
-              return NextResponse.json({ 
+              return NextResponse.json({
                 message: 'Cliente creado exitosamente',
                 client: newClient,
                 warning: 'El email ya está asociado a este cliente'
@@ -118,16 +110,16 @@ export async function POST(request: NextRequest) {
           } else {
             // Email existe pero no se pudo obtener userId
             console.warn(`⚠️ Email existe pero no se pudo obtener userId`)
-            return NextResponse.json({ 
+            return NextResponse.json({
               client: newClient,
               warning: 'Cliente creado pero el email ya existe en el sistema'
             }, { status: 201 })
           }
         }
-        
+
         // Email no existe - crear nuevo usuario
         console.log(`📋 Email no existe, procediendo con creación de usuario`)
-        
+
         const createUserOptions: CreateUserOptions = {
           email: contact_email.trim(),
           name: name.trim(),
@@ -137,13 +129,13 @@ export async function POST(request: NextRequest) {
           roleName: 'consumidor',
           webhookOrigen: 1
         }
-        
+
         const createResult = await createUserAtomically(createUserOptions)
-        
+
         if (createResult.success) {
           console.log(`✅ Usuario consumidor creado exitosamente para cliente ${newClient.id} (user_id: ${createResult.userId})`)
-          
-          return NextResponse.json({ 
+
+          return NextResponse.json({
             message: 'Cliente creado exitosamente',
             client: newClient,
             warning: createResult.warning
@@ -151,8 +143,8 @@ export async function POST(request: NextRequest) {
         } else {
           // Error al crear usuario
           console.error(`❌ Error al crear usuario: ${createResult.error} (${createResult.errorCode})`)
-          
-          return NextResponse.json({ 
+
+          return NextResponse.json({
             client: newClient,
             warning: `Cliente creado pero no se pudo crear usuario consumidor: ${createResult.error}`
           }, { status: 201 })
@@ -160,23 +152,22 @@ export async function POST(request: NextRequest) {
       } catch (userCreationError) {
         console.error('❌ Error en proceso de creación de usuario:', userCreationError)
         const errorMessage = userCreationError instanceof Error ? userCreationError.message : 'Error desconocido'
-        return NextResponse.json({ 
+        return NextResponse.json({
           client: newClient,
           warning: `Cliente creado pero hubo un error al crear usuario consumidor: ${errorMessage}`
         }, { status: 201 })
       }
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: 'Cliente creado exitosamente',
-      client: newClient 
+      client: newClient
     }, { status: 201 })
   } catch (error) {
     console.error('Error en POST /api/clients:', error)
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: 'Error interno del servidor',
       details: error instanceof Error ? error.message : 'Error desconocido'
     }, { status: 500 })
   }
-}
-
+})

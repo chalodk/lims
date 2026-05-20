@@ -1,10 +1,9 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { User } from '@supabase/supabase-js'
 
-/**
- * Error thrown when authentication fails
- */
+export type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
+
 export class AuthenticationError extends Error {
   constructor(message: string = 'Unauthorized') {
     super(message)
@@ -12,11 +11,7 @@ export class AuthenticationError extends Error {
   }
 }
 
-/**
- * Centralized authentication helper for API routes
- * Returns the authenticated user or throws an AuthenticationError
- */
-export async function authenticateApiRequest(): Promise<{ user: User; supabase: Awaited<ReturnType<typeof createClient>> }> {
+export async function authenticateApiRequest(): Promise<{ user: User; supabase: SupabaseServerClient }> {
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
 
@@ -27,23 +22,36 @@ export async function authenticateApiRequest(): Promise<{ user: User; supabase: 
   return { user, supabase }
 }
 
+type AuthContext = {
+  user: User
+  supabase: SupabaseServerClient
+  params: unknown
+}
+
 /**
- * Wrapper function to easily protect API routes
- * Usage: export const GET = withAuth(async (request, { user, supabase }) => { ... })
+ * Wraps an API route handler with authentication.
+ * Injects { user, supabase, params } into the handler's second argument.
+ *
+ * Usage:
+ *   // Route without params
+ *   export const GET = withAuth(async (req, { user, supabase }) => { ... })
+ *
+ *   // Route with params
+ *   export const GET = withAuth(async (req, { user, supabase, params }) => {
+ *     const { id } = await (params as Promise<{ id: string }>)
+ *   })
  */
-export function withAuth<T extends unknown[]>(
-  handler: (request: Request, context: { user: User; supabase: Awaited<ReturnType<typeof createClient>> }, ...args: T) => Promise<Response>
+export function withAuth(
+  handler: (request: NextRequest, ctx: AuthContext) => Promise<Response>
 ) {
-  return async (request: Request, ...args: T): Promise<Response> => {
+  return async (request: NextRequest, routeCtx: { params: Promise<unknown> }): Promise<Response> => {
     try {
       const { user, supabase } = await authenticateApiRequest()
-      return await handler(request, { user, supabase }, ...args)
+      return await handler(request, { user, supabase, params: routeCtx.params })
     } catch (error) {
-      // If error is an authentication error, return 401
       if (error instanceof AuthenticationError) {
         return NextResponse.json({ error: error.message }, { status: 401 })
       }
-      // Otherwise, return a generic error
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
   }
