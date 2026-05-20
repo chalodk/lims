@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { withAuth, type SupabaseServerClient } from '@/lib/auth/api-auth'
 
 async function verifyUnitOwnership(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: SupabaseServerClient,
   sampleUnitId: string,
   userId: string
 ) {
@@ -35,20 +35,11 @@ async function verifyUnitOwnership(
   return { authorized: true, companyId }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const GET = withAuth(async (request, { user, supabase, params }) => {
   try {
-    const resolvedParams = await params
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { id } = await (params as Promise<{ id: string }>)
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-    }
-
-    const { authorized, error, status } = await verifyUnitOwnership(supabase, resolvedParams.id, user.id)
+    const { authorized, error, status } = await verifyUnitOwnership(supabase, id, user.id)
     if (!authorized) {
       return NextResponse.json({ error }, { status })
     }
@@ -60,7 +51,7 @@ export async function GET(
         test_catalog (*),
         methods (*)
       `)
-      .eq('sample_unit_id', resolvedParams.id)
+      .eq('sample_unit_id', id)
 
     if (queryError) {
       return NextResponse.json({ error: 'Error al obtener los resultados' }, { status: 500 })
@@ -74,22 +65,13 @@ export async function GET(
       { status: 500 }
     )
   }
-}
+})
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const POST = withAuth(async (request, { user, supabase, params }) => {
   try {
-    const resolvedParams = await params
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { id } = await (params as Promise<{ id: string }>)
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-    }
-
-    const { authorized, error, status } = await verifyUnitOwnership(supabase, resolvedParams.id, user.id)
+    const { authorized, error, status } = await verifyUnitOwnership(supabase, id, user.id)
     if (!authorized) {
       return NextResponse.json({ error }, { status })
     }
@@ -114,7 +96,7 @@ export async function POST(
     const { data: existing } = await supabase
       .from('unit_results')
       .select('id')
-      .eq('sample_unit_id', resolvedParams.id)
+      .eq('sample_unit_id', id)
       .eq('test_id', test_id)
       .single()
 
@@ -145,7 +127,7 @@ export async function POST(
       const { data, error: insertError } = await supabase
         .from('unit_results')
         .insert({
-          sample_unit_id: resolvedParams.id,
+          sample_unit_id: id,
           test_id,
           method_id,
           analyte,
@@ -173,4 +155,4 @@ export async function POST(
       { status: 500 }
     )
   }
-}
+})

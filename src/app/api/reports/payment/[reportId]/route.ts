@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/auth/api-auth'
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ reportId: string }> }
-) {
+export const PATCH = withAuth(async (request, { user, supabase, params }) => {
   try {
-    const { reportId } = await params
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { reportId } = await (params as Promise<{ reportId: string }>)
 
     const { payment, invoice_number } = await request.json()
 
@@ -75,4 +66,4 @@ export async function PATCH(
       { status: 500 }
     )
   }
-}
+})

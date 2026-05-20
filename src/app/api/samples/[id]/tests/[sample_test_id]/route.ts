@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { withAuth, type SupabaseServerClient } from '@/lib/auth/api-auth'
 
 async function verifySampleOwnershipViaTest(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: SupabaseServerClient,
   sampleTestId: string,
   userId: string
 ) {
@@ -35,23 +35,13 @@ async function verifySampleOwnershipViaTest(
   return { authorized: true, companyId }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string; sample_test_id: string }> }
-) {
+export const DELETE = withAuth(async (request, { user, supabase, params }) => {
   try {
-    const resolvedParams = await params
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { id, sample_test_id } = await (params as Promise<{ id: string; sample_test_id: string }>)
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-    }
-
-    // Verify sample ownership via parent chain
     const { authorized, error, status } = await verifySampleOwnershipViaTest(
       supabase,
-      resolvedParams.sample_test_id,
+      sample_test_id,
       user.id
     )
     if (!authorized) {
@@ -62,8 +52,8 @@ export async function DELETE(
     const { data: sampleTest } = await supabase
       .from('sample_tests')
       .select('id')
-      .eq('id', resolvedParams.sample_test_id)
-      .eq('sample_id', resolvedParams.id)
+      .eq('id', sample_test_id)
+      .eq('sample_id', id)
       .single()
 
     if (!sampleTest) {
@@ -73,7 +63,7 @@ export async function DELETE(
     const { error: deleteError } = await supabase
       .from('sample_tests')
       .delete()
-      .eq('id', resolvedParams.sample_test_id)
+      .eq('id', sample_test_id)
 
     if (deleteError) {
       return NextResponse.json({ error: 'Error al eliminar el test' }, { status: 500 })
@@ -87,4 +77,4 @@ export async function DELETE(
       { status: 500 }
     )
   }
-}
+})

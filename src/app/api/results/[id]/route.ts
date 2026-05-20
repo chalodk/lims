@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/auth/api-auth'
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const GET = withAuth(async (request, { user, supabase, params }) => {
   try {
-    const resolvedParams = await params
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { id } = await (params as Promise<{ id: string }>)
 
     // Get user's company_id from users table
     const { data: userData } = await supabase
@@ -43,7 +34,7 @@ export async function GET(
         performed_by_user:users!performed_by (id, name, email),
         validated_by_user:users!validated_by (id, name, email)
       `)
-      .eq('id', resolvedParams.id)
+      .eq('id', id)
       .single()
 
     if (error) {
@@ -66,20 +57,11 @@ export async function GET(
       { status: 500 }
     )
   }
-}
+})
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const PUT = withAuth(async (request, { user, supabase, params }) => {
   try {
-    const resolvedParams = await params
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { id } = await (params as Promise<{ id: string }>)
 
     // Get user's company_id from users table
     const { data: userData } = await supabase
@@ -120,7 +102,7 @@ export async function PUT(
         *,
         samples!inner (company_id)
       `)
-      .eq('id', resolvedParams.id)
+      .eq('id', id)
       .single()
 
     if (fetchError) {
@@ -195,7 +177,7 @@ export async function PUT(
     const { data, error } = await supabase
       .from('results')
       .update(updateData)
-      .eq('id', resolvedParams.id)
+      .eq('id', id)
       .select(`
         *,
         sample_tests (
@@ -226,28 +208,13 @@ export async function PUT(
       { status: 500 }
     )
   }
-}
+})
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  // PATCH uses the same logic as PUT for results
-  return PUT(request, { params })
-}
+export const PATCH = PUT
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const DELETE = withAuth(async (request, { user, supabase, params }) => {
   try {
-    const resolvedParams = await params
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { id } = await (params as Promise<{ id: string }>)
 
     // Get user's company_id from users table
     const { data: userData } = await supabase
@@ -263,7 +230,7 @@ export async function DELETE(
         *,
         samples!inner (company_id)
       `)
-      .eq('id', resolvedParams.id)
+      .eq('id', id)
       .single()
 
     if (fetchError) {
@@ -283,7 +250,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('results')
       .delete()
-      .eq('id', resolvedParams.id)
+      .eq('id', id)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
@@ -297,4 +264,4 @@ export async function DELETE(
       { status: 500 }
     )
   }
-}
+})

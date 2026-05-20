@@ -1,18 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/auth/api-auth'
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const DELETE = withAuth(async (request, { user, supabase, params }) => {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-    }
-
     const { data: userData } = await supabase
       .from('users')
       .select('company_id')
@@ -24,7 +14,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Usuario sin empresa asignada' }, { status: 400 })
     }
 
-    const { id: reportId } = await params
+    const { id: reportId } = await (params as Promise<{ id: string }>)
 
     if (!reportId) {
       return NextResponse.json({ error: 'ID de reporte requerido' }, { status: 400 })
@@ -84,4 +74,4 @@ export async function DELETE(
       { status: 500 }
     )
   }
-}
+})

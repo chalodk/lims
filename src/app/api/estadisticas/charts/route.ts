@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/auth/api-auth'
 
 const MONTHS_BACK = 3
 
@@ -145,18 +145,8 @@ async function fetchAllPages<T>(
   return accumulated
 }
 
-export async function GET() {
+export const GET = withAuth(async (_request, { user, supabase }) => {
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { data: userData } = await supabase
       .from('users')
       .select('company_id')
@@ -281,4 +271,4 @@ export async function GET() {
     console.error('Error fetching chart statistics:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-}
+})

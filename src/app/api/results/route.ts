@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/auth/api-auth'
 
 // Minimal types to avoid any in findings normalization
 type MethodRow = { id: string; name: string }
@@ -16,15 +16,8 @@ type FindingsObj = {
   [key: string]: unknown 
 }
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request, { user, supabase }) => {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const test_area = searchParams.get('test_area')
@@ -139,17 +132,10 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { user, supabase }) => {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const body = await request.json()
     const {
       sample_id,
@@ -344,4 +330,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { withAuth, type SupabaseServerClient } from '@/lib/auth/api-auth'
 import { ReportService } from '@/lib/reports/reportService'
 
 async function verifySampleOwnership(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: SupabaseServerClient,
   sampleId: string,
   userId: string
 ) {
@@ -31,20 +31,11 @@ async function verifySampleOwnership(
   return { authorized: true, companyId }
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ sampleId: string }> }
-) {
+export const POST = withAuth(async (request, { user, supabase, params }) => {
   try {
-    const resolvedParams = await params
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { sampleId } = await (params as Promise<{ sampleId: string }>)
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-    }
-
-    const { authorized, error, status } = await verifySampleOwnership(supabase, resolvedParams.sampleId, user.id)
+    const { authorized, error, status } = await verifySampleOwnership(supabase, sampleId, user.id)
     if (!authorized) {
       return NextResponse.json({ error }, { status })
     }
@@ -61,13 +52,13 @@ export async function POST(
 
     const reportService = new ReportService()
 
-    const sample = await reportService.getSampleData(resolvedParams.sampleId)
+    const sample = await reportService.getSampleData(sampleId)
     if (!sample) {
       return NextResponse.json({ error: 'Muestra no encontrada' }, { status: 404 })
     }
 
     const report = await reportService.renderReport(
-      resolvedParams.sampleId,
+      sampleId,
       template_code,
       version,
       user.id
@@ -81,28 +72,19 @@ export async function POST(
       { status: 500 }
     )
   }
-}
+})
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ sampleId: string }> }
-) {
+export const GET = withAuth(async (request, { user, supabase, params }) => {
   try {
-    const resolvedParams = await params
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { sampleId } = await (params as Promise<{ sampleId: string }>)
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-    }
-
-    const { authorized, error, status } = await verifySampleOwnership(supabase, resolvedParams.sampleId, user.id)
+    const { authorized, error, status } = await verifySampleOwnership(supabase, sampleId, user.id)
     if (!authorized) {
       return NextResponse.json({ error }, { status })
     }
 
     const reportService = new ReportService()
-    const reports = await reportService.getReportsForSample(resolvedParams.sampleId)
+    const reports = await reportService.getReportsForSample(sampleId)
 
     return NextResponse.json(reports)
   } catch (error) {
@@ -112,4 +94,4 @@ export async function GET(
       { status: 500 }
     )
   }
-}
+})
