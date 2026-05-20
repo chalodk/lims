@@ -76,6 +76,20 @@ export const GET = withAuth(async (request, { user, supabase }) => {
       }
     }
 
+    // Query for client count
+    let totalClients = 0
+    {
+      const base = supabase.from('clients').select('id', { count: 'exact', head: true })
+      const { count, error } = companyId
+        ? await base.eq('company_id', companyId)
+        : await base
+      if (error) {
+        console.error('Error fetching client count:', error)
+      } else {
+        totalClients = count ?? 0
+      }
+    }
+
     // Process sample statistics
     const sampleCounts = {
       total: sampleStats?.length || 0,
@@ -156,7 +170,8 @@ export const GET = withAuth(async (request, { user, supabase }) => {
         pendingWork,
         completedWork,
         completedToday,
-        totalReports: reportCounts.total
+        totalReports: reportCounts.total,
+        totalClients
       }
     })
   } catch (error) {

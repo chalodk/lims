@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { FlaskConical, Building, User, Mail, Loader2 } from 'lucide-react'
 
 interface UserSetupProps {
@@ -23,7 +22,6 @@ export default function UserSetup({ authUser }: UserSetupProps) {
   const [error, setError] = useState('')
   
   const router = useRouter()
-  const supabase = getSupabaseClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,53 +29,27 @@ export default function UserSetup({ authUser }: UserSetupProps) {
     setError('')
 
     try {
-      // Use the forced company_id instead of creating a new company
-      const forcedCompanyId = '97efa8ef-de43-491c-9c9f-bdd21a7dbb17'
-
-      // Get the role ID
-      const { data: role, error: roleError } = await supabase
-        .from('roles')
-        .select('id')
-        .eq('name', formData.role)
-        .single()
-
-      if (roleError) {
-        throw roleError
-      }
-
-      // Create the user profile with forced company_id
-      const { error: userError } = await supabase
-        .from('users')
-        .insert([
-          {
-            id: authUser.id,
-            company_id: forcedCompanyId,
-            role_id: role.id,
-            name: formData.name,
-            email: authUser.email,
-            specialization: formData.specialization || null,
-          }
-        ])
-
-      if (userError) {
-        throw userError
-      }
-
-      // Log the action
-      await supabase.rpc('log_action', {
-        action_text: 'User profile created',
-        target_table_name: 'users',
-        target_record_id: authUser.id,
-        metadata_json: { 
+      const res = await fetch('/api/auth/setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
           company_name: formData.company_name,
-          role: formData.role 
-        }
+          specialization: formData.specialization,
+          role: formData.role,
+        }),
       })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al crear perfil')
+      }
 
       router.push('/dashboard')
     } catch (err: unknown) {
       console.error('Setup error:', err)
-      setError(err instanceof Error ? err.message : 'Error creating profile')
+      setError(err instanceof Error ? err.message : 'Error al crear perfil')
     } finally {
       setIsLoading(false)
     }

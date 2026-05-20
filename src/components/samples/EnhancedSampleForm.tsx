@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { useAuth } from '@/hooks/useAuth'
 import { 
   Client, 
@@ -105,30 +104,23 @@ export default function EnhancedSampleForm({
     reception_observations: ''
   })
   
-  const supabase = getSupabaseClient()
-
   const loadCatalogData = useCallback(async () => {
     try {
-      const [
-        clientsResponse,
-        projectsResponse,
-        testsResponse,
-        methodsResponse
-      ] = await Promise.all([
-        supabase.from('clients').select('*').order('name'),
-        supabase.from('projects').select('*').order('name'),
-        supabase.from('test_catalog').select('*').eq('active', true).order('name'),
-        supabase.from('methods').select('*').order('name')
+      const [clientsRes, projectsRes, testsRes, methodsRes] = await Promise.all([
+        fetch('/api/clients'),
+        fetch('/api/projects'),
+        fetch('/api/test-catalog'),
+        fetch('/api/methods')
       ])
 
-      if (clientsResponse.data) setClients(clientsResponse.data)
-      if (projectsResponse.data) setProjects(projectsResponse.data)
-      if (testsResponse.data) setTests(testsResponse.data)
-      if (methodsResponse.data) setMethods(methodsResponse.data)
+      if (clientsRes.ok) setClients(await clientsRes.json())
+      if (projectsRes.ok) setProjects(await projectsRes.json())
+      if (testsRes.ok) setTests(await testsRes.json())
+      if (methodsRes.ok) setMethods(await methodsRes.json())
     } catch (error) {
       console.error('Error loading catalog data:', error)
     }
-  }, [supabase])
+  }, [])
 
   // Load catalog data
   useEffect(() => {
@@ -217,55 +209,52 @@ export default function EnhancedSampleForm({
         registered_date: new Date().toISOString().split('T')[0]
       }
 
-      let sampleResponse
+      let sampleId: string
       if (isEditing && initialData?.id) {
-        sampleResponse = await supabase
-          .from('samples')
-          .update(sampleData)
-          .eq('id', initialData.id)
-          .select()
-          .single()
+        const res = await fetch(`/api/samples/${initialData.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sampleData)
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || 'Error updating sample')
+        }
+        sampleId = initialData.id as string
       } else {
-        sampleResponse = await supabase
-          .from('samples')
-          .insert(sampleData)
-          .select()
-          .single()
+        const res = await fetch('/api/samples', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sampleData)
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || 'Error creating sample')
+        }
+        const created = await res.json()
+        sampleId = created.id
       }
 
-      if (sampleResponse.error) throw sampleResponse.error
-      
-      const sampleId = sampleResponse.data.id
-
-      // Insert/update tests
+      // Insert tests and units via API
       if (!isEditing) {
         if (selectedTests.length > 0) {
-          const testInserts = selectedTests.map(test => ({
-            sample_id: sampleId,
-            test_id: test.test_id,
-            method_id: test.method_id || null
-          }))
-
-          const { error: testsError } = await supabase
-            .from('sample_tests')
-            .insert(testInserts)
-
-          if (testsError) throw testsError
+          for (const test of selectedTests) {
+            await fetch(`/api/samples/${sampleId}/tests`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ test_id: test.test_id, method_id: test.method_id || null })
+            })
+          }
         }
 
-        // Insert sample units
         if (sampleUnits.length > 0) {
-          const unitInserts = sampleUnits.map(unit => ({
-            sample_id: sampleId,
-            code: unit.code,
-            label: unit.label
-          }))
-
-          const { error: unitsError } = await supabase
-            .from('sample_units')
-            .insert(unitInserts)
-
-          if (unitsError) throw unitsError
+          for (const unit of sampleUnits) {
+            await fetch(`/api/samples/${sampleId}/units`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code: unit.code, label: unit.label })
+            })
+          }
         }
       }
 

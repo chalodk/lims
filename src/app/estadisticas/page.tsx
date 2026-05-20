@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getSupabaseClient } from '@/lib/supabase/singleton'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import {
   TrendingUp,
@@ -37,8 +36,6 @@ export default function EstadisticasPage() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const supabase = getSupabaseClient()
-
         const now = new Date()
         const completedDayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
         const completedDayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
@@ -47,19 +44,22 @@ export default function EstadisticasPage() {
           completedDayEnd: completedDayEnd.toISOString()
         })
 
-        const [samplesResult, resultsResult, clientsResult, dashboardStatsResponse, chartsResponse] =
+        const [dashboardStatsResponse, chartsResponse] =
           await Promise.all([
-            supabase.from('samples').select('id', { count: 'exact' }),
-            supabase.from('results').select('id', { count: 'exact' }),
-            supabase.from('clients').select('id', { count: 'exact' }),
             fetch(`/api/dashboard/stats?${statsQuery.toString()}`),
             fetch('/api/estadisticas/charts')
           ])
 
+        let totalSamples = 0
+        let totalResults = 0
+        let totalClients = 0
         let pendingWork = 0
         let completedTodayCount = 0
         if (dashboardStatsResponse.ok) {
           const dashboardStats = await dashboardStatsResponse.json()
+          totalSamples = dashboardStats?.samples?.total ?? 0
+          totalResults = dashboardStats?.results?.total ?? 0
+          totalClients = dashboardStats?.overview?.totalClients ?? 0
           pendingWork = dashboardStats?.overview?.pendingWork ?? 0
           completedTodayCount = dashboardStats?.overview?.completedToday ?? 0
         }
@@ -86,9 +86,9 @@ export default function EstadisticasPage() {
         setSamplesByMonth(samplesByMonthData)
         setResultsByType(resultsByTypeData)
         setStats({
-          totalSamples: samplesResult.count || 0,
-          totalResults: resultsResult.count || 0,
-          totalClients: clientsResult.count || 0,
+          totalSamples,
+          totalResults,
+          totalClients,
           pendingResults: pendingWork,
           completedToday: completedTodayCount,
           averageProcessingTime: averageHours,
