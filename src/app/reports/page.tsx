@@ -12,6 +12,7 @@ import {
 import CreateReportModal from '@/components/reports/CreateReportModal'
 import ViewReportModal from '@/components/reports/ViewReportModal'
 import SamplesDisplay from '@/components/reports/SamplesDisplay'
+import { getAnalysisTypeIndicator } from '@/config/analysisTypes'
 import { 
   FileText,
   Download,
@@ -613,69 +614,7 @@ export default function ReportsPage() {
     )
   }
 
-  /**
-   * Determines the analysis type from test_areas and returns the initial and color
-   * @param testAreas - Array of test area strings
-   * @returns Object with initial, label, and color classes
-   */
-  const getAnalysisTypeIndicator = (testAreas: string[] | null | undefined) => {
-    if (!testAreas || testAreas.length === 0) {
-      return {
-        initial: '?',
-        label: 'Desconocido',
-        bgColor: 'bg-gray-500',
-        textColor: 'text-white'
-      }
-    }
-
-    // Check all test areas to determine the primary type
-    const testAreasLower = testAreas.map(area => area.toLowerCase()).join(' ')
-    
-    if (testAreasLower.includes('virus') || testAreasLower.includes('viral') || testAreasLower.includes('virolog')) {
-      return {
-        initial: 'V',
-        label: 'Virológico',
-        bgColor: 'bg-indigo-600',
-        textColor: 'text-white'
-      }
-    } else if (testAreasLower.includes('bacter') || testAreasLower.includes('bacteriolog')) {
-      return {
-        initial: 'B',
-        label: 'Bacteriológico',
-        bgColor: 'bg-blue-600',
-        textColor: 'text-white'
-      }
-    } else if (testAreasLower.includes('fitopatolog') || testAreasLower.includes('pathog') || testAreasLower.includes('fung')) {
-      return {
-        initial: 'F',
-        label: 'Fitopatológico',
-        bgColor: 'bg-green-600',
-        textColor: 'text-white'
-      }
-    } else if (testAreasLower.includes('deteccion') || testAreasLower.includes('precoz')) {
-      return {
-        initial: 'DP',
-        label: 'Detección Precoz',
-        bgColor: 'bg-yellow-600',
-        textColor: 'text-white'
-      }
-    } else if (testAreasLower.includes('nematod') || testAreasLower.includes('nematolog')) {
-      return {
-        initial: 'N',
-        label: 'Nematodos',
-        bgColor: 'bg-purple-600',
-        textColor: 'text-white'
-      }
-    }
-
-    // Default
-    return {
-      initial: '?',
-      label: 'Otro',
-      bgColor: 'bg-gray-500',
-      textColor: 'text-white'
-    }
-  }
+  // getAnalysisTypeIndicator is now imported from @/config/analysisTypes
 
   return (
     <DashboardLayout>

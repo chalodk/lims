@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import DashboardLayout from '@/components/layout/DashboardLayout'
+import { getAllAreaFilterOptions } from '@/config/analysisTypes'
 import {
   BulkRowSelectionCheckbox,
   BulkSelectAllHeaderCheckbox,
@@ -241,12 +242,7 @@ export default function ResultsPage() {
     }
   }
 
-  const testAreas = [
-    { value: 'nematologia', label: 'Nematología' },
-    { value: 'fitopatologia', label: 'Fitopatología' },
-    { value: 'virologia', label: 'Virología' },
-    { value: 'deteccion_precoz', label: 'Detección Precoz' }
-  ]
+  const testAreas = getAllAreaFilterOptions()
 
   return (
     <DashboardLayout>

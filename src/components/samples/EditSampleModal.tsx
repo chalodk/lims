@@ -7,6 +7,7 @@ import { SampleWithClient, Client, SLAStatus, SampleStatus, SLAType, SampleTaken
 import { SPECIES_CATEGORIES } from '@/constants/species'
 import { PROJECT_OPTIONS } from '@/constants/projects'
 import { canEditField } from '@/config/sampleEditRules'
+import { getLabelFromDbArea, getAllLabels } from '@/config/analysisTypes'
 import { 
   TestTube, 
   Loader2,
@@ -820,15 +821,6 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     Tipo de análisis
                   </label>
                   {(() => {
-                    // Map test areas to analysis types
-                    const areaMap: Record<string, string> = {
-                      'nematologia': 'Nematológico',
-                      'fitopatologia': 'Fitopatológico',
-                      'virologia': 'Virológico',
-                      'deteccion_precoz': 'Detección precoz de enfermedades',
-                      'bacteriologia': 'Bacteriológico'
-                    }
-                    
                     // Get unique areas from sample_tests
                     let analysisTypes: string[] = []
                     const extendedSample = sample as SampleWithClient
@@ -836,23 +828,21 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                       const uniqueAreas = new Set(
                         extendedSample.sample_tests
                           .map((st) => st.test_catalog?.area)
-                          .filter((area): area is AreaType => !!area && !!areaMap[area])
+                          .filter((area): area is AreaType => {
+                            if (!area) return false
+                            const label = getLabelFromDbArea(area as AreaType)
+                            return label !== area // solo válido si hay entrada en el registro
+                          })
                       )
-                      
+
                       // Map to display names
                       analysisTypes = Array.from(uniqueAreas)
-                        .map((area: AreaType) => areaMap[area])
+                        .map((area: AreaType) => getLabelFromDbArea(area))
                         .filter((name): name is string => typeof name === 'string')
                     }
-                    
+
                     // All possible types for display
-                    const allTypes = [
-                      'Nematológico',
-                      'Fitopatológico', 
-                      'Virológico',
-                      'Bacteriológico',
-                      'Detección precoz de enfermedades'
-                    ]
+                    const allTypes = getAllLabels()
                     
                     return (
                       <>

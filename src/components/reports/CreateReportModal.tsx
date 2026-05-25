@@ -5,6 +5,7 @@ import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { useAuth } from '@/contexts/AuthContext'
 import { X, Search, CheckSquare, Square, Loader2 } from 'lucide-react'
 import { Client } from '@/types/database'
+import { getAnalysisTypeFromTestArea } from '@/config/analysisTypes'
 
 interface CreateReportModalProps {
   isOpen: boolean
@@ -166,50 +167,25 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
   }
 
   /**
-   * Determines the analysis type from a test_area string
-   * @param testArea - The test_area string to analyze
-   * @returns The analysis type key
+   * Groups selected results by their analysis type.
+   * Wraps the registry function with local result lookup.
    */
-  const getAnalysisTypeFromTestArea = (testArea: string | null | undefined): string => {
-    if (!testArea) return 'default'
-    
-    const testAreaLower = testArea.toLowerCase()
-    
-    if (testAreaLower.includes('nematolog')) {
-      return 'nematology'
-    } else if (testAreaLower.includes('virus') || testAreaLower.includes('viral') || testAreaLower.includes('virolog')) {
-      return 'virology'
-    } else if (testAreaLower.includes('fitopatolog') || testAreaLower.includes('pathog') || testAreaLower.includes('fung')) {
-      return 'phytopatology'
-    } else if (testAreaLower.includes('bacter') || testAreaLower.includes('bacteriolog')) {
-      return 'bacteriology'
-    } else if (testAreaLower.includes('deteccion') || testAreaLower.includes('precoz')) {
-      return 'early_detection'
-    }
-    
-    return 'default'
-  }
-
-  /**
-   * Groups selected results by their analysis type
-   * @returns Map of analysis type to result IDs array
-   */
-  const groupResultsByAnalysisType = (): Map<string, string[]> => {
+  const groupResultsByAnalysisTypeLocal = (): Map<string, string[]> => {
     const groups = new Map<string, string[]>()
-    
+
     selectedResults.forEach(resultId => {
       const result = results.find(r => r.id === resultId)
       if (!result) return
-      
+
       const analysisType = getAnalysisTypeFromTestArea(result.test_area)
-      
+
       if (!groups.has(analysisType)) {
         groups.set(analysisType, [])
       }
-      
+
       groups.get(analysisType)!.push(resultId)
     })
-    
+
     return groups
   }
 
@@ -219,7 +195,7 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
     setIsCreating(true)
     try {
       // ✅ Group results by analysis type
-      const groupsByType = groupResultsByAnalysisType()
+      const groupsByType = groupResultsByAnalysisTypeLocal()
       console.log('Grouped results by type:', Array.from(groupsByType.entries()).map(([type, ids]) => ({ type, count: ids.length })))
       
       // ✅ Create one report per analysis type

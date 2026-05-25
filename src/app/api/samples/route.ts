@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth/api-auth'
+import { getDbAreaFromLabel } from '@/config/analysisTypes'
 
 export const GET = withAuth(async (request, { user, supabase }) => {
   try {
@@ -184,13 +185,10 @@ export const POST = withAuth(async (request, { user, supabase }) => {
       const { analysis_types = [], methodologies = [] } = analysis_selections
       const sampleTestsToCreate = []
 
-      const analysisTypeToArea: Record<string, string> = {
-        'Nematológico': 'nematologia',
-        'Fitopatológico': 'fitopatologia',
-        'Virológico': 'virologia',
-        'Bacteriológico': 'bacteriologia',
+      // Legacy labels that don't match the canonical registry labels
+      const legacyLabelToArea: Record<string, string> = {
         'Entomológico': 'fitopatologia',
-        'Detección precoz de enfermedades': 'deteccion_precoz'
+        'Detección precoz de enfermedades': 'deteccion_precoz',
       }
 
       const methodologyToCode: Record<string, string> = {
@@ -204,7 +202,7 @@ export const POST = withAuth(async (request, { user, supabase }) => {
       }
 
       for (const analysisType of analysis_types) {
-        const area = analysisTypeToArea[analysisType]
+        const area = getDbAreaFromLabel(analysisType) ?? legacyLabelToArea[analysisType]
         if (area) {
           const { data: testCatalogEntry } = await supabase
             .from('test_catalog')

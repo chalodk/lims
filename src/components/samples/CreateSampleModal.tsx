@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { Client } from '@/types/database'
 import { SPECIES_CATEGORIES } from '@/constants/species'
 import { PROJECT_OPTIONS } from '@/constants/projects'
+import { getAllLabels } from '@/config/analysisTypes'
 import CreateClientModal from '@/components/clients/CreateClientModal'
 import CreateProjectModal from '@/components/projects/CreateProjectModal'
 import { 
@@ -311,13 +312,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
   if (!isOpen) return null
 
   const analysisOptions = {
-    types: [
-      'Nematológico',
-      'Fitopatológico', 
-      'Virológico',
-      'Bacteriológico',
-      'Detección precoz de enfermedades'
-    ],
+    types: getAllLabels(),
     methodologies: [
       'Tamizado de Cobb y Embudo de Baermann',
       'Centrífuga',

@@ -40,8 +40,8 @@ Descargar          ──GET───▶  /api/reports/pdf/[filename]
 1. Usuario selecciona resultados → CreateReportModal
 2. POST /api/reports → crea report (status: 'draft')
 3. El mismo endpoint:
-   a. Resuelve el tipo de analisis (test_catalog.area → Registry)
-   b. Selecciona el template PDFMonkey correcto
+   a. Resuelve el tipo de analisis via `getAnalysisTypeFromTestArea()` del registro central
+   b. Selecciona el template PDFMonkey via `getTemplateId()`
    c. Llama al builder correspondiente
    d. POST a PDFMonkey API con { template_id, payload }
    e. Actualiza report a status: 'generated'
@@ -52,16 +52,29 @@ Descargar          ──GET───▶  /api/reports/pdf/[filename]
 
 ## Tipos de analisis y templates
 
-Cada tipo de analisis tiene su propio template PDFMonkey. La logica de construccion de payload esta actualmente en `src/app/api/reports/pdfmonkey/route.ts` (~1400 lineas). Esta planificada la extraccion a builders separados.
+Cada tipo de analisis tiene su propio template PDFMonkey. La fuente unica de verdad es `src/config/analysisTypes.ts`, que centraliza claves canonicas, etiquetas en espanol, metadatos de UI, mapeo a areas de BD y templates. Los payload builders estan en `src/app/api/reports/pdfmonkey/route.ts`.
 
-| Tipo | Enum | Template Env Var |
-|---|---|---|
-| Virologia | `virology` | `PDFMONKEY_TEMPLATE_VIROLOGY` |
-| Fitopatologia | `phytopatology` | `PDFMONKEY_TEMPLATE_PHYTOPATOLOGY` |
-| Nematologia | `nematology` | `PDFMONKEY_TEMPLATE_NEMATOLOGY` |
-| Bacteriologia | `bacteriology` | `PDFMONKEY_TEMPLATE_BACTERIOLOGY` |
-| Deteccion precoz | `early_detection` | `PDFMONKEY_TEMPLATE_EARLY_DETECTION` |
-| Default | `default` | `PDFMONKEY_TEMPLATE_DEFAULT` |
+| Tipo | Clave | Label UI | Template Env Var |
+|---|---|---|---|
+| Virologia | `virology` | Virologico | `PDFMONKEY_TEMPLATE_VIROLOGY` |
+| Fitopatologia | `phytopatology` | Fitopatologico | `PDFMONKEY_TEMPLATE_PHYTOPATOLOGY` |
+| Nematologia | `nematology` | Nematologico | `PDFMONKEY_TEMPLATE_NEMATOLOGY` |
+| Bacteriologia | `bacteriology` | Bacteriologico | `PDFMONKEY_TEMPLATE_BACTERIOLOGY` |
+| Deteccion precoz | `early_detection` | Deteccion Precoz | `PDFMONKEY_TEMPLATE_EARLY_DETECTION` |
+| Default | `default` | Desconocido | `PDFMONKEY_TEMPLATE_DEFAULT` |
+
+### Registro central (`src/config/analysisTypes.ts`)
+
+El registro `ANALYSIS_TYPE_REGISTRY` contiene para cada tipo: clave, label, inicial, colores Tailwind, areas de BD asociadas, env var del template, fallback ID, y textos por defecto (titulo, descripcion, metodologia).
+
+Funciones helper exportadas:
+- `getAnalysisTypeFromTestArea(area)` — lookup explicito, reemplaza 3 copias duplicadas
+- `getDbAreaFromLabel(label)` / `getLabelFromDbArea(area)` — mapeo bidireccional
+- `getAnalysisTypeIndicator(testAreas)` — indicador visual para UI
+- `groupResultsByAnalysisType(resultados)` — agrupacion para generacion de PDFs
+- `getTemplateId(type)` — resuelve template ID (env var o fallback, server-side)
+- `getDefaultsForType(type)` — textos por defecto para payloads
+- `getAllLabels()` / `getAllAreaFilterOptions()` — opciones para dropdowns
 
 ## Endpoints de reportes
 
@@ -82,10 +95,13 @@ Cada tipo de analisis tiene su propio template PDFMonkey. La logica de construcc
 
 ## Agregar un nuevo tipo de analisis
 
-Actualmente la logica esta en `src/app/api/reports/pdfmonkey/route.ts`. Para agregar un tipo:
-1. Agregar el nuevo `AnalysisType` al enum y al mapa de areas en `pdfmonkey/route.ts`
-2. Agregar variable de entorno `PDFMONKEY_TEMPLATE_NUEVO_TIPO`
-3. Si `test_catalog.area` tiene un nuevo valor, agregarlo al mapa de deteccion
+1. Agregar la clave a `ANALYSIS_TYPE_KEYS` en `src/config/analysisTypes.ts`
+2. Agregar entrada completa en `ANALYSIS_TYPE_REGISTRY` (label, colores, dbAreas, templateEnvVar, fallbackTemplateId, textos por defecto)
+3. Agregar variable de entorno `PDFMONKEY_TEMPLATE_NUEVO_TIPO` (con fallback hardcodeado en el registro)
+4. Agregar el `payloadBuilder` en `PDF_TEMPLATES` dentro de `pdfmonkey/route.ts`
+5. Si `test_catalog.area` tiene un nuevo valor, agregarlo a `DB_AREA_VALUES` y al `AreaType` en `database.ts`
+
+Sin necesidad de tocar: funciones de deteccion, indicadores de UI, ni mappings de labels — todo se deriva del registro.
 
 ## Variables de entorno de PDFMonkey
 

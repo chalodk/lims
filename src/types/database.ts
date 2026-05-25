@@ -10,7 +10,7 @@ export type Json =
 
 // ---------- Enums inferidos desde tus CHECK constraints ----------
 export type AnalyteKind = 'virus' | 'hongo' | 'nematodo' | 'bacteria' | 'abiotico'
-export type AreaType = 'nematologia' | 'fitopatologia' | 'virologia' | 'deteccion_precoz'
+export type AreaType = 'nematologia' | 'fitopatologia' | 'virologia' | 'bacteriologia' | 'deteccion_precoz'
 export type ComparatorType = '>' | '>=' | '=' | 'in'
 export type RuleSeverity = 'low' | 'moderate' | 'high'
 export type InvitationRole = 'client_user' | 'collaborator'

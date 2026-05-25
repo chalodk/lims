@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth/api-auth'
-
-// Types for PDF template configuration
-type AnalysisType = 'virology' | 'phytopatology' | 'bacteriology' | 'nematology' | 'early_detection' | 'default'
+import {
+  type AnalysisType,
+  getAnalysisTypeFromTestArea,
+  groupResultsByAnalysisType,
+  getTemplateId,
+  getDefaultsForType,
+  getLabelFromAnalysisType,
+} from '@/config/analysisTypes'
 
 interface ReportData {
   id: string
@@ -104,24 +109,7 @@ function extractColumnLabels(resultados: ResultadoData[]): Record<string, string
   return null
 }
 
-// Analysis defaults for different test types
-const ANALYSIS_DEFAULTS = {
-  nematologia: {
-    tituloInforme: "INFORME NEMATOLÓGICO",
-    tipoAnalisisDescripcion: "Determinación de nematodos fitoparásitos de formas móviles y enquistadas en suelo.",
-    metodologiaDescripcion: "Para la determinación de nematodos fitoparásitos en formas móviles se utilizó el Método de Tamizado de Cobb y Embudo de Baermann."
-  },
-  virology: {
-    tituloInforme: "INFORME VIROLÓGICO",
-    tipoAnalisisDescripcion: "Determinación de virus fitopatógenos.",
-    metodologiaDescripcion: "Metodología estándar para análisis virológico."
-  },
-  phytopatology: {
-    tituloInforme: "INFORME FITOPATOLÓGICO", 
-    tipoAnalisisDescripcion: "Determinación de patógenos vegetales.",
-    metodologiaDescripcion: "Se efectuaron tres diluciones (10⁻¹, 10⁻² y 10⁻³) de cada muestra de suelo previamente tamizadas. Posteriormente se extrajo 1 ml de cada dilución, sembrándolas en placas de Petri con medios de cultivos específicos para el desarrollo de hongos. Después del período de incubación, se hizo el recuento del número de colonias presentes en las placas correspondientes a las tres diluciones de cada muestra de suelo. Los resultados se expresan en número de colonias de hongos por muestra analizada."
-  }
-}
+// Analysis defaults now provided by getDefaultsForType() from @/config/analysisTypes
 
 function parseFindingsRecord(findings: ResultadoData['findings'] | unknown): Record<string, unknown> | null {
   if (findings == null) return null
@@ -235,7 +223,7 @@ function resolveTipoAnalisisDescripcionFromCatalog(
 // PDF Templates mapping - easily extensible for new analysis types
 const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
   virology: {
-    templateId: '0D6C351F-BFFF-4FFF-8960-59763FA3018F',
+    templateId: getTemplateId('virology'),
     payloadBuilder: (report, client, resultados, analystName) => {
       const currentDate = new Date()
 
@@ -361,7 +349,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
   },
   
   early_detection: {
-    templateId: '6AD1FA7C-65EE-4E23-9413-DBE68F53C9C9',
+    templateId: getTemplateId('early_detection'),
     payloadBuilder: (report, client, resultados, analystName) => {
       const currentDate = new Date()
 
@@ -475,7 +463,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
   },
 
   bacteriology: {
-    templateId: 'BFFA2B14-DA47-4D06-B593-0CC084D374C6',
+    templateId: getTemplateId('bacteriology'),
     payloadBuilder: (report, client, resultados, analystName) => {
       const currentDate = new Date()
 
@@ -617,9 +605,9 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
   },
 
   phytopatology: {
-    templateId: '5AA9EEB6-73F7-4370-AF58-F932A541100B', // Phytopatology template ID
+    templateId: getTemplateId('phytopatology'), // Phytopatology template ID
     payloadBuilder: (report, client, resultados, analystName) => {
-      const defaults = ANALYSIS_DEFAULTS.phytopatology
+      const defaults = getDefaultsForType('phytopatology')
       const currentDate = new Date()
       
       // Generate report number
@@ -737,9 +725,9 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
   },
   
   nematology: {
-    templateId: '1D6880A8-BEDA-4538-86CA-4121557E88FE',
+    templateId: getTemplateId('nematology'),
     payloadBuilder: (report, client, resultados, analystName) => {
-      const defaults = ANALYSIS_DEFAULTS.nematologia
+      const defaults = getDefaultsForType('nematology')
       const currentDate = new Date()
       
       // Generate report number
@@ -869,7 +857,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
   },
   
   default: {
-    templateId: 'E7E87A76-10F7-4F3C-B45F-24BB7D06ED63', // Current default template
+    templateId: getTemplateId('default'), // Current default template
     payloadBuilder: (_report, client) => ({
       // Default payload structure (current implementation)
       reportNumber: 'LAB-2025-001',
@@ -891,51 +879,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
   }
 }
 
-/**
- * Determines the analysis type from a test_area string
- * @param testArea - The test_area string to analyze
- * @returns The analysis type
- */
-function getAnalysisTypeFromTestArea(testArea: string | null | undefined): AnalysisType {
-  if (!testArea) return 'default'
-  
-  const testAreaLower = testArea.toLowerCase()
-  
-  if (testAreaLower.includes('nematolog')) {
-    return 'nematology'
-  } else if (testAreaLower.includes('virus') || testAreaLower.includes('viral') || testAreaLower.includes('virolog')) {
-    return 'virology'
-  } else if (testAreaLower.includes('fitopatolog') || testAreaLower.includes('pathog') || testAreaLower.includes('fung')) {
-    return 'phytopatology'
-  } else if (testAreaLower.includes('bacter') || testAreaLower.includes('bacteriolog')) {
-    return 'bacteriology'
-  } else if (testAreaLower.includes('deteccion') || testAreaLower.includes('precoz')) {
-    return 'early_detection'
-  }
-  
-  return 'default'
-}
-
-/**
- * Groups resultados by their analysis type
- * @param resultados - Array of resultados to group
- * @returns Map of analysis type to resultados array
- */
-function groupResultadosByAnalysisType(resultados: ResultadoData[]): Map<AnalysisType, ResultadoData[]> {
-  const groups = new Map<AnalysisType, ResultadoData[]>()
-  
-  resultados.forEach(resultado => {
-    const analysisType = getAnalysisTypeFromTestArea(resultado.test_area)
-    
-    if (!groups.has(analysisType)) {
-      groups.set(analysisType, [])
-    }
-    
-    groups.get(analysisType)!.push(resultado)
-  })
-  
-  return groups
-}
+// getAnalysisTypeFromTestArea and groupResultadosByAnalysisType are now imported from @/config/analysisTypes
 
 /**
  * Resolves the correct template ID and payload based on analysis type
@@ -970,19 +914,13 @@ function resolveTemplateAndPayload(report: ReportData, client: ClientData | null
   }
   // Option 3: Infer from test_areas field
   else if (report.test_areas && Array.isArray(report.test_areas)) {
-    const testAreasLower = report.test_areas.map(area => area.toLowerCase())
-    console.log('PDFMonkey: Checking report test_areas:', testAreasLower)
-    
-    if (testAreasLower.some(area => area.includes('virus') || area.includes('viral') || area.includes('virolog'))) {
-      analysisType = 'virology'
-    } else if (testAreasLower.some(area => area.includes('fitopatolog') || area.includes('pathog') || area.includes('fung'))) {
-      analysisType = 'phytopatology'
-    } else if (testAreasLower.some(area => area.includes('nematod') || area.includes('nematolog'))) {
-      analysisType = 'nematology'
-    } else if (testAreasLower.some(area => area.includes('bacter') || area.includes('bacteriolog'))) {
-      analysisType = 'bacteriology'
-    } else if (testAreasLower.some(area => area.includes('deteccion') || area.includes('precoz'))) {
-      analysisType = 'early_detection'
+    console.log('PDFMonkey: Checking report test_areas:', report.test_areas)
+    for (const area of report.test_areas) {
+      const resolved = getAnalysisTypeFromTestArea(area)
+      if (resolved !== 'default') {
+        analysisType = resolved
+        break
+      }
     }
   }
   
@@ -1248,7 +1186,7 @@ export const POST = withAuth(async (request, { user, supabase }) => {
     })
 
     // ✅ NEW: Group resultados by analysis type
-    const gruposPorTipo = groupResultadosByAnalysisType(resultados)
+    const gruposPorTipo = groupResultsByAnalysisType(resultados)
     console.log('PDFMonkey: Grouped resultados by type:', Array.from(gruposPorTipo.entries()).map(([type, results]) => ({ type, count: results.length })))
     
     // If only one group, process as before (backward compatibility)
@@ -1384,12 +1322,10 @@ export const POST = withAuth(async (request, { user, supabase }) => {
         
         // Generate filename: client_name + analysis_type (date will be added by n8n)
         const clientName = client?.name ? client.name.replace(/[^a-zA-Z0-9]/g, '_') : 'Cliente'
-        const analysisTypeName = analysisType === 'virology' ? 'Virologico' :
-                                 analysisType === 'phytopatology' ? 'Fitopatologico' :
-                                 analysisType === 'nematology' ? 'Nematologico' :
-                                 analysisType === 'bacteriology' ? 'Bacteriologico' :
-                                 analysisType === 'early_detection' ? 'DeteccionPrecoz' :
-                                 'Analisis'
+        const analysisTypeName = getLabelFromAnalysisType(analysisType)
+          .replace(/\s+/g, '')
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
         const filename = `${clientName}_${analysisTypeName}.pdf`
         
         // Fetch analyst name for this group
@@ -1419,7 +1355,7 @@ export const POST = withAuth(async (request, { user, supabase }) => {
               report_id: report_id || null,
               _filename: filename,
               analysis_type: analysisType,
-              result_ids: grupoResultados.map(r => r.id)
+              result_ids: grupoResultados.map((r: ResultadoData) => r.id)
             }
           }
         }
