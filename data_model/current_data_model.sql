@@ -12,6 +12,34 @@ CREATE TABLE public.action_logs (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT action_logs_pkey PRIMARY KEY (id)
 );
+-- Fuente de verdad en BD para tipos de analisis. Espejo de src/config/analysisTypes.ts.
+-- La UI de customer success lee/escribe esta tabla; el codigo usa el registro estatico como fallback.
+CREATE TABLE public.analysis_types (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  key text NOT NULL UNIQUE,
+  label text NOT NULL,
+  initial text NOT NULL,
+  bg_color text NOT NULL DEFAULT 'bg-gray-500',
+  text_color text NOT NULL DEFAULT 'text-white',
+  db_areas text[] NOT NULL DEFAULT '{}',
+  pdfmonkey_template_id text,
+  template_env_var text,
+  titulo_informe text NOT NULL DEFAULT '',
+  tipo_analisis_descripcion text NOT NULL DEFAULT '',
+  metodologia_descripcion text NOT NULL DEFAULT '',
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.methodology_options (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  category text NOT NULL CHECK (category IN ('methodology', 'technique')),
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE public.analytes (
   id bigint NOT NULL DEFAULT nextval('analytes_id_seq'::regclass),
   code text UNIQUE,
@@ -49,9 +77,21 @@ CREATE TABLE public.companies (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT companies_pkey PRIMARY KEY (id)
 );
+
+CREATE TABLE public.company_analysis_type_templates (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+  analysis_type_key text NOT NULL,
+  pdfmonkey_template_id text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT company_analysis_type_templates_pkey PRIMARY KEY (id),
+  CONSTRAINT company_analysis_type_templates_unique UNIQUE (company_id, analysis_type_key)
+);
+
 CREATE TABLE public.interpretation_rules (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  area text NOT NULL CHECK (area = ANY (ARRAY['nematologia'::text, 'fitopatologia'::text, 'virologia'::text, 'deteccion_precoz'::text])),
+  area text NOT NULL CHECK (area = ANY (ARRAY['nematologia'::text, 'fitopatologia'::text, 'virologia'::text, 'bacteriologia'::text, 'deteccion_precoz'::text])),
   species text,
   crop_next text,
   analyte text NOT NULL,
@@ -160,6 +200,7 @@ CREATE TABLE public.reports (
   supersedes_report_id uuid,
   visibility text NOT NULL DEFAULT 'client'::text CHECK (visibility = ANY (ARRAY['internal'::text, 'client'::text])),
   test_areas ARRAY DEFAULT '{}'::text[],
+  analysis_type text,
   CONSTRAINT reports_pkey PRIMARY KEY (id),
   CONSTRAINT reports_supersedes_report_id_fkey FOREIGN KEY (supersedes_report_id) REFERENCES public.reports(id),
   CONSTRAINT reports_responsible_id_fkey FOREIGN KEY (responsible_id) REFERENCES public.users(id),
@@ -209,7 +250,7 @@ CREATE TABLE public.role_views (
 );
 CREATE TABLE public.roles (
   id integer NOT NULL,
-  name text NOT NULL UNIQUE CHECK (name = ANY (ARRAY['admin'::text, 'validador'::text, 'comun'::text, 'consumidor'::text])),
+  name text NOT NULL UNIQUE CHECK (name = ANY (ARRAY['admin'::text, 'validador'::text, 'comun'::text, 'consumidor'::text, 'csx'::text])),
   level integer NOT NULL,
   description text,
   created_at timestamp with time zone DEFAULT now(),
@@ -306,7 +347,7 @@ CREATE TABLE public.sla_policies (
   id bigint NOT NULL DEFAULT nextval('sla_policies_id_seq'::regclass),
   name text NOT NULL UNIQUE,
   business_days integer NOT NULL CHECK (business_days > 0),
-  area text CHECK (area = ANY (ARRAY['nematologia'::text, 'fitopatologia'::text, 'virologia'::text, 'deteccion_precoz'::text])),
+  area text CHECK (area = ANY (ARRAY['nematologia'::text, 'fitopatologia'::text, 'virologia'::text, 'bacteriologia'::text, 'deteccion_precoz'::text])),
   CONSTRAINT sla_policies_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.species (
@@ -318,7 +359,7 @@ CREATE TABLE public.test_catalog (
   id bigint NOT NULL DEFAULT nextval('test_catalog_id_seq'::regclass),
   code text NOT NULL UNIQUE,
   name text NOT NULL,
-  area text NOT NULL CHECK (area = ANY (ARRAY['nematologia'::text, 'fitopatologia'::text, 'virologia'::text, 'deteccion_precoz'::text])),
+  area text NOT NULL CHECK (area = ANY (ARRAY['nematologia'::text, 'fitopatologia'::text, 'virologia'::text, 'bacteriologia'::text, 'deteccion_precoz'::text])),
   default_method_id bigint,
   active boolean NOT NULL DEFAULT true,
   CONSTRAINT test_catalog_pkey PRIMARY KEY (id),
