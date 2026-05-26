@@ -15,7 +15,8 @@ import {
   X,
   Bell,
   FlaskConical,
-  Loader2
+  Loader2,
+  Microscope
 } from 'lucide-react'
 import AppBrandingLogo from '@/components/branding/AppBrandingLogo'
 import UserProfileDropdown from '@/components/UserProfileDropdown'
@@ -70,13 +71,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home, roles: ['admin', 'validador', 'comun'] },
+    { name: 'Dashboard', href: '/dashboard', icon: Home, roles: ['admin', 'validador', 'comun', 'csx'] },
     { name: 'Muestras', href: '/samples', icon: TestTube, roles: ['admin', 'validador', 'comun'] },
     { name: 'Resultados', href: '/results', icon: FlaskConical, roles: ['admin', 'validador', 'comun'] },
     { name: 'Clientes', href: '/clients', icon: Users, roles: ['admin', 'validador', 'comun'] },
-    { name: 'Informes', href: '/reports', icon: FileText, roles: ['admin', 'validador', 'comun', 'consumidor'] },
+    { name: 'Informes', href: '/reports', icon: FileText, roles: ['admin', 'validador', 'comun', 'consumidor', 'csx'] },
     { name: 'Estadísticas', href: '/estadisticas', icon: BarChart3, roles: ['admin', 'validador'] },
     { name: 'Configuración', href: '/settings', icon: Settings, roles: ['admin'] },
+    { name: 'Tipos de Análisis', href: '/admin/analysis-types', icon: Microscope, roles: ['csx'] },
+    { name: 'Templates PDF', href: '/admin/company-templates', icon: FileText, roles: ['csx'] },
+    { name: 'Metodologias', href: '/admin/methodology-options', icon: FlaskConical, roles: ['csx'] },
+    { name: 'Analitos', href: '/admin/analytes', icon: TestTube, roles: ['csx'] },
   ]
 
   const filteredNavigation = navigation.filter(item => 

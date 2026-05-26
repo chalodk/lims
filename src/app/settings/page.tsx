@@ -4,11 +4,12 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { Settings, Users, Loader2, Search, X, RefreshCw, Eye, Pencil, Trash2, Shield, UserPlus, Link2 } from 'lucide-react'
+import { Settings, Users, Loader2, Search, X, RefreshCw, Eye, Pencil, Trash2, Shield, UserPlus, Link2, FileText } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils/formatters'
 import EditProfileModal from '@/components/settings/EditProfileModal'
 import CreateUserModal from '@/components/settings/CreateUserModal'
 import LinkUserClientsModal from '@/components/settings/LinkUserClientsModal'
+import CompanyTemplatesModal from '@/components/settings/CompanyTemplatesModal'
 
 interface UserProfile {
   id: string
@@ -34,6 +35,7 @@ export default function SettingsPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [linkingUser, setLinkingUser] = useState<UserProfile | null>(null)
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false)
+  const [isCompanyTemplatesOpen, setIsCompanyTemplatesOpen] = useState(false)
 
   const fetchUsers = useCallback(async (options?: { silent?: boolean }) => {
     const showFullPageLoader = !options?.silent
@@ -337,7 +339,7 @@ export default function SettingsPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            user.role === 'admin' 
+                            user.role === 'admin'
                               ? 'bg-purple-100 text-purple-800'
                               : user.role === 'validador'
                               ? 'bg-blue-100 text-blue-800'
@@ -345,6 +347,8 @@ export default function SettingsPage() {
                               ? 'bg-green-100 text-green-800'
                               : user.role === 'consumidor'
                               ? 'bg-yellow-100 text-yellow-800'
+                              : user.role === 'csx'
+                              ? 'bg-teal-100 text-teal-800'
                               : user.role === 'Sin autorizar'
                               ? 'bg-orange-100 text-orange-800'
                               : 'bg-gray-100 text-gray-800'
@@ -353,6 +357,7 @@ export default function SettingsPage() {
                              user.role === 'validador' ? 'Validador' :
                              user.role === 'comun' ? 'Común' :
                              user.role === 'consumidor' ? 'Consumidor' :
+                             user.role === 'csx' ? 'Customer Success' :
                              user.role === 'Sin autorizar' ? 'Sin autorizar' :
                              user.role}
                           </span>
@@ -413,6 +418,30 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Templates PDFMonkey por Empresa */}
+        {userRole === 'admin' && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 mt-6">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <FileText className="h-6 w-6 text-green-600" />
+                <h2 className="text-xl font-semibold text-gray-900">Modelos informes - PDF</h2>
+              </div>
+              <p className="text-sm text-gray-500 mt-1">
+                Personaliza los modelos de informe por tipo de analisis para tu empresa.
+              </p>
+            </div>
+            <div className="p-6">
+              <button
+                onClick={() => setIsCompanyTemplatesOpen(true)}
+                className="inline-flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
+              >
+                <FileText className="h-5 w-5" />
+                <span>Configurar Templates</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Modal de Edición de Perfil */}
         <EditProfileModal
           isOpen={isEditModalOpen}
@@ -440,6 +469,13 @@ export default function SettingsPage() {
           }}
           user={linkingUser}
           onSuccess={handleEditSuccess}
+        />
+
+        {/* Modal de Templates PDFMonkey */}
+        <CompanyTemplatesModal
+          isOpen={isCompanyTemplatesOpen}
+          onClose={() => setIsCompanyTemplatesOpen(false)}
+          onSuccess={() => {}}
         />
       </DashboardLayout>
   )

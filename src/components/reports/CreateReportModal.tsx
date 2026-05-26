@@ -5,7 +5,7 @@ import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { useAuth } from '@/contexts/AuthContext'
 import { X, Search, CheckSquare, Square, Loader2 } from 'lucide-react'
 import { Client } from '@/types/database'
-import { getAnalysisTypeFromTestArea } from '@/config/analysisTypes'
+import { getAnalysisTypeFromTestArea, getAllAnalysisTypesFromTestArea, ANALYSIS_TYPE_REGISTRY } from '@/config/analysisTypes'
 
 interface CreateReportModalProps {
   isOpen: boolean
@@ -37,7 +37,9 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
   const [isLoadingResults, setIsLoadingResults] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  
+  const [typeSelections, setTypeSelections] = useState<Record<string, string>>({})
+  const [dbAnalysisTypes, setDbAnalysisTypes] = useState<Array<{ key: string; label: string; db_areas: string[] }>>([])
+
   const supabase = getSupabaseClient()
 
   const fetchClients = useCallback(async () => {
@@ -120,12 +122,17 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
   useEffect(() => {
     if (isOpen) {
       fetchClients()
+      fetch('/api/admin/analysis-types')
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(data => setDbAnalysisTypes((data.analysis_types || []).filter((t: { active?: boolean }) => t.active !== false)))
+        .catch(() => {})
     } else {
       // Reset state when modal closes
       setSelectedClient(null)
       setSelectedResults([])
       setResults([])
       setSearchTerm('')
+      setTypeSelections({})
     }
   }, [isOpen, fetchClients])
 
@@ -167,23 +174,51 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
   }
 
   /**
-   * Groups selected results by their analysis type.
-   * Wraps the registry function with local result lookup.
+   * Retorna los tipos de analisis disponibles para un test_area,
+   * combinando el registro estatico con los tipos en BD.
    */
-  const groupResultsByAnalysisTypeLocal = (): Map<string, string[]> => {
+  const getAvailableTypesForArea = (testArea: string): Array<{ key: string; label: string }> => {
+    const seen = new Set<string>()
+    const result: Array<{ key: string; label: string }> = []
+
+    // DB types first (custom types take priority in display order)
+    for (const t of dbAnalysisTypes) {
+      if (t.db_areas?.includes(testArea) && !seen.has(t.key)) {
+        seen.add(t.key)
+        result.push({ key: t.key, label: t.label })
+      }
+    }
+
+    // Static types as fallback
+    const staticKeys = getAllAnalysisTypesFromTestArea(testArea)
+    for (const key of staticKeys) {
+      if (key !== 'default' && !seen.has(key)) {
+        seen.add(key)
+        result.push({ key, label: ANALYSIS_TYPE_REGISTRY[key]?.label || key })
+      }
+    }
+
+    return result
+  }
+
+  /**
+   * Groups selected results by their raw test_area.
+   * If multiple analysis types exist for an area, the user picks via typeSelections.
+   */
+  const groupResultsByTestArea = (): Map<string, string[]> => {
     const groups = new Map<string, string[]>()
 
     selectedResults.forEach(resultId => {
       const result = results.find(r => r.id === resultId)
       if (!result) return
 
-      const analysisType = getAnalysisTypeFromTestArea(result.test_area)
+      const testArea = result.test_area || 'default'
 
-      if (!groups.has(analysisType)) {
-        groups.set(analysisType, [])
+      if (!groups.has(testArea)) {
+        groups.set(testArea, [])
       }
 
-      groups.get(analysisType)!.push(resultId)
+      groups.get(testArea)!.push(resultId)
     })
 
     return groups
@@ -194,19 +229,24 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
 
     setIsCreating(true)
     try {
-      // ✅ Group results by analysis type
-      const groupsByType = groupResultsByAnalysisTypeLocal()
-      console.log('Grouped results by type:', Array.from(groupsByType.entries()).map(([type, ids]) => ({ type, count: ids.length })))
-      
-      // ✅ Create one report per analysis type
+      const groupsByTestArea = groupResultsByTestArea()
+      console.log('Grouped results by test_area:', Array.from(groupsByTestArea.entries()).map(([area, ids]) => ({ area, count: ids.length })))
+
       const createdReports = []
-      
-      for (const [analysisType, resultIds] of groupsByType.entries()) {
-        // Get the test_area for this group (from the first result)
+
+      for (const [testArea, resultIds] of groupsByTestArea.entries()) {
+        // Determine the analysis type for this group
+        const availableTypes = getAvailableTypesForArea(testArea)
+        const selectedType = typeSelections[testArea] || (availableTypes.length === 1 ? availableTypes[0].key : null)
+
+        if (!selectedType) {
+          alert(`Por favor seleccione un formato para "${testArea}"`)
+          setIsCreating(false)
+          return
+        }
+
         const firstResult = results.find(r => resultIds.includes(r.id))
-        const testArea = firstResult?.test_area || 'Análisis'
-        
-        // Create report for this analysis type
+
         const { data: reportData, error: reportError } = await supabase
           .from('reports')
           .insert({
@@ -218,17 +258,17 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
             template: 'standard',
             include_recommendations: true,
             include_images: true,
-            test_areas: [testArea] // Only this type's test_area
+            test_areas: [testArea],
+            analysis_type: selectedType
           })
           .select()
           .single()
 
         if (reportError) {
-          console.error(`Error creating report for ${analysisType}:`, reportError)
+          console.error(`Error creating report for ${testArea}:`, reportError)
           throw reportError
         }
 
-        // Associate results of this type with this report
         if (resultIds.length > 0) {
           const { error: updateError } = await supabase
             .from('results')
@@ -236,31 +276,29 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
             .in('id', resultIds)
 
           if (updateError) {
-            console.error(`Error associating results for ${analysisType}:`, updateError)
+            console.error(`Error associating results for ${testArea}:`, updateError)
             throw updateError
           }
         }
 
-        // Create PDF in PDFMonkey for this group
         try {
           await fetch('/api/reports/pdfmonkey', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              result_ids: resultIds, // Only results of this type
-              report_id: reportData.id 
+            body: JSON.stringify({
+              result_ids: resultIds,
+              report_id: reportData.id
             })
           })
         } catch (e) {
-          console.error(`Failed to request PDF creation for ${analysisType}:`, e)
-          // Don't throw - continue with other groups
+          console.error(`Failed to request PDF creation for ${testArea}:`, e)
         }
 
         createdReports.push(reportData)
       }
 
       console.log(`Successfully created ${createdReports.length} report(s)`)
-      
+
       onSuccess()
       onClose()
     } catch (error) {
@@ -432,6 +470,43 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
                   </div>
                 </div>
               )}
+
+              {/* Type selectors for ambiguous test areas */}
+              {selectedResults.length > 0 && (() => {
+                const groups = groupResultsByTestArea()
+                const ambiguousAreas = Array.from(groups.keys()).filter(area => {
+                  const types = getAvailableTypesForArea(area)
+                  return types.length > 1
+                })
+
+                if (ambiguousAreas.length === 0) return null
+
+                return (
+                  <div className="mt-3 space-y-3">
+                    {ambiguousAreas.map(area => {
+                      const types = getAvailableTypesForArea(area)
+                      const count = (groups.get(area) || []).length
+                      return (
+                        <div key={area} className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <label className="block text-sm font-medium text-yellow-800 mb-2">
+                            Formato para "{area}" ({count} resultado(s)):
+                          </label>
+                          <select
+                            value={typeSelections[area] || ''}
+                            onChange={(e) => setTypeSelections(prev => ({ ...prev, [area]: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                          >
+                            <option value="">Seleccionar formato...</option>
+                            {types.map(t => (
+                              <option key={t.key} value={t.key}>{t.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
             </div>
           )}
         </div>

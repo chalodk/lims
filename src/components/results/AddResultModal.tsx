@@ -22,24 +22,6 @@ interface AddResultModalProps {
   resultId?: string | null // Para modo edición
 }
 
-const METHOD_OPTIONS = [
-  'Tamizado de Cobb y Embudo de Baermann',
-  'Método de Fenwick',
-  'Centrífuga',
-  'Incubación y Tamizado de Cobb',
-  'Placa petri',
-  'Incubación',
-  'Cámara húmeda',
-  'Recuento de colonias'
-]
-
-const IDENTIFICATION_TECHNIQUE_OPTIONS = [
-  'Taxonomía tradicional',
-  'RT-PCR',
-  'PCR',
-  'ELISA'
-]
-
 const DEFAULT_COLUMN_LABELS: Record<string, Record<string, string>> = {
   nematology: {
     name: 'Género y/o especie identificada',
@@ -175,6 +157,9 @@ export default function AddResultModal({
   })
 
   const [selectedAnalysisArea, setSelectedAnalysisArea] = useState<string>('')
+
+  const [methodologyOptions, setMethodologyOptions] = useState<string[]>([])
+  const [techniqueOptions, setTechniqueOptions] = useState<string[]>([])
 
   // Nematology-specific state
   const [nematologyData, setNematologyData] = useState({
@@ -496,6 +481,14 @@ export default function AddResultModal({
       fetchSamples()
       fetchReports()
       fetchUsers()
+      fetch('/api/admin/methodology-options')
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(data => {
+          const opts = data.methodology_options || []
+          setMethodologyOptions(opts.filter((o: { category: string, active: boolean }) => o.category === 'methodology' && o.active).map((o: { name: string }) => o.name))
+          setTechniqueOptions(opts.filter((o: { category: string, active: boolean }) => o.category === 'technique' && o.active).map((o: { name: string }) => o.name))
+        })
+        .catch(() => {})
       if (preselectedSampleId) {
         fetchSampleTests(preselectedSampleId)
       }
@@ -1530,12 +1523,11 @@ export default function AddResultModal({
                             value={test.method}
                             onChange={(e) => updateVirologyTest(index, 'method', e.target.value)}
                             className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                            disabled={loadingMethodsAndAnalytes}
                           >
-                            <option value="">Seleccionar método</option>
-                            {availableMethods.map(method => (
-                              <option key={method.id} value={method.id}>
-                                {method.name}
+                            <option value="">Seleccionar tecnica</option>
+                            {techniqueOptions.map(technique => (
+                              <option key={technique} value={technique}>
+                                {technique}
                               </option>
                             ))}
                           </select>
@@ -1710,12 +1702,11 @@ export default function AddResultModal({
                             value={test.method}
                             onChange={(e) => updateBacteriologyTest(index, 'method', e.target.value)}
                             className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                            disabled={loadingMethodsAndAnalytes}
                           >
-                            <option value="">Seleccionar método</option>
-                            {availableMethods.map(method => (
-                              <option key={method.id} value={method.id}>
-                                {method.name}
+                            <option value="">Seleccionar tecnica</option>
+                            {techniqueOptions.map(technique => (
+                              <option key={technique} value={technique}>
+                                {technique}
                               </option>
                             ))}
                           </select>
@@ -2637,7 +2628,7 @@ export default function AddResultModal({
                     Metodología *
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-                    {METHOD_OPTIONS.map(methodology => (
+                    {methodologyOptions.map(methodology => (
                       <label key={methodology} className="flex items-center">
                         <input
                           type="checkbox"
@@ -2654,7 +2645,7 @@ export default function AddResultModal({
                     Técnica de identificación *
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-                    {IDENTIFICATION_TECHNIQUE_OPTIONS.map(technique => (
+                    {techniqueOptions.map(technique => (
                       <label key={technique} className="flex items-center">
                         <input
                           type="checkbox"
