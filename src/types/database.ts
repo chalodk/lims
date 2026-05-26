@@ -33,7 +33,7 @@ export type PathogenType =
 export type SeverityExtended = 'low' | 'moderate' | 'high' | 'severe'
 export type Confidence = 'low' | 'medium' | 'high'
 export type ResultType = 'positive' | 'negative' | 'inconclusive'
-export type RoleName = 'admin' | 'validador' | 'comun' | 'consumidor'
+export type RoleName = 'admin' | 'validador' | 'comun' | 'consumidor' | 'csx'
 export type SampleTakenBy = 'client' | 'lab'
 export type SampleStatus =
   | 'received'
@@ -82,6 +82,84 @@ export interface Database {
           created_at?: string | null
         }
         Update: Partial<Database['public']['Tables']['action_logs']['Insert']>
+      }
+
+      analysis_types: {
+        Row: {
+          id: string
+          key: string
+          label: string
+          initial: string
+          bg_color: string
+          text_color: string
+          db_areas: string[] | null
+          pdfmonkey_template_id: string | null
+          template_env_var: string | null
+          titulo_informe: string
+          tipo_analisis_descripcion: string
+          metodologia_descripcion: string
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          label: string
+          initial: string
+          bg_color?: string
+          text_color?: string
+          db_areas?: string[] | null
+          pdfmonkey_template_id?: string | null
+          template_env_var?: string | null
+          titulo_informe?: string
+          tipo_analisis_descripcion?: string
+          metodologia_descripcion?: string
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          label?: string
+          initial?: string
+          bg_color?: string
+          text_color?: string
+          db_areas?: string[] | null
+          pdfmonkey_template_id?: string | null
+          template_env_var?: string | null
+          titulo_informe?: string
+          tipo_analisis_descripcion?: string
+          metodologia_descripcion?: string
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+
+      methodology_options: {
+        Row: {
+          id: string
+          name: string
+          category: 'methodology' | 'technique'
+          active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          category: 'methodology' | 'technique'
+          active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          category?: 'methodology' | 'technique'
+          active?: boolean
+          created_at?: string
+        }
       }
 
       analytes: {
@@ -160,6 +238,26 @@ export interface Database {
           created_at?: string | null
         }
         Update: Partial<Database['public']['Tables']['companies']['Insert']>
+      }
+
+      company_analysis_type_templates: {
+        Row: {
+          id: string
+          company_id: string
+          analysis_type_key: string
+          pdfmonkey_template_id: string
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          analysis_type_key: string
+          pdfmonkey_template_id: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['company_analysis_type_templates']['Insert']>
       }
 
       interpretation_rules: {
@@ -368,6 +466,7 @@ export interface Database {
           supersedes_report_id: string | null
           visibility: ReportVisibility
           test_areas: string[] // text[]
+          analysis_type: string | null
           payment: boolean | null
           invoice_number: string | null
           payload: Record<string, unknown> | null // jsonb
@@ -395,6 +494,7 @@ export interface Database {
           supersedes_report_id?: string | null
           visibility?: ReportVisibility
           test_areas?: string[]
+          analysis_type?: string | null
           payment?: boolean | null
           invoice_number?: string | null
           payload?: Record<string, unknown> | null // jsonb
@@ -939,3 +1039,6 @@ export type ResultWithRelations = Result & {
 
 // Template table type
 export type ReportTemplateRow = Database['public']['Tables']['report_templates']['Row']
+
+// Analysis type table
+export type AnalysisTypeRow = Database['public']['Tables']['analysis_types']['Row']

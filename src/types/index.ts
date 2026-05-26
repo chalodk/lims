@@ -31,7 +31,7 @@ export interface Client {
 
 export interface Role {
   id: number
-  name: 'admin' | 'validador' | 'comun' | 'consumidor'
+  name: 'admin' | 'validador' | 'comun' | 'consumidor' | 'csx'
   level: number
   description: string
   created_at: string

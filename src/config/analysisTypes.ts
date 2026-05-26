@@ -183,6 +183,28 @@ export function getAnalysisTypeFromTestArea(
 }
 
 /**
+ * Retorna TODOS los AnalysisType que matchean un testArea.
+ * A diferencia de getAnalysisTypeFromTestArea() que devuelve solo el primero,
+ * esta funcion permite detectar ambiguedad cuando hay multiples tipos para una misma area.
+ */
+export function getAllAnalysisTypesFromTestArea(
+  testArea: string | null | undefined
+): AnalysisType[] {
+  if (!testArea) return ['default'];
+
+  const input = testArea.toLowerCase().trim();
+  const matches: AnalysisType[] = [];
+
+  for (const entry of Object.values(ANALYSIS_TYPE_REGISTRY)) {
+    if (entry.dbAreas.some((area) => input === area || input.includes(area))) {
+      matches.push(entry.key);
+    }
+  }
+
+  return matches.length > 0 ? matches : ['default'];
+}
+
+/**
  * Convierte una etiqueta en español al valor de área en BD.
  * Reemplaza el mapping analysisTypeToArea en samples/route.ts.
  */
