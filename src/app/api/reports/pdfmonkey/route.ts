@@ -4,10 +4,10 @@ import {
   type AnalysisType,
   getAnalysisTypeFromTestArea,
   groupResultsByAnalysisType,
-  getTemplateId,
   getDefaultsForType,
   getLabelFromAnalysisType,
 } from '@/config/analysisTypes'
+import { resolveTemplateId } from '@/lib/pdfmonkey/templates'
 
 interface ReportData {
   id: string
@@ -27,7 +27,6 @@ interface ClientData {
 }
 
 interface TemplateConfig {
-  templateId: string
   payloadBuilder: (report: ReportData, client: ClientData | null, resultados: ResultadoData[], analystName?: string) => Record<string, unknown>
 }
 
@@ -223,7 +222,6 @@ function resolveTipoAnalisisDescripcionFromCatalog(
 // PDF Templates mapping - easily extensible for new analysis types
 const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
   virology: {
-    templateId: getTemplateId('virology'),
     payloadBuilder: (report, client, resultados, analystName) => {
       const currentDate = new Date()
 
@@ -349,7 +347,6 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
   },
   
   early_detection: {
-    templateId: getTemplateId('early_detection'),
     payloadBuilder: (report, client, resultados, analystName) => {
       const currentDate = new Date()
 
@@ -463,7 +460,6 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
   },
 
   bacteriology: {
-    templateId: getTemplateId('bacteriology'),
     payloadBuilder: (report, client, resultados, analystName) => {
       const currentDate = new Date()
 
@@ -605,7 +601,6 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
   },
 
   phytopatology: {
-    templateId: getTemplateId('phytopatology'), // Phytopatology template ID
     payloadBuilder: (report, client, resultados, analystName) => {
       const defaults = getDefaultsForType('phytopatology')
       const currentDate = new Date()
@@ -725,7 +720,6 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
   },
   
   nematology: {
-    templateId: getTemplateId('nematology'),
     payloadBuilder: (report, client, resultados, analystName) => {
       const defaults = getDefaultsForType('nematology')
       const currentDate = new Date()
@@ -857,7 +851,6 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
   },
   
   default: {
-    templateId: getTemplateId('default'), // Current default template
     payloadBuilder: (_report, client) => ({
       // Default payload structure (current implementation)
       reportNumber: 'LAB-2025-001',
@@ -889,47 +882,60 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
  * @param analystName - The analyst's name
  * @returns Object containing templateId and payload
  */
-function resolveTemplateAndPayload(report: ReportData, client: ClientData | null, resultados: ResultadoData[], analystName?: string): { templateId: string; payload: Record<string, unknown> } {
-  // Determine analysis type from report data or resultado data
-  let analysisType: AnalysisType = 'default'
-  
+async function resolveTemplateAndPayload(
+  report: ReportData,
+  client: ClientData | null,
+  resultados: ResultadoData[],
+  companyId: string,
+  analystName?: string
+): Promise<{ templateId: string; payload: Record<string, unknown> }> {
+  const firstResultado = resultados[0]
+
   console.log('PDFMonkey: Resolving template and payload...')
   console.log('PDFMonkey: resultados count:', resultados.length)
   console.log('PDFMonkey: report.test_areas:', report.test_areas)
   console.log('PDFMonkey: report.analysis_type:', report.analysis_type)
-  
-  // Option 1: Check first resultado test_area first (most specific)
-  const firstResultado = resultados[0]
+
+  // Payload builder type: always derived from test_area → static registry lookup
+  let payloadBuilderType: AnalysisType = 'default'
   if (firstResultado?.test_area) {
-    analysisType = getAnalysisTypeFromTestArea(firstResultado.test_area)
-    console.log('PDFMonkey: Checking first resultado test_area:', firstResultado.test_area, '→', analysisType)
-  }
-  // Option 2: Check for future analysis_type field
-  else if (report.analysis_type) {
-    const reportAnalysisType = report.analysis_type.toLowerCase()
-    console.log('PDFMonkey: Checking report analysis_type:', reportAnalysisType)
-    if (reportAnalysisType in PDF_TEMPLATES) {
-      analysisType = reportAnalysisType as AnalysisType
-    }
-  }
-  // Option 3: Infer from test_areas field
-  else if (report.test_areas && Array.isArray(report.test_areas)) {
-    console.log('PDFMonkey: Checking report test_areas:', report.test_areas)
+    payloadBuilderType = getAnalysisTypeFromTestArea(firstResultado.test_area)
+    console.log('PDFMonkey: Payload builder type from test_area:', firstResultado.test_area, '→', payloadBuilderType)
+  } else if (report.test_areas && Array.isArray(report.test_areas)) {
     for (const area of report.test_areas) {
       const resolved = getAnalysisTypeFromTestArea(area)
       if (resolved !== 'default') {
-        analysisType = resolved
+        payloadBuilderType = resolved
         break
       }
     }
   }
-  
-  console.log('PDFMonkey: Final analysis type:', analysisType)
-  const templateConfig = PDF_TEMPLATES[analysisType]
-  console.log('PDFMonkey: Using template ID:', templateConfig.templateId)
-  
+
+  // Template type: prefer report.analysis_type (user-selected, may be custom), fall back to payload type
+  let templateType: AnalysisType = payloadBuilderType
+  if (report.analysis_type) {
+    templateType = report.analysis_type as AnalysisType
+    console.log('PDFMonkey: Template type from report.analysis_type:', templateType)
+  }
+
+  // If both are still default, try test_areas as last resort for template type
+  if (templateType === 'default' && report.test_areas && Array.isArray(report.test_areas)) {
+    for (const area of report.test_areas) {
+      const resolved = getAnalysisTypeFromTestArea(area)
+      if (resolved !== 'default') {
+        templateType = resolved
+        break
+      }
+    }
+  }
+
+  console.log('PDFMonkey: payloadBuilderType:', payloadBuilderType, 'templateType:', templateType)
+  const templateConfig = PDF_TEMPLATES[payloadBuilderType] || PDF_TEMPLATES.default
+  const templateId = await resolveTemplateId(templateType, companyId)
+  console.log('PDFMonkey: Resolved template ID via full chain:', templateId)
+
   return {
-    templateId: templateConfig.templateId,
+    templateId,
     payload: templateConfig.payloadBuilder(report, client, resultados, analystName)
   }
 }
@@ -1219,7 +1225,7 @@ export const POST = withAuth(async (request, { user, supabase }) => {
       }
 
       // Dynamically resolve template and payload based on analysis type
-      const { templateId, payload: templatePayload } = resolveTemplateAndPayload(report!, client, grupoResultados, analystName)
+      const { templateId, payload: templatePayload } = await resolveTemplateAndPayload(report!, client, grupoResultados, userCompanyId, analystName)
 
       const payload: Record<string, unknown> = {
         document: {
@@ -1342,7 +1348,7 @@ export const POST = withAuth(async (request, { user, supabase }) => {
         }
         
         // Resolve template and payload for this group
-        const { templateId, payload: templatePayload } = resolveTemplateAndPayload(grupoReport, client, grupoResultados, analystName)
+        const { templateId, payload: templatePayload } = await resolveTemplateAndPayload(grupoReport, client, grupoResultados, userCompanyId, analystName)
         
         const payload: Record<string, unknown> = {
           document: {
