@@ -489,7 +489,7 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
                       return (
                         <div key={area} className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                           <label className="block text-sm font-medium text-yellow-800 mb-2">
-                            Formato para "{area}" ({count} resultado(s)):
+                            Formato para &ldquo;{area}&rdquo; ({count} resultado(s)):
                           </label>
                           <select
                             value={typeSelections[area] || ''}
