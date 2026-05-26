@@ -11,7 +11,7 @@ Este documento describe el sistema de generacion de reportes PDF, la integracion
 | Doc | Relacion |
 |---|---|
 | `03-api-routes.md` | Endpoints de reportes |
-| `04-base-de-datos.md` | Tablas reports, report_templates, report_assets |
+| `04-base-de-datos.md` | Tablas reports, report_templates, report_assets, analysis_types |
 | `08-deploy-entorno.md` | Variables PDFMONKEY_API_KEY y templates |
 
 ## Arquitectura de reportes
@@ -103,6 +103,23 @@ Funciones helper exportadas:
 
 Sin necesidad de tocar: funciones de deteccion, indicadores de UI, ni mappings de labels — todo se deriva del registro.
 
+### Tabla `analysis_types` (BD)
+
+El registro estatico de `src/config/analysisTypes.ts` tiene su espejo en la tabla `public.analysis_types`. La UI de customer success (`/admin/analysis-types`) lee y escribe esta tabla. El codigo usa el registro estatico como fallback; la funcion `getCachedAnalysisTypes()` (server-side) lee de BD con cache en memoria.
+
+### API admin de tipos de analisis
+
+Endpoints para gestionar tipos desde la UI de customer success:
+
+| Metodo | Ruta | Proposito |
+|---|---|---|
+| GET | `/api/admin/analysis-types` | Listar todos los tipos |
+| POST | `/api/admin/analysis-types` | Crear nuevo tipo |
+| PATCH | `/api/admin/analysis-types/[id]` | Editar tipo existente |
+| DELETE | `/api/admin/analysis-types/[id]` | Soft-delete (active = false) |
+
+Requieren rol `admin`. Siguen el patron de `/api/settings/users`.
+
 ## Variables de entorno de PDFMonkey
 
 ```
@@ -116,6 +133,29 @@ PDFMONKEY_TEMPLATE_DEFAULT           # Template ID (tiene default)
 ```
 
 Si falta `PDFMONKEY_API_KEY`, el endpoint de reportes devuelve 500 con mensaje claro.
+
+## Resolucion de Template ID
+
+El template ID de PDFMonkey se resuelve con esta cadena de prioridad (4 niveles):
+
+1. **Company-specific** (`company_analysis_type_templates.pdfmonkey_template_id`) — si la company tiene un template personalizado configurado via `/settings`
+2. **Global en BD** (`analysis_types.pdfmonkey_template_id`) — configurado via UI de Customer Success en `/admin/analysis-types`
+3. **Variable de entorno** (`PDFMONKEY_TEMPLATE_XXX`) — definido en el despliegue
+4. **Hardcoded fallback** (`ANALYSIS_TYPE_REGISTRY[type].fallbackTemplateId`) — ultimo recurso
+
+### Tabla `company_analysis_type_templates`
+
+Permite que cada company use templates PDFMonkey personalizados con sus propios logos, colores y formato. Columnas: `id`, `company_id` (FK), `analysis_type_key`, `pdfmonkey_template_id`, `created_at`, `updated_at`. Unique constraint en `(company_id, analysis_type_key)`.
+
+### API de company templates
+
+| Metodo | Ruta | Proposito |
+|---|---|---|
+| GET | `/api/admin/company-templates` | Listar templates de la company del usuario |
+| POST | `/api/admin/company-templates` | Crear o actualizar template (upsert) |
+| DELETE | `/api/admin/company-templates/[id]` | Eliminar override de template |
+
+Auth: `withAuth()` + role check `admin` (per-company).
 
 ## Reglas
 

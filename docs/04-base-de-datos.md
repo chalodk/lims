@@ -30,7 +30,7 @@ Este documento describe el esquema de la base de datos, las tablas principales, 
 |---|---|---|
 | `companies` | Empresas (tenants) | — |
 | `users` | Perfiles de usuario (extiende `auth.users`) | `company_id`, `role_id` |
-| `roles` | Roles del sistema | — |
+| `roles` | Roles del sistema (`admin`, `csx`, `validador`, `comun`, `consumidor`) | — |
 | `clients` | Clientes (agricultores, empresas, etc.) | `company_id` |
 | `projects` | Proyectos | `company_id`, `client_id` |
 | `samples` | Muestras recibidas | `company_id`, `client_id`, `project_id` |
@@ -42,6 +42,8 @@ Este documento describe el esquema de la base de datos, las tablas principales, 
 
 | Tabla | Proposito |
 |---|---|
+| `analysis_types` | Tipos de analisis para informes (virologia, nematologia...) — fuente de verdad compartida con `src/config/analysisTypes.ts` |
+| `company_analysis_type_templates` | Templates PDFMonkey por company (sobreescribe el global) |
 | `test_catalog` | Tipos de analisis (PCR, ELISA, microscopia...) |
 | `methods` | Metodos de laboratorio |
 | `analytes` | Patogenos, virus, nematodos detectables |
