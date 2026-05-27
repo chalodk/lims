@@ -21,8 +21,15 @@
 ## Paso 3: Configurar Base de Datos
 
 1. Ve a **SQL Editor** en el panel de Supabase
-2. Copia y pega el contenido del archivo `er_schema_complete.sql`
+2. Copia y pega el contenido del archivo `backup/er_schema_complete.sql`
 3. Haz clic en "Run" para ejecutar el script
+
+> **Importante**: El schema crea dos tablas clave para usuarios:
+> - `auth.users` — manejada por Supabase Auth (email, password, JWT). No se toca directo.
+> - `public.users` — perfil del usuario en la app (company_id, role_id, name).
+>
+> **Un usuario necesita existir en AMBAS tablas para poder usar la aplicacion.**
+> Si solo existe en `auth.users`, el middleware lo redirige a `/setup-company` en loop.
 
 ## Paso 4: Configurar Variables de Entorno
 
@@ -30,9 +37,11 @@
    ```env
    NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
    NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_anon_key_aqui
+   SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key_aqui
    ```
 
 2. Reemplaza los valores con las credenciales reales de tu proyecto
+3. La `SUPABASE_SERVICE_ROLE_KEY` se obtiene en **Settings** → **API** → **service_role secret**. Esta key es necesaria para crear usuarios programaticamente y **nunca debe exponerse al navegador**.
 
 ## Paso 5: Configurar Autenticación
 
@@ -42,12 +51,31 @@
 
 ## Paso 6: Crear Usuario de Prueba
 
+Hay dos formas de crear el primer usuario:
+
+### Opcion A: Script CLI (recomendado para devs)
+
+```bash
+node scripts/create-user.mjs \
+  --email admin@lims.com \
+  --name Administrador \
+  --rut 11111111-1 \
+  --company "Laboratorio de Prueba" \
+  --role admin
+```
+
+El script crea la empresa si no existe, crea el usuario en `auth.users` + `public.users` en un solo paso atomico, y muestra las credenciales al terminar.
+
+### Opcion B: Manual via Supabase Dashboard
+
 1. Ve a **Authentication** → **Users**
 2. Haz clic en "Add user"
-3. Completa la información:
+3. Completa la informacion:
    - **Email**: admin@lims.com
-   - **Password**: (elige una contraseña)
+   - **Password**: (elige una contrasena)
 4. Haz clic en "Create user"
+5. Copia el UUID del usuario creado
+6. Ejecuta el SQL del Paso 7 para crear el perfil en `public.users`
 
 ## Paso 7: Insertar Datos de Prueba
 

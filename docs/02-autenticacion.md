@@ -26,8 +26,12 @@ Este documento describe el sistema completo de autenticacion y autorizacion: com
 
 ## Flujo de registro (signup)
 
+> **ESTADO: NO IMPLEMENTADO.** El endpoint `POST /api/auth/signup` no existe en el codigo.
+> Para crear el primer usuario admin, usa `node scripts/create-user.mjs` (ver `scripts/setup-supabase.md`).
+> Para crear usuarios adicionales, un admin debe usar la UI de Settings o el endpoint `POST /api/settings/users`.
+
 ```
-POST /api/auth/signup (publico, sin auth)
+POST /api/auth/signup (publico, sin auth) — PENDIENTE DE IMPLEMENTAR
   │
   ├─ 1. Valida name, email, password (min 8 chars)
   ├─ 2. Verifica si el email ya existe (listUsers via service_role)
@@ -42,8 +46,6 @@ POST /api/auth/signup (publico, sin auth)
 **Archivos clave**:
 - `src/app/signup/page.tsx` — formulario de registro (usa Supabase Auth UI directamente)
 - `scripts/signup-rpc-functions.sql` — `create_user_profile` RPC
-- **NOTA**: `POST /api/auth/signup` esta documentado pero NO implementado aun.
-
 **Restriccion de branding**: si el host es `nemachile`, el signup devuelve 403. Controlado en `src/lib/branding/hostBranding.ts`.
 
 ## Flujo de login
@@ -63,8 +65,11 @@ POST /api/auth/signup (publico, sin auth)
 
 ## Flujo de setup de empresa
 
+> **ESTADO: NO IMPLEMENTADO.** El endpoint `POST /api/auth/setup-company` no existe en el codigo.
+> Actualmente el formulario `/setup-company` usa `POST /api/auth/setup` (UserSetup.tsx), que es un endpoint distinto con logica simplificada.
+
 ```
-POST /api/auth/setup-company (con withAuth)
+POST /api/auth/setup-company (con withAuth) — PENDIENTE DE IMPLEMENTAR
   │
   ├─ 1. Valida company_name no vacio
   ├─ 2. Verifica que user no tenga ya company_id
@@ -76,7 +81,6 @@ POST /api/auth/setup-company (con withAuth)
 **Archivos clave**:
 - `src/app/setup-company/page.tsx` — UI post-registro
 - `scripts/signup-rpc-functions.sql` — `create_company_and_assign_admin` RPC
-- **NOTA**: `POST /api/auth/setup-company` esta documentado pero NO implementado aun.
 
 ## withAuth() — el wrapper universal
 
