@@ -128,7 +128,7 @@ export default function AddResultModal({
   const [isValidated, setIsValidated] = useState(false)
   const [samples, setSamples] = useState<SampleWithClient[]>([])
   const [sampleTests, setSampleTests] = useState<(SampleTest & { test_catalog?: TestCatalog, methods?: Method })[]>([])
-  const [reports, setReports] = useState<Array<{id: string, id_display?: string | null}>>([])
+  const [reports, setReports] = useState<Array<{id: string, created_at: string | null, clients?: { name: string }[] | null}>>([])
   const [users, setUsers] = useState<Array<{id: string, name: string, email: string}>>([])
   const [loadingSamples, setLoadingSamples] = useState(false)
   const [loadingTests, setLoadingTests] = useState(false)
@@ -275,9 +275,9 @@ export default function AddResultModal({
     try {
       const { data, error } = await supabase
         .from('reports')
-        .select('id, id_display, generated_at')
+        .select('id, created_at, clients (name)')
         .eq('company_id', user.company_id)
-        .order('generated_at', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(100)
 
       if (error) throw error
@@ -1347,7 +1347,7 @@ export default function AddResultModal({
                           >
                             <option value="">Seleccionar microorganismo</option>
                             {availableMicroorganisms.map(microorganism => (
-                              <option key={microorganism.id} value={microorganism.id}>
+                              <option key={microorganism.id} value={microorganism.scientific_name}>
                                 {microorganism.scientific_name}
                               </option>
                             ))}
@@ -1541,7 +1541,7 @@ export default function AddResultModal({
                           >
                             <option value="">Seleccionar virus</option>
                             {availableAnalytes.map(analyte => (
-                              <option key={analyte.id} value={analyte.id}>
+                              <option key={analyte.id} value={analyte.scientific_name}>
                                 {analyte.scientific_name}
                               </option>
                             ))}
@@ -1720,7 +1720,7 @@ export default function AddResultModal({
                           >
                             <option value="">Seleccionar bacteria</option>
                             {availableBacteria.map(analyte => (
-                              <option key={analyte.id} value={analyte.id}>
+                              <option key={analyte.id} value={analyte.scientific_name}>
                                 {analyte.scientific_name}
                               </option>
                             ))}
@@ -2739,7 +2739,7 @@ export default function AddResultModal({
                           <option value="">Sin informe asignado</option>
                           {reports.map(report => (
                             <option key={report.id} value={report.id}>
-                              {report.id_display || report.id}
+                              {report.clients?.[0]?.name || report.id.slice(0, 8)} {report.created_at ? `(${new Date(report.created_at).toLocaleDateString()})` : ''}
                             </option>
                           ))}
                         </select>
