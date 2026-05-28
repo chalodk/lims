@@ -42,7 +42,6 @@ interface SampleTest {
 interface Report {
   id: string
   created_at?: string | null
-  clients?: { name: string }[] | null
 }
 
 interface UserOption {
@@ -185,7 +184,7 @@ export default function EditResultModal({
     try {
       const { data, error } = await supabase
         .from('reports')
-        .select('id, created_at, clients (name)')
+        .select('id, created_at')
         .eq('company_id', user.company_id)
         .order('created_at', { ascending: false })
         .limit(100)
@@ -533,7 +532,7 @@ export default function EditResultModal({
                       <option value="">Sin informe</option>
                       {reports.map(report => (
                         <option key={report.id} value={report.id}>
-                          {report.clients?.[0]?.name || report.id.slice(0, 8)} {report.created_at ? `(${new Date(report.created_at).toLocaleDateString()})` : ''}
+                          {report.id.slice(0, 8)} {report.created_at ? `(${new Date(report.created_at).toLocaleDateString()})` : ''}
                         </option>
                       ))}
                     </select>

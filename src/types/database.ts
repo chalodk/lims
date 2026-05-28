@@ -714,6 +714,7 @@ export interface Database {
           reception_observations: string | null
           project_id: string | null
           rootstock: string | null
+          organo_analizado: string | null
         }
         Insert: {
           id?: string
@@ -746,6 +747,7 @@ export interface Database {
           reception_observations?: string | null
           project_id?: string | null
           rootstock?: string | null
+          organo_analizado?: string | null
         }
         Update: Partial<Database['public']['Tables']['samples']['Insert']>
       }

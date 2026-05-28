@@ -89,7 +89,7 @@ export const PUT = withAuth(async (request, { user, supabase, params }) => {
     const body = await request.json()
     const {
       client_id, code, received_date, sla_type, sla_status, project_id,
-      species, variety, rootstock, planting_year, previous_crop, next_crop,
+      species, variety, rootstock, organo_analizado, planting_year, previous_crop, next_crop,
       fallow, client_notes, reception_notes, taken_by, sampling_method,
       suspected_pathogen, region, locality, sampling_observations,
       reception_observations, status
@@ -133,6 +133,7 @@ export const PUT = withAuth(async (request, { user, supabase, params }) => {
     if (species !== undefined) updateData.species = species
     if (variety !== undefined) updateData.variety = variety
     if (rootstock !== undefined) updateData.rootstock = rootstock
+    if (organo_analizado !== undefined) updateData.organo_analizado = organo_analizado
     if (planting_year !== undefined) updateData.planting_year = planting_year ? parseInt(planting_year) : null
     if (previous_crop !== undefined) updateData.previous_crop = previous_crop
     if (next_crop !== undefined) updateData.next_crop = next_crop
@@ -192,7 +193,7 @@ export const PATCH = withAuth(async (request, { user, supabase, params }) => {
     const body = await request.json()
     const {
       client_id, code, received_date, sla_type, sla_status, project_id,
-      species, variety, rootstock, planting_year, previous_crop, next_crop,
+      species, variety, rootstock, organo_analizado, planting_year, previous_crop, next_crop,
       fallow, client_notes, reception_notes, taken_by, sampling_method,
       suspected_pathogen, region, locality, sampling_observations,
       reception_observations, status
@@ -228,7 +229,7 @@ export const PATCH = withAuth(async (request, { user, supabase, params }) => {
 
     if (hasValidatedResults) {
       const allowedFields = ['status', 'sla_status', 'due_date', 'client_notes', 'reception_notes', 'sampling_observations', 'reception_observations']
-      const blockedFields = ['code', 'species', 'client_id', 'received_date', 'variety', 'rootstock', 'planting_year', 'previous_crop', 'next_crop', 'fallow', 'project_id', 'sla_type', 'region', 'locality', 'taken_by', 'sampling_method', 'suspected_pathogen']
+      const blockedFields = ['code', 'species', 'client_id', 'received_date', 'variety', 'rootstock', 'organo_analizado', 'planting_year', 'previous_crop', 'next_crop', 'fallow', 'project_id', 'sla_type', 'region', 'locality', 'taken_by', 'sampling_method', 'suspected_pathogen']
       const bodyKeys = Object.keys(body)
       const modifiedBlockedFields = bodyKeys.filter(key => blockedFields.includes(key))
 
@@ -280,6 +281,7 @@ export const PATCH = withAuth(async (request, { user, supabase, params }) => {
         species,
         variety: variety || null,
         rootstock: rootstock || null,
+        organo_analizado: organo_analizado || null,
         planting_year: planting_year ? parseInt(planting_year) : null,
         previous_crop: previous_crop || null,
         next_crop: next_crop || null,

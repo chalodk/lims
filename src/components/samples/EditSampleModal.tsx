@@ -44,6 +44,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
     species: sample.species || '',
     variety: sample.variety || '',
     rootstock: sample.rootstock || '',
+    organo_analizado: (sample as SampleWithClient).organo_analizado || '',
     planting_year: sample.planting_year?.toString() || '',
     previous_crop: sample.previous_crop || '',
     next_crop: sample.next_crop || '',
@@ -74,6 +75,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
           species: sample.species || '',
           variety: sample.variety || '',
           rootstock: sample.rootstock || '',
+          organo_analizado: (sample as SampleWithClient).organo_analizado || '',
           planting_year: sample.planting_year?.toString() || '',
           previous_crop: sample.previous_crop || '',
           next_crop: sample.next_crop || '',
@@ -325,6 +327,7 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
           species: formData.species.trim(),
           variety: formData.variety.trim() || null,
           rootstock: formData.rootstock.trim() || null,
+          organo_analizado: formData.organo_analizado.trim() || null,
           planting_year: formData.planting_year ? parseInt(formData.planting_year) : null,
           previous_crop: formData.previous_crop || null,
           next_crop: formData.next_crop || null,
@@ -658,6 +661,21 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
                     disabled={!canEditField('planting_year', hasValidatedResults)}
                     placeholder="2023"
+                  />
+                </div>
+
+                {/* Órgano analizado */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tejido analizado
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.organo_analizado}
+                    onChange={(e) => setFormData(prev => ({ ...prev, organo_analizado: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
+                    disabled={!canEditField('organo_analizado', hasValidatedResults)}
+                    placeholder="Ej: Hoja, Fruto, Raíz, Tallo"
                   />
                 </div>
 

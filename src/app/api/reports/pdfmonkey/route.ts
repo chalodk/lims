@@ -51,6 +51,7 @@ interface ResultadoData {
     species: string | null
     variety: string | null
     rootstock: string | null
+    organo_analizado: string | null
     planting_year: number | null
     received_date: string | null
     suspected_pathogen: string | null
@@ -87,6 +88,7 @@ const RESULTS_SELECT_FOR_PDF = `
     species,
     variety,
     rootstock,
+    organo_analizado,
     planting_year,
     received_date,
     suspected_pathogen,
@@ -328,7 +330,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           cuartel: '',
           variedadPortainjerto: (resultados[0] as ResultadoData)?.samples?.variety || '',
           anoPlantacion: (resultados[0] as ResultadoData)?.samples?.planting_year ? String((resultados[0] as ResultadoData).samples!.planting_year) : '',
-          organoAnalizado: ''
+          organoAnalizado: [...new Set(resultados.map(r => (r as ResultadoData)?.samples?.organo_analizado).filter(Boolean))].join(', ')
         },
         resultados: resultadosPayload,
         leyendaResultados: {
@@ -557,7 +559,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         cuartel: '',
         variedadPortainjerto: resultado?.samples?.variety || '',
         anoPlantacion: resultado?.samples?.planting_year ? String(resultado.samples.planting_year) : '',
-        organoAnalizado: ''
+        organoAnalizado: resultado?.samples?.organo_analizado || ''
       }))
 
       return {

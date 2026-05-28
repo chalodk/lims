@@ -41,6 +41,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
     species: '',
     variety: '',
     rootstock: '',
+    organo_analizado: '',
     planting_year: '',
     previous_crop: '',
     next_crop: '',
@@ -168,6 +169,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
         species: '',
         variety: '',
         rootstock: '',
+        organo_analizado: '',
         planting_year: '',
         previous_crop: '',
         next_crop: '',
@@ -221,6 +223,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
         species: formData.species.trim(),
         variety: formData.variety.trim() || null,
         rootstock: formData.rootstock.trim() || null,
+        organo_analizado: formData.organo_analizado.trim() || null,
         planting_year: formData.planting_year ? parseInt(formData.planting_year) : null,
         previous_crop: formData.previous_crop || null,
         next_crop: formData.next_crop || null,
@@ -283,6 +286,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
         species: '',
         variety: '',
         rootstock: '',
+        organo_analizado: '',
         planting_year: '',
         previous_crop: '',
         next_crop: '',
@@ -543,6 +547,20 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
                     onChange={(e) => setFormData(prev => ({ ...prev, planting_year: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     placeholder="2023"
+                  />
+                </div>
+
+                {/* Organo analizado */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tejido analizado
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.organo_analizado}
+                    onChange={(e) => setFormData(prev => ({ ...prev, organo_analizado: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Ej: Hoja, Fruto, Raíz, Tallo"
                   />
                 </div>
 
