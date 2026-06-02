@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import DashboardLayout from '@/components/layout/DashboardLayout'
@@ -36,6 +36,7 @@ export default function SettingsPage() {
   const [linkingUser, setLinkingUser] = useState<UserProfile | null>(null)
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false)
   const [isCompanyTemplatesOpen, setIsCompanyTemplatesOpen] = useState(false)
+  const initialLoadRef = useRef(true)
 
   const fetchUsers = useCallback(async (options?: { silent?: boolean }) => {
     const showFullPageLoader = !options?.silent
@@ -137,26 +138,25 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    // ✅ Esperar a que termine la carga de autenticación antes de verificar
     if (!authLoading) {
       if (!isAuthenticated) {
-        // Redirigir al login si no hay sesión (después de que termine la carga)
         router.replace('/login')
         return
       }
-      
-      // Si está autenticado pero no es admin, redirigir al dashboard
+
       if (isAuthenticated && userRole !== 'admin') {
         router.replace('/dashboard')
         return
       }
 
-      // Solo cargar usuarios si está autenticado y es admin
-      if (isAuthenticated && userRole === 'admin') {
+      if (isAuthenticated && userRole === 'admin' && initialLoadRef.current) {
+        initialLoadRef.current = false
         fetchUsers()
       }
     }
-  }, [authLoading, isAuthenticated, userRole, router, fetchUsers])
+    // fetchUsers se omite intencionalmente — la búsqueda es solo manual (Enter o botón)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, isAuthenticated, userRole, router])
 
   // ✅ Mostrar loader mientras se carga la autenticación (PRIMERO que todo)
   if (authLoading) {

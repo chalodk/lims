@@ -22,3 +22,14 @@ COMMENT ON COLUMN user_clients.user_id IS 'ID del usuario consumidor';
 COMMENT ON COLUMN user_clients.client_id IS 'ID del cliente al que está vinculado';
 COMMENT ON COLUMN user_clients.created_by IS 'ID del administrador que creó el vínculo';
 
+-- Backfill: migrar datos existentes de users.client_id a user_clients
+-- Solo para usuarios que tengan un client_id no nulo
+INSERT INTO user_clients (user_id, client_id, created_at)
+SELECT id, client_id, COALESCE(created_at, now())
+FROM users
+WHERE client_id IS NOT NULL
+ON CONFLICT (user_id, client_id) DO NOTHING;
+
+-- Verificación: ambas queries deberían devolver el mismo número
+-- SELECT COUNT(*) FROM user_clients;
+-- SELECT COUNT(*) FROM users WHERE client_id IS NOT NULL;

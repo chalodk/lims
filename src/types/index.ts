@@ -135,6 +135,14 @@ export interface ActionzLog {
   created_at: string
 }
 
+export interface UserClient {
+  id: string
+  user_id: string
+  client_id: string
+  created_at: string | null
+  created_by: string | null
+}
+
 export interface SampleAuditLog {
   id: number
   sample_id: string

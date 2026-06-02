@@ -37,31 +37,33 @@ export async function DELETE(
     const { id, clientId } = await params
     const userId = id
 
-    // Verificar que el usuario tiene este cliente vinculado
-    const { data: userData, error: checkError } = await supabase
-      .from('users')
-      .select('client_id')
-      .eq('id', userId)
-      .single()
+    // Verificar que el vínculo existe en user_clients
+    const { data: existingLink, error: checkError } = await supabase
+      .from('user_clients')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('client_id', clientId)
+      .maybeSingle()
 
-    if (checkError || !userData) {
-      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 })
+    if (checkError) {
+      return NextResponse.json({ error: 'Error al verificar vínculo' }, { status: 500 })
     }
 
-    if (userData.client_id !== clientId) {
+    if (!existingLink) {
       return NextResponse.json({ error: 'El cliente no está vinculado a este usuario' }, { status: 400 })
     }
 
-    // Eliminar el vínculo actualizando client_id a null
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({ client_id: null })
-      .eq('id', userId)
+    // Eliminar el vínculo de user_clients
+    const { error: deleteError } = await supabase
+      .from('user_clients')
+      .delete()
+      .eq('user_id', userId)
+      .eq('client_id', clientId)
 
-    if (updateError) {
-      return NextResponse.json({ 
+    if (deleteError) {
+      return NextResponse.json({
         error: 'Error al eliminar vínculo',
-        details: updateError.message 
+        details: deleteError.message
       }, { status: 500 })
     }
 

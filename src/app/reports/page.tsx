@@ -56,7 +56,7 @@ interface Report {
 }
 
 export default function ReportsPage() {
-  const { userRole, isLoading: authLoading, user, isAuthenticated } = useAuth()
+  const { userRole, isLoading: authLoading, user, isAuthenticated, linkedClientIds } = useAuth()
   const [reports, setReports] = useState<Report[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -71,9 +71,33 @@ export default function ReportsPage() {
   const [selectedReports, setSelectedReports] = useState<Set<string>>(new Set())
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
   const [isBulkValidating, setIsBulkValidating] = useState(false)
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
+  const [clientTabs, setClientTabs] = useState<{ id: string; name: string }[]>([])
   const hasFetchedRef = useRef<string | false>(false)
-  
+
   const supabase = getSupabaseClient()
+
+  // Cargar nombres de clientes para las pestañas
+  useEffect(() => {
+    if (linkedClientIds.length > 0) {
+      supabase
+        .from('clients')
+        .select('id, name')
+        .in('id', linkedClientIds)
+        .then(({ data }) => {
+          if (data) {
+            setClientTabs(data)
+            if (!selectedClientId || !linkedClientIds.includes(selectedClientId)) {
+              setSelectedClientId(data[0]?.id || null)
+            }
+          }
+        })
+    } else {
+      setClientTabs([])
+      setSelectedClientId(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedClientIds.join(',')])
 
   const fetchReports = useCallback(async () => {
     try {
@@ -97,10 +121,10 @@ export default function ReportsPage() {
         `)
         .order('created_at', { ascending: false })
 
-      // Si el usuario es consumidor, solo mostrar informes de su cliente vinculado Y que estén validados
-      if (userRole === 'consumidor' && user?.client_id) {
-        query = query.eq('client_id', user.client_id)
-        query = query.eq('completed', true) // Solo mostrar informes validados
+      // Si el usuario es consumidor, filtrar por el cliente seleccionado en la pestaña
+      if (userRole === 'consumidor' && selectedClientId) {
+        query = query.eq('client_id', selectedClientId)
+        query = query.eq('completed', true)
       }
 
       if (statusFilter !== 'all') {
@@ -123,7 +147,7 @@ export default function ReportsPage() {
       // Always resolve loading state, even on error
       setIsLoading(false)
     }
-  }, [statusFilter, supabase, userRole, user?.client_id])
+  }, [statusFilter, supabase, userRole, selectedClientId])
 
   useEffect(() => {
     // No ejecutar si no hay usuario autenticado o si aún está cargando
@@ -138,7 +162,7 @@ export default function ReportsPage() {
     }
     
     // Crear una clave única basada en las dependencias reales
-    const fetchKey = `${statusFilter}-${userRole}-${user?.client_id || 'none'}`
+    const fetchKey = `${statusFilter}-${userRole}-${selectedClientId || 'none'}`
     
     // Solo ejecutar si las dependencias reales cambiaron
     if (hasFetchedRef.current !== fetchKey) {
@@ -153,7 +177,7 @@ export default function ReportsPage() {
 
     return () => clearTimeout(timeoutId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user, isAuthenticated, statusFilter, userRole, user?.client_id])
+  }, [authLoading, user, isAuthenticated, statusFilter, userRole, selectedClientId])
 
   const handleEditPayment = (reportId: string, currentPayment?: boolean, currentInvoice?: string) => {
     setEditingPayment(reportId)
@@ -637,7 +661,7 @@ export default function ReportsPage() {
                   ? 'Informes de análisis de tus muestras' 
                   : 'Gestiona y genera informes de análisis'}
               </p>
-              {userRole === 'consumidor' && user?.client_id && (
+              {userRole === 'consumidor' && linkedClientIds.length > 0 && (
                 <p className="text-sm text-blue-600 mt-1">
                   📋 Mostrando solo informes validados vinculados a tu cuenta
                 </p>
@@ -695,9 +719,38 @@ export default function ReportsPage() {
           </div>
         </div>
 
+        {/* Tabs de clientes para usuarios consumidor */}
+        {userRole === 'consumidor' && clientTabs.length > 1 && (
+          <div className="mb-4">
+            <div className="border-b border-gray-200">
+              <nav className="-mb-px flex space-x-4 overflow-x-auto">
+                {clientTabs.map((client) => (
+                  <button
+                    key={client.id}
+                    onClick={() => setSelectedClientId(client.id)}
+                    className={`whitespace-nowrap pb-3 px-1 border-b-2 text-sm font-medium transition-colors ${
+                      selectedClientId === client.id
+                        ? 'border-indigo-500 text-indigo-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    {client.name}
+                  </button>
+                ))}
+              </nav>
+            </div>
+          </div>
+        )}
+
         {/* Reports List */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          {filteredReports.length === 0 ? (
+          {userRole === 'consumidor' && linkedClientIds.length === 0 ? (
+            <div className="p-12 text-center">
+              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No tienes clientes vinculados</h3>
+              <p className="text-gray-500">Contacta a tu administrador para que te asigne clientes</p>
+            </div>
+          ) : filteredReports.length === 0 ? (
             <div className="p-12 text-center">
               <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No hay informes</h3>

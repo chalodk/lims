@@ -878,6 +878,24 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['units_profiles']['Insert']>
       }
 
+      user_clients: {
+        Row: {
+          id: string
+          user_id: string
+          client_id: string
+          created_at: string | null
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          client_id: string
+          created_at?: string | null
+          created_by?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['user_clients']['Insert']>
+      }
+
       users: {
         Row: {
           id: string

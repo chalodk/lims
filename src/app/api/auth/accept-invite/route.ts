@@ -86,8 +86,8 @@ export async function POST(request: NextRequest) {
     // For client users, check if client already has 2 users
     if (invitation.role === 'client_user' && invitation.client_id) {
       const { data: existingClientUsers } = await supabase
-        .from('users')
-        .select('id')
+        .from('user_clients')
+        .select('user_id')
         .eq('client_id', invitation.client_id)
 
       if (existingClientUsers && existingClientUsers.length >= 2) {
@@ -126,11 +126,10 @@ export async function POST(request: NextRequest) {
       .from('users')
       .insert({
         id: authUser.user.id,
-        name: userName || invitation.email.split('@')[0], // Use name from metadata or default
+        name: userName || invitation.email.split('@')[0],
         email: invitation.email,
-        client_id: invitation.client_id,
         company_id: invitation.company_id || '97efa8ef-de43-491c-9c9f-bdd21a7dbb17',
-        role_id: roleId || null // Assign role_id from metadata
+        role_id: roleId || null
       })
 
     if (profileError) {
@@ -138,6 +137,21 @@ export async function POST(request: NextRequest) {
       console.error('Profile creation failed:', profileError)
       await supabaseAdmin.auth.admin.deleteUser(authUser.user.id)
       return NextResponse.json({ error: profileError.message }, { status: 500 })
+    }
+
+    // Vincular usuario a cliente en user_clients
+    if (invitation.client_id) {
+      const { error: linkError } = await supabase
+        .from('user_clients')
+        .insert({
+          user_id: authUser.user.id,
+          client_id: invitation.client_id,
+          created_at: new Date().toISOString()
+        })
+
+      if (linkError) {
+        console.warn('Error linking user to client in user_clients:', linkError)
+      }
     }
 
     // Mark invitation as accepted

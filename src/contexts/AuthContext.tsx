@@ -15,6 +15,7 @@ interface AuthState {
   isLoading: boolean
   isAuthenticated: boolean
   session: Session | null
+  linkedClientIds: string[]
 }
 
 interface AuthContextValue extends AuthState {
@@ -30,9 +31,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     authUser: null,
     role: null,
     userRole: null,
-    isLoading: true, // ✅ Cambiar a true - aún no sabemos si hay sesión
+    isLoading: true,
     isAuthenticated: false,
     session: null,
+    linkedClientIds: [],
   })
   
   const supabase = getSupabaseClient()
@@ -44,12 +46,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     role: Role | null
     userRole: RoleName | null
     lastFetch: number
+    linkedClientIds: string[]
   }>({
     userId: null,
     user: null,
     role: null,
     userRole: null,
     lastFetch: 0,
+    linkedClientIds: [],
   })
   
   // Debounce para evitar múltiples llamadas simultáneas a updateAuthState
@@ -100,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               role: null,
               userRole: null,
               lastFetch: 0,
+              linkedClientIds: [],
             }
             setState({
               user: null,
@@ -109,6 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               isLoading: false,
               isAuthenticated: false,
               session: null,
+              linkedClientIds: [],
             })
             resolve()
             return
@@ -117,11 +123,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userId = session.user.id
           const now = Date.now()
           const cache = userDataCacheRef.current
-          
+
           // ✅ OPTIMIZACIÓN: Usar caché si los datos están frescos y el usuario no cambió
-          if (!forceRefresh && 
-              cache.userId === userId && 
-              cache.user !== null && 
+          if (!forceRefresh &&
+              cache.userId === userId &&
+              cache.user !== null &&
               (now - cache.lastFetch) < USER_DATA_CACHE_TTL) {
             log('✅ Using cached user data, skipping DB query')
             setState({
@@ -132,6 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               isLoading: false,
               isAuthenticated: true,
               session,
+              linkedClientIds: cache.linkedClientIds,
             })
             resolve()
             return
@@ -186,17 +193,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   isLoading: false,
                   isAuthenticated: true,
                   session,
+                  linkedClientIds: cache.linkedClientIds,
                 })
               } else {
                 // Mantener autenticado basado en la sesión, pero con datos mínimos
                 setState({
-                  user: null, // No hay datos de BD, pero el usuario está autenticado
-                  authUser: session.user, // ✅ Mantener authUser de la sesión
+                  user: null,
+                  authUser: session.user,
                   role: null,
                   userRole: null,
                   isLoading: false,
-                  isAuthenticated: true, // ✅ CRÍTICO: Mantener autenticado si hay sesión válida
-                  session, // ✅ Mantener la sesión
+                  isAuthenticated: true,
+                  session,
+                  linkedClientIds: [],
                 })
               }
               resolve()
@@ -253,6 +262,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
             }
 
+            // Fetch linked client IDs from user_clients
+            let linkedClientIds: string[] = []
+            try {
+              const { data: clientLinks } = await supabase
+                .from('user_clients')
+                .select('client_id')
+                .eq('user_id', userId)
+              linkedClientIds = clientLinks?.map(l => l.client_id) || []
+            } catch (err) {
+              logError('❌ Error fetching linked clients:', err)
+              linkedClientIds = cache.linkedClientIds || []
+            }
+
             console.log('✅ Setting authenticated state for user:', userData.email)
             console.log('📋 Role information:', { role, userRole, role_id: userData.role_id })
 
@@ -263,6 +285,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               role,
               userRole,
               lastFetch: now,
+              linkedClientIds,
             }
 
             setState({
@@ -273,6 +296,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               isLoading: false,
               isAuthenticated: true,
               session,
+              linkedClientIds,
             })
           } catch (error) {
             logError('❌ Error in updateAuthState:', error)
@@ -288,6 +312,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 isLoading: false,
                 isAuthenticated: true,
                 session,
+                linkedClientIds: cache.linkedClientIds,
               })
             } else {
               // No fallback user - user must exist in database
@@ -299,6 +324,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 isLoading: false,
                 isAuthenticated: false,
                 session: null,
+                linkedClientIds: [],
               })
             }
           }
@@ -350,6 +376,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading: false,
         isAuthenticated: false,
         session: null,
+        linkedClientIds: [],
       })
       return
     }
@@ -372,6 +399,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             isLoading: false,
             isAuthenticated: false,
             session: null,
+            linkedClientIds: [],
           })
         } else {
           log('Session found:', !!session)
@@ -388,6 +416,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             isLoading: false,
             isAuthenticated: false,
             session: null,
+            linkedClientIds: [],
           })
         }
       }
@@ -412,6 +441,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: null,
           userRole: null,
           lastFetch: 0,
+          linkedClientIds: [],
         }
         setState({
           user: null,
@@ -421,6 +451,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isLoading: false,
           isAuthenticated: false,
           session: null,
+          linkedClientIds: [],
         })
         return
       }
@@ -546,6 +577,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: null,
         userRole: null,
         lastFetch: 0,
+        linkedClientIds: [],
       }
       setState({
         user: null,
@@ -555,6 +587,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading: false,
         isAuthenticated: false,
         session: null,
+        linkedClientIds: [],
       })
       
       // Clear local storage and session storage immediately
@@ -594,6 +627,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: null,
         userRole: null,
         lastFetch: 0,
+        linkedClientIds: [],
       }
       setState({
         user: null,
@@ -603,6 +637,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading: false,
         isAuthenticated: false,
         session: null,
+        linkedClientIds: [],
       })
       
       // Redirect to login even on error

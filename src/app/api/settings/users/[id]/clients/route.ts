@@ -37,44 +37,43 @@ export async function GET(
     const { id } = await params
     const userId = id
 
-    // Obtener el usuario con su cliente vinculado
-    const { data: userData, error: userDataError } = await supabase
-      .from('users')
-      .select(`
-        id,
-        client_id,
-        clients (
-          id,
-          name,
-          rut,
-          contact_email
-        )
-      `)
-      .eq('id', userId)
-      .single()
+    // Obtener vínculos desde la tabla user_clients
+    const { data: links, error: linkedError } = await supabase
+      .from('user_clients')
+      .select('id, client_id, created_at')
+      .eq('user_id', userId)
 
-    if (userDataError) {
-      return NextResponse.json({ 
-        error: 'Error al obtener usuario',
-        details: userDataError.message 
+    if (linkedError) {
+      console.error('Error querying user_clients:', linkedError)
+      return NextResponse.json({
+        error: 'Error al obtener vínculos',
+        details: linkedError.message,
+        code: linkedError.code
       }, { status: 500 })
     }
 
-    // Formatear respuesta para mantener compatibilidad
-    // Manejar tanto array como objeto para la relación clients
-    const clientData = userData.clients
-      ? (Array.isArray(userData.clients) ? userData.clients[0] : userData.clients)
-      : null
-    
-    const clients = userData.client_id && clientData
-      ? [{
-          id: clientData.id,
-          client_id: userData.client_id,
-          clients: clientData
-        }]
-      : []
+    // Resolver datos de clientes en consulta separada
+    const clientIds = (links || []).map(l => l.client_id)
+    let clientsMap: Record<string, { id: string; name: string; rut: string | null; contact_email: string | null }> = {}
+    if (clientIds.length > 0) {
+      const { data: clientsData } = await supabase
+        .from('clients')
+        .select('id, name, rut, contact_email')
+        .in('id', clientIds)
+      if (clientsData) {
+        for (const c of clientsData) {
+          clientsMap[c.id] = c
+        }
+      }
+    }
 
-    return NextResponse.json({ clients })
+    const formattedClients = (links || []).map(link => ({
+      id: link.id,
+      client_id: link.client_id,
+      clients: clientsMap[link.client_id] || null
+    }))
+
+    return NextResponse.json({ clients: formattedClients })
   } catch (error) {
     return NextResponse.json({ 
       error: 'Error interno del servidor',
@@ -127,7 +126,7 @@ export async function POST(
     // Verificar que el usuario tiene rol consumidor
     const { data: targetUser, error: targetUserError } = await supabase
       .from('users')
-      .select('role_id, roles(name), client_id')
+      .select('role_id, roles(name)')
       .eq('id', userId)
       .single()
 
@@ -155,32 +154,29 @@ export async function POST(
       return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 })
     }
 
-    // Actualizar el campo client_id directamente en la tabla users
-    const { data: updatedUser, error: updateError } = await supabase
-      .from('users')
-      .update({ client_id: client_id })
-      .eq('id', userId)
-      .select(`
-        id,
-        client_id,
-        clients (
-          id,
-          name,
-          rut,
-          contact_email
-        )
-      `)
-      .single()
+    // Insertar vínculo en la tabla user_clients
+    const { error: insertError } = await supabase
+      .from('user_clients')
+      .insert({
+        user_id: userId,
+        client_id: client_id,
+        created_at: new Date().toISOString(),
+        created_by: user.id
+      })
 
-    if (updateError) {
-      return NextResponse.json({ 
+    if (insertError) {
+      if (insertError.code === '23505') {
+        return NextResponse.json({
+          error: 'El cliente ya está vinculado a este usuario'
+        }, { status: 409 })
+      }
+      return NextResponse.json({
         error: 'Error al vincular cliente',
-        details: updateError.message 
+        details: insertError.message
       }, { status: 500 })
     }
 
-    return NextResponse.json({ 
-      user: updatedUser,
+    return NextResponse.json({
       client: clientData
     }, { status: 200 })
   } catch (error) {

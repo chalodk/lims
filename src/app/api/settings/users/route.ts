@@ -43,7 +43,6 @@ export async function GET(request: NextRequest) {
     const searchQuery = searchParams.get('search')?.trim()
 
     // Construir consulta base - obtener solo usuarios de la misma company
-    // La sintaxis de Supabase con roles() hace LEFT JOIN automáticamente
     let query = supabase
       .from('users')
       .select(`
@@ -52,15 +51,9 @@ export async function GET(request: NextRequest) {
         email,
         created_at,
         role_id,
-        client_id,
         roles (
           id,
           name
-        ),
-        clients (
-          id,
-          name,
-          rut
         )
       `)
       .eq('company_id', companyId)
@@ -142,6 +135,42 @@ export async function GET(request: NextRequest) {
       }, { status: 500 })
     }
 
+    // Obtener vínculos user_clients para todos los usuarios en lote
+    const publicUserIds = (usersData || []).map((u: { id: string }) => u.id)
+    let userClientsMap: Record<string, { client_id: string; client_name: string }[]> = {}
+    if (publicUserIds.length > 0) {
+      const { data: allLinks } = await supabase
+        .from('user_clients')
+        .select('user_id, client_id')
+        .in('user_id', publicUserIds)
+
+      if (allLinks && allLinks.length > 0) {
+        // Resolver nombres de clientes en consulta separada
+        const allClientIds = [...new Set(allLinks.map(l => l.client_id))]
+        const { data: clientsData } = await supabase
+          .from('clients')
+          .select('id, name')
+          .in('id', allClientIds)
+
+        const clientNames: Record<string, string> = {}
+        if (clientsData) {
+          for (const c of clientsData) {
+            clientNames[c.id] = c.name
+          }
+        }
+
+        for (const link of allLinks) {
+          if (!userClientsMap[link.user_id]) {
+            userClientsMap[link.user_id] = []
+          }
+          userClientsMap[link.user_id].push({
+            client_id: link.client_id,
+            client_name: clientNames[link.client_id] || ''
+          })
+        }
+      }
+    }
+
     // Obtener usuarios no autorizados de auth.users que no tienen registro en public.users
     interface UnauthorizedUser {
       id: string
@@ -167,15 +196,15 @@ export async function GET(request: NextRequest) {
 
       // Obtener todos los usuarios de auth.users
       const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers()
-      
+
       if (!authError && authUsers) {
         // Obtener IDs de usuarios que ya están en public.users
         interface UserWithId {
           id: string
           [key: string]: unknown
         }
-        const publicUserIds = new Set((usersData || []).map((u: UserWithId) => u.id))
-        
+        const existingPublicUserIds = new Set((usersData || []).map((u: UserWithId) => u.id))
+
         // Filtrar usuarios que no están en public.users
         interface AuthUserInfo {
           id: string
@@ -185,7 +214,7 @@ export async function GET(request: NextRequest) {
         }
         unauthorizedUsers = (authUsers.users || [])
           .filter((authUser: AuthUserInfo) => {
-            if (publicUserIds.has(authUser.id)) return false
+            if (existingPublicUserIds.has(authUser.id)) return false
             if (companyId && authUser.user_metadata?.company_id && authUser.user_metadata.company_id !== companyId) return false
             return true
           })
@@ -222,20 +251,16 @@ export async function GET(request: NextRequest) {
       name?: string
       email?: string
       role_id: number | null | undefined
-      client_id?: string | null
       roles?: { id: number; name: string } | { id: number; name: string }[] | null
-      clients?: { id: string; name: string; rut?: string } | { id: string; name: string; rut?: string }[] | null
       created_at?: string
     }
     const publicUsers = (usersData || []).map((user: UserData) => {
-      // Extraer nombre del rol - manejar casos donde role_id es null o roles es null/undefined
+      // Extraer nombre del rol
       let roleName = 'Sin rol'
       let roleId: number | null = null
-      
-      // Verificar si tiene role_id asignado (null, undefined o 0 se consideran sin rol)
+
       if (user.role_id !== null && user.role_id !== undefined) {
         roleId = user.role_id
-        // Si tiene role_id, intentar extraer el nombre del rol
         if (user.roles) {
           if (Array.isArray(user.roles) && user.roles.length > 0 && user.roles[0]) {
             roleName = user.roles[0].name || 'Sin rol'
@@ -243,27 +268,24 @@ export async function GET(request: NextRequest) {
             roleName = user.roles.name || 'Sin rol'
           }
         }
-        // Si tiene role_id pero no se pudo extraer el nombre, mantener "Sin rol"
       }
-      // Si role_id es null o undefined, mantener "Sin rol" (ya está asignado por defecto)
 
-      // Extraer información del cliente vinculado
-      // Manejar tanto array como objeto para la relación clients
-      let clientName: string | null = null
-      if (user.client_id && user.clients) {
-        const clientData = Array.isArray(user.clients) ? user.clients[0] : user.clients
-        if (clientData && typeof clientData === 'object' && 'name' in clientData) {
-          clientName = clientData.name || null
-        }
-      }
+      // Resolver clientes desde user_clients
+      const linkedClients = userClientsMap[user.id] || []
+      const firstClient = linkedClients[0]
+      const clientName = linkedClients.length === 0
+        ? null
+        : linkedClients.length === 1
+          ? firstClient.client_name
+          : `${firstClient.client_name} +${linkedClients.length - 1}`
 
       return {
         id: user.id,
         name: user.name || 'Sin nombre',
         email: user.email || 'Sin email',
-        role: roleName, // Devolver el nombre del rol como está en la BD (admin, validador, etc.)
-        role_id: roleId, // Incluir role_id para referencia
-        client_id: user.client_id || null,
+        role: roleName,
+        role_id: roleId,
+        client_id: firstClient?.client_id || null,
         client_name: clientName,
         created_at: user.created_at || new Date().toISOString(),
         isUnauthorized: false
@@ -387,16 +409,15 @@ export async function POST(request: NextRequest) {
     if (authCheck.exists || publicCheck.exists) {
       let errorMessage = 'El email ya está registrado en el sistema'
       
-      if (publicCheck.exists && publicCheck.clientId) {
-        // Intentar obtener el nombre del cliente para el mensaje
+      if (publicCheck.exists && publicCheck.clientIds.length > 0) {
         const { data: clientData } = await supabase
           .from('clients')
           .select('name')
-          .eq('id', publicCheck.clientId)
-          .single()
-        
-        if (clientData) {
-          errorMessage = `El email ya está registrado y está asociado al cliente "${clientData.name}"`
+          .in('id', publicCheck.clientIds)
+
+        if (clientData && clientData.length > 0) {
+          const names = clientData.map(c => c.name).join(', ')
+          errorMessage = `El email ya está registrado y está asociado a: ${names}`
         } else {
           errorMessage = 'El email ya está registrado y está asociado a un cliente'
         }
@@ -525,7 +546,6 @@ export async function POST(request: NextRequest) {
         email: email,
         role_id: role_id || null,
         company_id: finalCompanyId,
-        client_id: finalClientId,
         created_at: new Date().toISOString()
       })
       .select()
@@ -535,10 +555,26 @@ export async function POST(request: NextRequest) {
       // Si falla la creación del perfil, eliminar el usuario de auth
       console.error('Error al crear perfil:', createProfileError)
       await supabaseAdmin.auth.admin.deleteUser(authUser.user.id)
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'Error al crear perfil de usuario',
-        details: createProfileError.message 
+        details: createProfileError.message
       }, { status: 500 })
+    }
+
+    // Vincular usuario a cliente en user_clients si aplica
+    if (finalClientId) {
+      const { error: linkError } = await supabase
+        .from('user_clients')
+        .insert({
+          user_id: authUser.user.id,
+          client_id: finalClientId,
+          created_at: new Date().toISOString(),
+          created_by: user.id
+        })
+
+      if (linkError) {
+        console.warn('Error al vincular usuario a cliente en user_clients:', linkError)
+      }
     }
 
     // Enviar credenciales al webhook (origen 2 = usuario creado desde configuración por admin)

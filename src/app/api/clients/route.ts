@@ -105,8 +105,8 @@ export const POST = withAuth(async (request, { user, supabase }) => {
           const userId = authCheck.userId || publicCheck.userId
 
           if (userId) {
-            // Si el usuario existe pero no tiene client_id o es diferente, intentar vincular
-            if (!publicCheck.clientId || publicCheck.clientId !== newClient.id) {
+            // Intentar vincular si el usuario no está ya linkeado a este cliente
+            if (!publicCheck.clientIds.includes(newClient.id)) {
               const linkResult = await linkExistingUserToClient(userId, newClient.id)
 
               if (linkResult.success) {
@@ -163,7 +163,8 @@ export const POST = withAuth(async (request, { user, supabase }) => {
           return NextResponse.json({
             message: 'Cliente creado exitosamente',
             client: newClient,
-            warning: createResult.warning
+            warning: createResult.warning,
+            password: createResult.password
           }, { status: 201 })
         } else {
           // Error al crear usuario

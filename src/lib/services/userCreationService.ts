@@ -22,6 +22,8 @@ export interface CreateUserResult {
   warning?: string
   error?: string
   errorCode?: 'EMAIL_EXISTS' | 'CLIENT_LIMIT_REACHED' | 'INVALID_EMAIL' | 'INVALID_RUT' | 'ROLE_NOT_FOUND' | 'AUTH_ERROR' | 'PROFILE_ERROR' | 'UNKNOWN_ERROR'
+  /** Contraseña generada (solo en éxito, para mostrar al admin que crea el usuario) */
+  password?: string
   /** Estado del envío al webhook de credenciales (solo cuando se solicitó vía webhookOrigen) */
   webhookSent?: boolean
   webhookError?: string
@@ -106,27 +108,26 @@ export function validateRut(rut: string): { valid: boolean; cleaned?: string; er
   return { valid: true, cleaned: body }
 }
 
+const SHORT_RUT_DEFAULT_PASSWORD = 'pr0visor1@'
+
 /**
- * Genera una contraseña a partir del RUT
- * Si el RUT es muy corto, genera una contraseña aleatoria segura
+ * Genera una contraseña a partir del RUT.
+ * Si el RUT es muy corto (< 8 dígitos), usa una contraseña por defecto definida.
  */
-export function generatePasswordFromRut(rut: string): { password: string; isRandom: boolean } {
+export function generatePasswordFromRut(rut: string): { password: string; isDefault: boolean } {
   const rutValidation = validateRut(rut)
-  
+
   if (!rutValidation.valid || !rutValidation.cleaned) {
-    // Si el RUT no es válido, generar contraseña aleatoria
-    return { password: generateRandomPassword(), isRandom: true }
+    return { password: SHORT_RUT_DEFAULT_PASSWORD, isDefault: true }
   }
 
   const cleanedRut = rutValidation.cleaned
 
-  // Si el RUT limpio tiene menos de 8 caracteres, generar contraseña aleatoria
   if (cleanedRut.length < 8) {
-    return { password: generateRandomPassword(), isRandom: true }
+    return { password: SHORT_RUT_DEFAULT_PASSWORD, isDefault: true }
   }
 
-  // Usar el RUT como contraseña (mínimo 8 caracteres)
-  return { password: cleanedRut, isRandom: false }
+  return { password: cleanedRut, isDefault: false }
 }
 
 /**
@@ -198,23 +199,30 @@ export async function checkEmailExistsInAuth(email: string): Promise<{ exists: b
 /**
  * Verifica si un email ya existe en public.users
  */
-export async function checkEmailExistsInPublicUsers(email: string): Promise<{ exists: boolean; userId?: string; clientId?: string }> {
+export async function checkEmailExistsInPublicUsers(email: string): Promise<{ exists: boolean; userId?: string; clientIds: string[] }> {
   try {
     const supabase = await createClient()
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, client_id')
+      .select('id')
       .eq('email', email.trim().toLowerCase())
       .single()
 
     if (error || !user) {
-      return { exists: false }
+      return { exists: false, clientIds: [] }
     }
 
-    return { exists: true, userId: user.id, clientId: user.client_id || undefined }
+    const { data: links } = await supabase
+      .from('user_clients')
+      .select('client_id')
+      .eq('user_id', user.id)
+
+    const clientIds = links?.map(l => l.client_id) || []
+
+    return { exists: true, userId: user.id, clientIds }
   } catch (error) {
     console.error('Error checking email in public.users:', error)
-    return { exists: false }
+    return { exists: false, clientIds: [] }
   }
 }
 
@@ -224,9 +232,9 @@ export async function checkEmailExistsInPublicUsers(email: string): Promise<{ ex
 export async function checkClientUserLimit(clientId: string): Promise<{ atLimit: boolean; currentCount: number }> {
   try {
     const supabase = await createClient()
-    const { data: users, error } = await supabase
-      .from('users')
-      .select('id')
+    const { data: links, error } = await supabase
+      .from('user_clients')
+      .select('user_id')
       .eq('client_id', clientId)
 
     if (error) {
@@ -234,7 +242,7 @@ export async function checkClientUserLimit(clientId: string): Promise<{ atLimit:
       return { atLimit: false, currentCount: 0 }
     }
 
-    const count = users?.length || 0
+    const count = links?.length || 0
     return { atLimit: count >= 2, currentCount: count }
   } catch (error) {
     console.error('Error checking client user limit:', error)
@@ -294,19 +302,9 @@ export async function createUserAtomically(options: CreateUserOptions): Promise<
   // 3. Verificar si el email ya existe en auth.users
   const authCheck = await checkEmailExistsInAuth(email)
   if (authCheck.exists) {
-    // Verificar si existe en public.users y si está vinculado a otro cliente
     const publicCheck = await checkEmailExistsInPublicUsers(email)
-    
+
     if (publicCheck.exists) {
-      if (publicCheck.clientId && publicCheck.clientId !== clientId) {
-        return {
-          success: false,
-          error: 'El email ya está asociado a otro cliente',
-          errorCode: 'EMAIL_EXISTS'
-        }
-      }
-      // Si existe pero no tiene client_id o es el mismo, podemos vincularlo
-      // Esto se manejará en el flujo principal
       return {
         success: false,
         error: 'El email ya existe en el sistema',
@@ -314,9 +312,7 @@ export async function createUserAtomically(options: CreateUserOptions): Promise<
         userId: publicCheck.userId
       }
     }
-    
-    // Existe en auth pero no en public.users (usuario huérfano)
-    // Podríamos intentar crear el perfil, pero es un caso edge
+
     return {
       success: false,
       error: 'El email ya existe en auth pero no tiene perfil',
@@ -394,7 +390,6 @@ export async function createUserAtomically(options: CreateUserOptions): Promise<
         email: email.trim(),
         role_id: roleResult.roleId,
         company_id: companyId,
-        client_id: clientId,
         created_at: new Date().toISOString()
       })
       .select()
@@ -414,6 +409,19 @@ export async function createUserAtomically(options: CreateUserOptions): Promise<
         error: `Error al crear perfil: ${createProfileError.message}`,
         errorCode: 'PROFILE_ERROR'
       }
+    }
+
+    // 8.1. Vincular usuario al cliente en user_clients
+    const { error: linkError } = await supabase
+      .from('user_clients')
+      .insert({
+        user_id: authUserId,
+        client_id: clientId,
+        created_at: new Date().toISOString()
+      })
+
+    if (linkError) {
+      console.warn('Error al vincular usuario a cliente en user_clients:', linkError)
     }
 
     // 9. Éxito
@@ -447,8 +455,9 @@ export async function createUserAtomically(options: CreateUserOptions): Promise<
     return {
       success: true,
       userId: authUserId,
-      warning: passwordResult.isRandom
-        ? 'Se generó una contraseña aleatoria porque el RUT era muy corto'
+      password: passwordResult.password,
+      warning: passwordResult.isDefault
+        ? `RUT corto (${rutValidation.cleaned!.length} dígitos). Se generó contraseña aleatoria. La contraseña es: ${passwordResult.password}`
         : undefined,
       webhookSent,
       webhookError,
@@ -480,11 +489,11 @@ export async function createUserAtomically(options: CreateUserOptions): Promise<
 export async function linkExistingUserToClient(userId: string, clientId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createClient()
-    
+
     // Verificar que el usuario existe
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('id, client_id')
+      .select('id')
       .eq('id', userId)
       .single()
 
@@ -492,24 +501,29 @@ export async function linkExistingUserToClient(userId: string, clientId: string)
       return { success: false, error: 'Usuario no encontrado' }
     }
 
-    // Si ya tiene un client_id diferente, no permitir
-    if (user.client_id && user.client_id !== clientId) {
-      return { success: false, error: 'El usuario ya está vinculado a otro cliente' }
-    }
+    // Verificar si el vínculo ya existe en user_clients
+    const { data: existingLink } = await supabase
+      .from('user_clients')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('client_id', clientId)
+      .maybeSingle()
 
-    // Si ya está vinculado al mismo cliente, éxito
-    if (user.client_id === clientId) {
+    if (existingLink) {
       return { success: true }
     }
 
-    // Vincular al cliente
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({ client_id: clientId })
-      .eq('id', userId)
+    // Crear vínculo en user_clients
+    const { error: insertError } = await supabase
+      .from('user_clients')
+      .insert({
+        user_id: userId,
+        client_id: clientId,
+        created_at: new Date().toISOString()
+      })
 
-    if (updateError) {
-      return { success: false, error: updateError.message }
+    if (insertError) {
+      return { success: false, error: insertError.message }
     }
 
     return { success: true }

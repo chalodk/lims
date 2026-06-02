@@ -56,7 +56,10 @@ export default function LinkUserClientsModal({ isOpen, onClose, user, onSuccess 
       const data = await response.json()
       
       if (!response.ok) {
-        throw new Error(data.error || 'Error al cargar clientes vinculados')
+        const errorMsg = data.details
+          ? `${data.error}: ${data.details}${data.code ? ` (code: ${data.code})` : ''}`
+          : (data.error || 'Error al cargar clientes vinculados')
+        throw new Error(errorMsg)
       }
       
       setLinkedClients(data.clients || [])
@@ -245,7 +248,7 @@ export default function LinkUserClientsModal({ isOpen, onClose, user, onSuccess 
             <div className="mb-6">
               <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
                 <Users className="h-4 w-4 mr-2" />
-                Cliente Vinculado
+                Clientes Vinculados
               </h4>
               
               {isLoading ? (
@@ -254,7 +257,7 @@ export default function LinkUserClientsModal({ isOpen, onClose, user, onSuccess 
                 </div>
               ) : linkedClients.length === 0 ? (
                 <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
-                  <p className="text-sm text-gray-500">No hay cliente vinculado</p>
+                  <p className="text-sm text-gray-500">No hay clientes vinculados</p>
                   <p className="text-xs text-gray-400 mt-1">Selecciona un cliente de la lista para vincularlo</p>
                 </div>
               ) : (
