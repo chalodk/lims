@@ -10,6 +10,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "lims-notificaciones",
+        "responseMode": "lastNode",
         "options": {}
       },
       "webhookId": "lims-notificaciones"

@@ -41,11 +41,15 @@ export async function sendToN8n(
   }
 
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 30_000) // 30s timeout
+
     const response = await fetch(webhookUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify(payload),
-    })
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout))
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -63,7 +67,12 @@ export async function sendToN8n(
     console.log('[n8nWebhook] Webhook enviado OK')
     return { sent: true, responseData: data }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
+    const isTimeout = error instanceof Error && error.name === 'AbortError'
+    const errorMessage = isTimeout
+      ? 'Timeout: n8n no respondió en 30s'
+      : error instanceof Error
+        ? error.message
+        : String(error)
     console.error('[n8nWebhook] Error sending webhook:', errorMessage)
     return {
       sent: false,
