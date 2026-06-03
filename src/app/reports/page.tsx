@@ -124,10 +124,15 @@ export default function ReportsPage() {
         `)
         .order('created_at', { ascending: false })
 
-      // Si el usuario es consumidor, filtrar por el cliente seleccionado en la pestaña
-      if (userRole === 'consumidor' && selectedClientId) {
-        query = query.eq('client_id', selectedClientId)
-        query = query.eq('completed', true)
+      // Si el usuario es consumidor, filtrar por el cliente seleccionado
+      if (userRole === 'consumidor') {
+        if (selectedClientId) {
+          query = query.eq('client_id', selectedClientId)
+          query = query.eq('completed', true)
+        } else {
+          // Sin cliente seleccionado no debe ver ningun informe
+          query = query.eq('client_id', '00000000-0000-0000-0000-000000000000')
+        }
       }
 
       if (statusFilter !== 'all') {
@@ -163,8 +168,14 @@ export default function ReportsPage() {
       }
       return
     }
-    
-    // Crear una clave única basada en las dependencias reales
+
+    // Para consumidores con clientes vinculados: esperar a que selectedClientId este listo
+    // Evita que se ejecute una query sin filtro por la race condition con el useEffect de clientes
+    if (userRole === 'consumidor' && linkedClientIds.length > 0 && !selectedClientId) {
+      return
+    }
+
+    // Crear una clave unica basada en las dependencias reales
     const fetchKey = `${statusFilter}-${userRole}-${selectedClientId || 'none'}`
     
     // Solo ejecutar si las dependencias reales cambiaron
@@ -180,7 +191,7 @@ export default function ReportsPage() {
 
     return () => clearTimeout(timeoutId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user, isAuthenticated, statusFilter, userRole, selectedClientId])
+  }, [authLoading, user, isAuthenticated, statusFilter, userRole, selectedClientId, linkedClientIds])
 
   const handleEditPayment = (reportId: string, currentPayment?: boolean, currentInvoice?: string) => {
     setEditingPayment(reportId)
