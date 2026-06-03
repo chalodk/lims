@@ -21,7 +21,7 @@ export interface CreateUserResult {
   userId?: string
   warning?: string
   error?: string
-  errorCode?: 'EMAIL_EXISTS' | 'CLIENT_LIMIT_REACHED' | 'INVALID_EMAIL' | 'INVALID_RUT' | 'ROLE_NOT_FOUND' | 'AUTH_ERROR' | 'PROFILE_ERROR' | 'UNKNOWN_ERROR'
+  errorCode?: 'EMAIL_EXISTS' | 'INVALID_EMAIL' | 'INVALID_RUT' | 'ROLE_NOT_FOUND' | 'AUTH_ERROR' | 'PROFILE_ERROR' | 'UNKNOWN_ERROR'
   /** Contraseña generada (solo en éxito, para mostrar al admin que crea el usuario) */
   password?: string
   /** Estado del envío al webhook de credenciales (solo cuando se solicitó vía webhookOrigen) */
@@ -227,30 +227,6 @@ export async function checkEmailExistsInPublicUsers(email: string): Promise<{ ex
 }
 
 /**
- * Verifica si un cliente ya alcanzó el límite de usuarios (2 usuarios máximo)
- */
-export async function checkClientUserLimit(clientId: string): Promise<{ atLimit: boolean; currentCount: number }> {
-  try {
-    const supabase = await createClient()
-    const { data: links, error } = await supabase
-      .from('user_clients')
-      .select('user_id')
-      .eq('client_id', clientId)
-
-    if (error) {
-      console.error('Error checking client user limit:', error)
-      return { atLimit: false, currentCount: 0 }
-    }
-
-    const count = links?.length || 0
-    return { atLimit: count >= 2, currentCount: count }
-  } catch (error) {
-    console.error('Error checking client user limit:', error)
-    return { atLimit: false, currentCount: 0 }
-  }
-}
-
-/**
  * Obtiene el role_id de un rol por nombre
  */
 export async function getRoleIdByName(roleName: string): Promise<{ roleId: number | null; error?: string }> {
@@ -321,17 +297,7 @@ export async function createUserAtomically(options: CreateUserOptions): Promise<
     }
   }
 
-  // 4. Verificar límite de usuarios por cliente
-  const limitCheck = await checkClientUserLimit(clientId)
-  if (limitCheck.atLimit) {
-    return {
-      success: false,
-      error: `El cliente ya tiene ${limitCheck.currentCount} usuarios (máximo 2)`,
-      errorCode: 'CLIENT_LIMIT_REACHED'
-    }
-  }
-
-  // 5. Obtener role_id
+  // 4. Obtener role_id
   const roleResult = await getRoleIdByName(roleName)
   if (!roleResult.roleId) {
     return {

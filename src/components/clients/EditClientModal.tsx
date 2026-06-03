@@ -1,8 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAuth } from '@/hooks/useAuth'
-import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { Client } from '@/types/database'
 import { 
   Users,
@@ -18,7 +16,6 @@ interface EditClientModalProps {
 }
 
 export default function EditClientModal({ isOpen, onClose, onSuccess, client }: EditClientModalProps) {
-  const { user } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
@@ -29,8 +26,6 @@ export default function EditClientModal({ isOpen, onClose, onSuccess, client }: 
     client_type: 'farmer',
     observation: false
   })
-  
-  const supabase = getSupabaseClient()
 
   // Load client data when modal opens
   useEffect(() => {
@@ -49,8 +44,7 @@ export default function EditClientModal({ isOpen, onClose, onSuccess, client }: 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    // Validation: name is required
+
     if (!formData.name.trim()) {
       alert('El nombre del cliente es obligatorio')
       return
@@ -59,9 +53,10 @@ export default function EditClientModal({ isOpen, onClose, onSuccess, client }: 
     setIsSubmitting(true)
 
     try {
-      const { error } = await supabase
-        .from('clients')
-        .update({
+      const response = await fetch(`/api/clients/${client?.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           name: formData.name.trim(),
           rut: formData.rut.trim() || null,
           contact_email: formData.contact_email.trim() || null,
@@ -70,27 +65,28 @@ export default function EditClientModal({ isOpen, onClose, onSuccess, client }: 
           client_type: formData.client_type,
           observation: formData.observation
         })
-        .eq('id', client?.id)
-        .eq('company_id', user?.company_id) // Additional security: ensure user can only update their company's clients
+      })
 
-      if (error) throw error
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al actualizar el cliente')
+      }
+
+      // Mostrar credenciales si se generó un nuevo usuario
+      if (data.password) {
+        const passwordMsg = `Cliente actualizado y usuario consumidor creado.\n\nEmail: ${formData.contact_email.trim()}\nContraseña: ${data.password}\n\n${data.warning ? '⚠️ ' + data.warning + '\n\n' : ''}Comparte estas credenciales con el cliente de forma segura.`
+        alert(passwordMsg)
+      } else if (data.warning) {
+        alert('⚠️ ' + data.warning)
+      }
 
       onClose()
-      
-      // Notify parent component to refresh
       onSuccess()
     } catch (error: unknown) {
       console.error('Error updating client:', error)
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
-      
-      // Handle specific database errors
-      if (errorMessage.includes('duplicate') || errorMessage.includes('unique')) {
-        alert('Error: Ya existe un cliente con estos datos. Por favor, verifica la información.')
-      } else if (errorMessage.includes('foreign key') || errorMessage.includes('violates foreign key')) {
-        alert('Error: No se puede actualizar el cliente debido a restricciones de integridad de datos.')
-      } else {
-        alert('Error al actualizar el cliente: ' + errorMessage)
-      }
+      alert('Error al actualizar el cliente: ' + errorMessage)
     } finally {
       setIsSubmitting(false)
     }
