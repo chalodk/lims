@@ -60,10 +60,13 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
         throw new Error(data.error || 'Error al crear el cliente')
       }
 
-      // Mostrar advertencia si hubo algún problema con la creación del usuario
-      if (data.warning) {
-        console.warn('Advertencia:', data.warning)
-        // No mostrar alerta al usuario, solo loguear
+      // Mostrar resultado de la creación del usuario
+      if (data.password) {
+        // Contraseña generada (ya sea desde RUT o aleatoria) — mostrarla al admin
+        const passwordMsg = `Cliente y usuario consumidor creados exitosamente.\n\nEmail: ${formData.contact_email}\nContraseña: ${data.password}\n\n${data.warning ? '⚠️ ' + data.warning + '\n\n' : ''}Comparte estas credenciales con el cliente de forma segura.`
+        alert(passwordMsg)
+      } else if (data.warning) {
+        alert('⚠️ ' + data.warning)
       }
 
       // Reset form and close modal
@@ -157,7 +160,7 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
                     placeholder="12.345.678-9"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    Si se proporciona email, se creará automáticamente un usuario consumidor con contraseña igual al RUT sin puntos ni dígito verificador
+                    Si se proporciona email, se creará automáticamente un usuario consumidor. La contraseña se genera desde el RUT (sin puntos ni dígito verificador). Si el RUT tiene menos de 8 dígitos se genera una contraseña aleatoria.
                   </p>
                 </div>
 
