@@ -11,6 +11,7 @@ import {
 } from '@/components/BulkSelectionTableToolbar'
 import CreateReportModal from '@/components/reports/CreateReportModal'
 import ViewReportModal from '@/components/reports/ViewReportModal'
+import FeedbackModal from '@/components/reports/FeedbackModal'
 import SamplesDisplay from '@/components/reports/SamplesDisplay'
 import { getAnalysisTypeIndicator } from '@/config/analysisTypes'
 import { 
@@ -26,7 +27,8 @@ import {
   Trash2,
   Save,
   X,
-  Check
+  Check,
+  MessageCircle
 } from 'lucide-react'
 
 interface Report {
@@ -62,6 +64,7 @@ export default function ReportsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState<string | null>(null)
   const [viewReportId, setViewReportId] = useState<string | null>(null)
   const [editingPayment, setEditingPayment] = useState<string | null>(null)
@@ -667,13 +670,24 @@ export default function ReportsPage() {
                 </p>
               )}
             </div>
+            {userRole === 'consumidor' && (
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setIsFeedbackModalOpen(true)}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  <span>Ayuda</span>
+                </button>
+              </div>
+            )}
             {(userRole === 'admin' || userRole === 'comun') && (
               <div className="flex space-x-3">
                 <button className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-gray-50 transition-colors">
                   <Filter className="h-4 w-4" />
                   <span>Filtros</span>
                 </button>
-                <button 
+                <button
                   onClick={() => setIsCreateModalOpen(true)}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
                 >
@@ -791,24 +805,30 @@ export default function ReportsPage() {
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-14">
                       Tipo
                     </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
-                      Cliente
-                    </th>
+                    {userRole !== 'consumidor' && (
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
+                        Cliente
+                      </th>
+                    )}
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">
                       Muestras
                     </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
-                      Plantilla
-                    </th>
+                    {userRole !== 'consumidor' && (
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                        Plantilla
+                      </th>
+                    )}
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
                       Estado
                     </th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell whitespace-nowrap">
                       Fecha
                     </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell min-w-[100px]">
-                      Pago
-                    </th>
+                    {userRole !== 'consumidor' && (
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell min-w-[100px]">
+                        Pago
+                      </th>
+                    )}
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32 sticky right-0 bg-gray-50 z-10">
                       Acciones
                     </th>
@@ -828,26 +848,32 @@ export default function ReportsPage() {
                   {filteredReports.map((report) => {
                     const analysisIndicator = getAnalysisTypeIndicator(report.test_areas)
                     return (
-                    <tr key={report.id} className="group hover:bg-gray-50">
+                    <tr
+                      key={report.id}
+                      className="group hover:bg-gray-50 cursor-pointer"
+                      onClick={() => setViewReportId(report.id)}
+                    >
                       <td className="px-3 py-4">
-                        <div 
+                        <div
                           className={`w-10 h-10 rounded-full ${analysisIndicator.bgColor} ${analysisIndicator.textColor} flex items-center justify-center font-bold text-sm shadow-sm`}
                           title={analysisIndicator.label}
                         >
                           {analysisIndicator.initial}
                         </div>
                       </td>
+                      {userRole !== 'consumidor' && (
+                        <td className="px-3 py-4">
+                          <div className="min-w-0">
+                            <div className="font-medium text-gray-900 truncate">{report.clients?.name || 'N/A'}</div>
+                            {report.clients?.rut && (
+                              <div className="text-xs text-gray-500 truncate">RUT: {report.clients.rut}</div>
+                            )}
+                          </div>
+                        </td>
+                      )}
                       <td className="px-3 py-4">
                         <div className="min-w-0">
-                          <div className="font-medium text-gray-900 truncate">{report.clients?.name || 'N/A'}</div>
-                          {report.clients?.rut && (
-                            <div className="text-xs text-gray-500 truncate">RUT: {report.clients.rut}</div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-3 py-4">
-                        <div className="min-w-0">
-                          <SamplesDisplay 
+                          <SamplesDisplay
                             samples={report.results?.map(result => ({
                               code: result.samples?.code || 'N/A',
                               species: result.samples?.species || '',
@@ -856,113 +882,113 @@ export default function ReportsPage() {
                           />
                         </div>
                       </td>
-                      <td className="px-3 py-4 hidden lg:table-cell">
-                        {getTemplateBadge(report.template)}
-                      </td>
+                      {userRole !== 'consumidor' && (
+                        <td className="px-3 py-4 hidden lg:table-cell">
+                          {getTemplateBadge(report.template)}
+                        </td>
+                      )}
                       <td className="px-3 py-4 hidden md:table-cell">
                         {getStatusBadge(report.status, report.id, report.completed)}
                       </td>
                       <td className="px-3 py-4 text-sm text-gray-500 hidden lg:table-cell whitespace-nowrap">
                         {report.created_at ? new Date(report.created_at).toLocaleDateString('es-ES') : 'N/A'}
                       </td>
-                      <td className="px-3 py-4 hidden xl:table-cell">
-                        {editingPayment === report.id ? (
-                          <div className="space-y-3 min-w-48">
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                id={`payment-${report.id}`}
-                                checked={paymentData[report.id]?.payment || false}
-                                onChange={(e) => setPaymentData(prev => ({
-                                  ...prev,
-                                  [report.id]: {
-                                    ...prev[report.id],
-                                    payment: e.target.checked
-                                  }
-                                }))}
-                                className="h-4 w-4 text-green-600 rounded border-gray-300"
-                              />
-                              <label htmlFor={`payment-${report.id}`} className="text-sm text-gray-700">
-                                Pagado
-                              </label>
+                      {userRole !== 'consumidor' && (
+                        <td className="px-3 py-4 hidden xl:table-cell" onClick={(e) => e.stopPropagation()}>
+                          {editingPayment === report.id ? (
+                            <div className="space-y-3 min-w-48">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  id={`payment-${report.id}`}
+                                  checked={paymentData[report.id]?.payment || false}
+                                  onChange={(e) => setPaymentData(prev => ({
+                                    ...prev,
+                                    [report.id]: {
+                                      ...prev[report.id],
+                                      payment: e.target.checked
+                                    }
+                                  }))}
+                                  className="h-4 w-4 text-green-600 rounded border-gray-300"
+                                />
+                                <label htmlFor={`payment-${report.id}`} className="text-sm text-gray-700">
+                                  Pagado
+                                </label>
+                              </div>
+                              <div>
+                                <input
+                                  type="text"
+                                  placeholder="Número de factura"
+                                  value={paymentData[report.id]?.invoice_number || ''}
+                                  onChange={(e) => setPaymentData(prev => ({
+                                    ...prev,
+                                    [report.id]: {
+                                      ...prev[report.id],
+                                      invoice_number: e.target.value
+                                    }
+                                  }))}
+                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => handleSavePayment(report.id)}
+                                  disabled={savingPayment === report.id}
+                                  className="flex items-center gap-1 px-2 py-1 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 disabled:opacity-50"
+                                >
+                                  <Save className="h-3 w-3" />
+                                  {savingPayment === report.id ? 'Guardando...' : 'Guardar'}
+                                </button>
+                                <button
+                                  onClick={() => handleClearPayment(report.id)}
+                                  disabled={savingPayment === report.id}
+                                  className="flex items-center gap-1 px-2 py-1 bg-red-600 text-white text-xs font-medium rounded hover:bg-red-700 disabled:opacity-50"
+                                >
+                                  <X className="h-3 w-3" />
+                                  Limpiar
+                                </button>
+                                <button
+                                  onClick={() => handleCancelEdit(report.id)}
+                                  disabled={savingPayment === report.id}
+                                  className="px-2 py-1 border border-gray-300 text-gray-700 text-xs font-medium rounded hover:bg-gray-50 disabled:opacity-50"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
                             </div>
-                            
-                            <div>
-                              <input
-                                type="text"
-                                placeholder="Número de factura"
-                                value={paymentData[report.id]?.invoice_number || ''}
-                                onChange={(e) => setPaymentData(prev => ({
-                                  ...prev,
-                                  [report.id]: {
-                                    ...prev[report.id],
-                                    invoice_number: e.target.value
-                                  }
-                                }))}
-                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                              />
-                            </div>
-                            
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => handleSavePayment(report.id)}
-                                disabled={savingPayment === report.id}
-                                className="flex items-center gap-1 px-2 py-1 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 disabled:opacity-50"
-                              >
-                                <Save className="h-3 w-3" />
-                                {savingPayment === report.id ? 'Guardando...' : 'Guardar'}
-                              </button>
-                              
-                              <button
-                                onClick={() => handleClearPayment(report.id)}
-                                disabled={savingPayment === report.id}
-                                className="flex items-center gap-1 px-2 py-1 bg-red-600 text-white text-xs font-medium rounded hover:bg-red-700 disabled:opacity-50"
-                              >
-                                <X className="h-3 w-3" />
-                                Limpiar
-                              </button>
-                              
-                              <button
-                                onClick={() => handleCancelEdit(report.id)}
-                                disabled={savingPayment === report.id}
-                                className="px-2 py-1 border border-gray-300 text-gray-700 text-xs font-medium rounded hover:bg-gray-50 disabled:opacity-50"
-                              >
-                                Cancelar
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                report.payment 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {report.payment ? 'Pagado' : 'Pendiente'}
-                              </span>
-                              {(userRole === 'admin' || userRole === 'validador' || userRole === 'comun') && (
-                              <button
-                                onClick={() => handleEditPayment(report.id, report.payment || false, report.invoice_number || '')}
-                                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                              >
-                                Editar
-                              </button>
+                          ) : (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                  report.payment
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {report.payment ? 'Pagado' : 'Pendiente'}
+                                </span>
+                                {(userRole === 'admin' || userRole === 'validador' || userRole === 'comun') && (
+                                <button
+                                  onClick={() => handleEditPayment(report.id, report.payment || false, report.invoice_number || '')}
+                                  className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                                >
+                                  Editar
+                                </button>
+                                )}
+                              </div>
+                              {report.invoice_number && (
+                                <div className="text-xs text-gray-600">
+                                  <span className="font-mono">{report.invoice_number}</span>
+                                </div>
                               )}
                             </div>
-                            {report.invoice_number && (
-                              <div className="text-xs text-gray-600">
-                                <span className="font-mono">{report.invoice_number}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </td>
+                          )}
+                        </td>
+                      )}
                       <td className="px-3 py-4 sticky right-0 bg-white z-10 group-hover:bg-gray-50">
-                        <div className="flex items-center space-x-1">
-                          <button 
+                        <div className="flex items-center space-x-1" onClick={(e) => e.stopPropagation()}>
+                          <button
                             onClick={() => setViewReportId(report.id)}
-                            className="p-1 text-gray-400 hover:text-indigo-600 transition-colors" 
+                            className="p-1 text-gray-400 hover:text-indigo-600 transition-colors"
                             title="Ver"
                           >
                             <Eye className="h-4 w-4" />
@@ -983,10 +1009,10 @@ export default function ReportsPage() {
                             </>
                           )}
                           {(userRole === 'admin' || userRole === 'comun') && (
-                            <button 
+                            <button
                               onClick={() => handleDeleteReport(report.id, report.status)}
                               disabled={isDeleting === report.id}
-                              className="p-1 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                              className="p-1 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Eliminar"
                             >
                               {isDeleting === report.id ? (
@@ -1028,6 +1054,12 @@ export default function ReportsPage() {
           isOpen={viewReportId !== null}
           onClose={() => setViewReportId(null)}
           reportId={viewReportId}
+        />
+
+        {/* Feedback Modal */}
+        <FeedbackModal
+          isOpen={isFeedbackModalOpen}
+          onClose={() => setIsFeedbackModalOpen(false)}
         />
       </div>
       )}

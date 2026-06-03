@@ -137,7 +137,7 @@ type BulkRowSelectionCheckboxProps = {
 
 export function BulkRowSelectionCheckbox({ checked, onChange }: BulkRowSelectionCheckboxProps) {
   return (
-    <td className="px-3 py-4 text-center">
+    <td className="px-3 py-4 text-center" onClick={(e) => e.stopPropagation()}>
       <input
         type="checkbox"
         checked={checked}
