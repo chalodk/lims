@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
 
     // Obtener vínculos user_clients para todos los usuarios en lote
     const publicUserIds = (usersData || []).map((u: { id: string }) => u.id)
-    let userClientsMap: Record<string, { client_id: string; client_name: string }[]> = {}
+    const userClientsMap: Record<string, { client_id: string; client_name: string }[]> = {}
     if (publicUserIds.length > 0) {
       const { data: allLinks } = await supabase
         .from('user_clients')

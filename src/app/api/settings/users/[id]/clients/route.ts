@@ -54,7 +54,7 @@ export async function GET(
 
     // Resolver datos de clientes en consulta separada
     const clientIds = (links || []).map(l => l.client_id)
-    let clientsMap: Record<string, { id: string; name: string; rut: string | null; contact_email: string | null }> = {}
+    const clientsMap: Record<string, { id: string; name: string; rut: string | null; contact_email: string | null }> = {}
     if (clientIds.length > 0) {
       const { data: clientsData } = await supabase
         .from('clients')
