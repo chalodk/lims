@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useAuth } from '@/hooks/useAuth'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import {
   TrendingUp,
@@ -8,7 +9,8 @@ import {
   TestTube,
   Calendar,
   Clock,
-  CheckCircle
+  CheckCircle,
+  Mail
 } from 'lucide-react'
 import {
   SamplesByMonthChart,
@@ -20,6 +22,7 @@ import {
 } from '@/components/estadisticas/ResultsByTypeChart'
 
 export default function EstadisticasPage() {
+  const { role } = useAuth()
   const [stats, setStats] = useState({
     totalSamples: 0,
     totalResults: 0,
@@ -32,6 +35,8 @@ export default function EstadisticasPage() {
   const [samplesByMonth, setSamplesByMonth] = useState<SamplesByMonthRow[]>([])
   const [resultsByType, setResultsByType] = useState<ResultsByTypeRow[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [solicitarStatus, setSolicitarStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [solicitarError, setSolicitarError] = useState('')
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -104,6 +109,24 @@ export default function EstadisticasPage() {
     fetchStats()
   }, [])
 
+  const handleSolicitarDatos = async () => {
+    setSolicitarStatus('loading')
+    setSolicitarError('')
+    try {
+      const response = await fetch('/api/estadisticas/solicitar-datos', { method: 'POST' })
+      if (response.ok) {
+        setSolicitarStatus('success')
+      } else {
+        const body = await response.json().catch(() => ({ error: 'Error desconocido' }))
+        setSolicitarError(body.error ?? 'Error desconocido')
+        setSolicitarStatus('error')
+      }
+    } catch {
+      setSolicitarError('No se pudo conectar con el servidor')
+      setSolicitarStatus('error')
+    }
+  }
+
   if (isLoading) {
     return (
       <DashboardLayout>
@@ -121,6 +144,29 @@ export default function EstadisticasPage() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Estadísticas</h1>
           <p className="text-gray-600">Resumen general del laboratorio</p>
         </div>
+
+        {role?.id === 1 && (
+          <div className="mb-6">
+            <button
+              onClick={handleSolicitarDatos}
+              disabled={solicitarStatus === 'loading'}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <Mail className="h-4 w-4" />
+              {solicitarStatus === 'loading' ? 'Enviando solicitud...' : 'Solicitar todos los datos'}
+            </button>
+            {solicitarStatus === 'success' && (
+              <p className="mt-2 text-sm text-green-600 font-medium">
+                Solicitud enviada con éxito. Recibirás los datos por correo electrónico.
+              </p>
+            )}
+            {solicitarStatus === 'error' && (
+              <p className="mt-2 text-sm text-red-600 font-medium">
+                {solicitarError}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
