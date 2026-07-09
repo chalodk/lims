@@ -663,7 +663,7 @@ export default function AddResultModal({
     if (selectedAnalysisArea.toLowerCase().includes('nematolog') && formData.result_type === 'negative') {
       setFormData(prev => ({
         ...prev,
-        pathogen_identified: 'Nematodos no fitoparásitos (benéficos)',
+        pathogen_identified: prev.pathogen_identified || 'Nematodos no fitoparásitos (benéficos)',
         pathogen_type: 'nematode'
       }))
     }
@@ -1843,12 +1843,20 @@ export default function AddResultModal({
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Patógeno Identificado
                 </label>
-                <input
-                  type="text"
+                <select
                   value={formData.pathogen_identified}
-                  readOnly
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
-                />
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setFormData(prev => ({ ...prev, pathogen_identified: value }))
+                    if (value === 'Sin presencia de nemátodos') {
+                      setNematologyData(prev => ({ ...prev, negativeQuantity: '0' }))
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                >
+                  <option value="Nematodos no fitoparásitos (benéficos)">Nematodos no fitoparásitos (benéficos)</option>
+                  <option value="Sin presencia de nemátodos">Sin presencia de nemátodos</option>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1858,7 +1866,8 @@ export default function AddResultModal({
                   type="text"
                   value={nematologyData.negativeQuantity}
                   onChange={(e) => setNematologyData(prev => ({ ...prev, negativeQuantity: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  disabled={formData.pathogen_identified === 'Sin presencia de nemátodos'}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 disabled:text-gray-500"
                   placeholder="Cantidad de nematodos no fitoparásitos"
                 />
               </div>

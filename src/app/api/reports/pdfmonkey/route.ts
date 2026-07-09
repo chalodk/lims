@@ -836,7 +836,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
               .join('\n')
             const richHtml = conclusionJoined || diagnosisJoined
             if (!richHtml) {
-              return 'La muestra analizada no presentó nematodos fitoparásitos, sólo nematodos de vida libre o benéficos.'
+              return 'La muestra analizada no presentó nematodos fitoparásitos.'
             }
             return wrapHtmlPreservingWhitespaceForPdf(richHtml)
           })()
