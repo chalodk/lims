@@ -432,22 +432,6 @@ export async function POST(request: NextRequest) {
       }, { status: 409 })
     }
 
-    // Determinar la contraseña según el rol
-    // Para validador, comun o admin: usar contraseña por defecto
-    // Para otros roles (consumidor): usar la contraseña proporcionada
-    const DEFAULT_PASSWORD = 'n3M4Ch1L3'
-    let finalPassword: string
-    
-    if (selectedRoleName === 'validador' || selectedRoleName === 'comun' || selectedRoleName === 'admin') {
-      finalPassword = DEFAULT_PASSWORD
-    } else {
-      // Para consumidor u otros roles, usar la contraseña proporcionada
-      if (!password) {
-        return NextResponse.json({ error: 'Contraseña es requerida para este rol' }, { status: 400 })
-      }
-      finalPassword = password
-    }
-
     // Determinar company_id y client_id según el rol
     let finalCompanyId: string | null = null
     let finalClientId: string | null = null
@@ -481,11 +465,45 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ 
           error: 'El usuario actual no tiene company_id asignado' 
         }, { status: 400 })
-    }
+      }
       finalCompanyId = currentUser.company_id
       finalClientId = null
     }
     // Si es admin, no se asigna company_id ni client_id (ambos null)
+
+    // Determinar la contraseña según el rol
+    // Para validador, comun o admin: companies.name + "!#2026#!"
+    // Para otros roles (consumidor): usar la contraseña proporcionada
+    let finalPassword: string
+
+    if (selectedRoleName === 'validador' || selectedRoleName === 'comun' || selectedRoleName === 'admin') {
+      const companyIdForPassword = finalCompanyId ?? currentUser.company_id
+      if (!companyIdForPassword) {
+        return NextResponse.json({
+          error: 'No se puede generar la contraseña por defecto: falta company_id'
+        }, { status: 400 })
+      }
+
+      const { data: companyData, error: companyError } = await supabase
+        .from('companies')
+        .select('name')
+        .eq('id', companyIdForPassword)
+        .single()
+
+      if (companyError || !companyData?.name) {
+        return NextResponse.json({
+          error: 'No se pudo obtener el nombre de la compañía para la contraseña por defecto'
+        }, { status: 500 })
+      }
+
+      finalPassword = `${companyData.name}!#2026#!`
+    } else {
+      // Para consumidor u otros roles, usar la contraseña proporcionada
+      if (!password) {
+        return NextResponse.json({ error: 'Contraseña es requerida para este rol' }, { status: 400 })
+      }
+      finalPassword = password
+    }
 
     // Crear cliente admin para crear usuario en auth.users
     const supabaseAdmin = createAdminClient(
@@ -582,6 +600,7 @@ export async function POST(request: NextRequest) {
       email,
       password: finalPassword,
       origen: 2,
+      company_id: finalCompanyId,
     })
     if (!webhookResult.sent && webhookResult.error) {
       console.warn(`[POST /api/settings/users] Webhook no enviado: ${webhookResult.error}`)

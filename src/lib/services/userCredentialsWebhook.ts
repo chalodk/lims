@@ -11,6 +11,8 @@
  * - USER_CREDENTIALS_WEBHOOK_USER (Basic Auth)
  * - USER_CREDENTIALS_WEBHOOK_PASSWORD (Basic Auth)
  * - USER_CREDENTIALS_WEBHOOK_DISABLE_AUTH=true (opcional) para no enviar Authorization y diagnosticar 403
+ *
+ * Payload: { email, password, origen, company_id }
  */
 
 export type UserCredentialsOrigen = 1 | 2
@@ -19,6 +21,8 @@ export interface UserCredentialsWebhookPayload {
   email: string
   password: string
   origen: UserCredentialsOrigen
+  /** Compañía del usuario creado; n8n puede usarlo para remitente/plantilla */
+  company_id: string | null
 }
 
 function buildBasicAuthHeader(username: string, password: string): string {
@@ -54,6 +58,7 @@ export async function sendUserCredentialsToWebhook(
         email: payload.email,
         password: payload.password,
         origen: payload.origen,
+        company_id: payload.company_id,
       }),
     })
 

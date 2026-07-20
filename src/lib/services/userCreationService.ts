@@ -403,6 +403,7 @@ export async function createUserAtomically(options: CreateUserOptions): Promise<
         email: email.trim(),
         password: passwordResult.password,
         origen: webhookOrigen,
+        company_id: companyId,
       })
       webhookSent = webhookResult.sent
       webhookError = webhookResult.error

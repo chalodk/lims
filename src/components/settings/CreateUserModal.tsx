@@ -36,6 +36,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
   const [clients, setClients] = useState<Client[]>([])
   const [isLoadingRoles, setIsLoadingRoles] = useState(false)
   const [isLoadingClients, setIsLoadingClients] = useState(false)
+  const [companyName, setCompanyName] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<ModalTabId>('manual')
   const [potentialClientEmails, setPotentialClientEmails] = useState<string[]>([])
   const [isLoadingPotentialEmails, setIsLoadingPotentialEmails] = useState(false)
@@ -107,6 +108,28 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
     }
   }, [user?.company_id])
 
+  const fetchCompanyName = useCallback(async () => {
+    if (!user?.company_id) {
+      setCompanyName(null)
+      return
+    }
+
+    try {
+      const supabase = getSupabaseClient()
+      const { data, error } = await supabase
+        .from('companies')
+        .select('name')
+        .eq('id', user.company_id)
+        .single()
+
+      if (error) throw error
+      setCompanyName(data?.name ?? null)
+    } catch (err) {
+      console.error('Error fetching company name:', err)
+      setCompanyName(null)
+    }
+  }, [user?.company_id])
+
   const fetchPotentialClientEmails = useCallback(async () => {
     setIsLoadingPotentialEmails(true)
     setPotentialEmailsFetchError(null)
@@ -127,12 +150,13 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
     }
   }, [])
 
-  // Cargar roles al abrir el modal
+  // Cargar roles y nombre de compañía al abrir el modal
   useEffect(() => {
     if (isOpen) {
       fetchRoles()
+      fetchCompanyName()
     }
-  }, [isOpen, fetchRoles])
+  }, [isOpen, fetchRoles, fetchCompanyName])
 
   useEffect(() => {
     if (isOpen && activeTab === 'orphan_emails') {
@@ -481,7 +505,9 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
                   </div>
                   <p className="mt-1 text-xs text-gray-500">
                     {usesDefaultPassword 
-                      ? 'Para roles de validador, común o admin se usará la contraseña por defecto: n3M4Ch1L3'
+                      ? companyName
+                        ? `Para roles de validador, común o admin se usará la contraseña por defecto: ${companyName}!#2026#!`
+                        : 'Para roles de validador, común o admin se usará la contraseña por defecto basada en el nombre de la compañía'
                       : 'La contraseña debe tener al menos 6 caracteres'
                     }
                   </p>
