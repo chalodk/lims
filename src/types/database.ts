@@ -231,11 +231,23 @@ export interface Database {
           id: string
           name: string
           created_at: string | null
+          plan_tier: string
+          billing_notes: string | null
+          plan_updated_at: string | null
+          plan_updated_by: string | null
+          trial_started_at: string | null
+          trial_ends_at: string | null
         }
         Insert: {
           id?: string
           name: string
           created_at?: string | null
+          plan_tier?: string
+          billing_notes?: string | null
+          plan_updated_at?: string | null
+          plan_updated_by?: string | null
+          trial_started_at?: string | null
+          trial_ends_at?: string | null
         }
         Update: Partial<Database['public']['Tables']['companies']['Insert']>
       }

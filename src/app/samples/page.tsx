@@ -8,6 +8,8 @@ import CreateSampleModal from '@/components/samples/CreateSampleModal'
 import EditSampleModal from '@/components/samples/EditSampleModal'
 import ViewSampleModal from '@/components/samples/ViewSampleModal'
 import DeleteConfirmModal from '@/components/samples/DeleteConfirmModal'
+import PlanUsageBanner from '@/components/billing/PlanUsageBanner'
+import { useCompanyBillingUsage } from '@/hooks/useCompanyBillingUsage'
 import { SampleWithClient } from '@/types/database'
 import { formatDate } from '@/lib/utils/formatters'
 import { getSampleStatusBadge, getSlaTypeBadge } from '@/lib/utils/badges'
@@ -26,6 +28,7 @@ import {
 
 export default function SamplesPage() {
   const { userRole } = useAuth()
+  const { usage: billingUsage } = useCompanyBillingUsage()
   const [samples, setSamples] = useState<SampleWithClient[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -224,6 +227,8 @@ export default function SamplesPage() {
             </div>
           </div>
         </div>
+
+        <PlanUsageBanner usage={billingUsage} focus="samples" />
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">

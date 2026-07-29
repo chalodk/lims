@@ -10,6 +10,8 @@ import EditProfileModal from '@/components/settings/EditProfileModal'
 import CreateUserModal from '@/components/settings/CreateUserModal'
 import LinkUserClientsModal from '@/components/settings/LinkUserClientsModal'
 import CompanyTemplatesModal from '@/components/settings/CompanyTemplatesModal'
+import PlanUsageCard from '@/components/billing/PlanUsageCard'
+import { useCompanyBillingUsage } from '@/hooks/useCompanyBillingUsage'
 
 interface UserProfile {
   id: string
@@ -26,6 +28,9 @@ interface UserProfile {
 export default function SettingsPage() {
   const router = useRouter()
   const { userRole, isAuthenticated, isLoading: authLoading } = useAuth()
+  const { usage: billingUsage, isLoading: billingLoading, error: billingError } = useCompanyBillingUsage(
+    userRole === 'admin'
+  )
   const [users, setUsers] = useState<UserProfile[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -217,6 +222,12 @@ export default function SettingsPage() {
             Gestiona la configuración del sistema
                 </p>
               </div>
+
+        <PlanUsageCard
+          usage={billingUsage}
+          isLoading={billingLoading}
+          error={billingError}
+        />
                   
                   {/* Gestión de Perfiles */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">

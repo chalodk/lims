@@ -20,9 +20,13 @@ import {
   ResultsByTypeChart,
   type ResultsByTypeRow
 } from '@/components/estadisticas/ResultsByTypeChart'
+import PlanUsageCard from '@/components/billing/PlanUsageCard'
+import { useCompanyBillingUsage } from '@/hooks/useCompanyBillingUsage'
 
 export default function EstadisticasPage() {
   const { role } = useAuth()
+  const { usage: billingUsage, isLoading: billingLoading, error: billingError } =
+    useCompanyBillingUsage()
   const [stats, setStats] = useState({
     totalSamples: 0,
     totalResults: 0,
@@ -144,6 +148,12 @@ export default function EstadisticasPage() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Estadísticas</h1>
           <p className="text-gray-600">Resumen general del laboratorio</p>
         </div>
+
+        <PlanUsageCard
+          usage={billingUsage}
+          isLoading={billingLoading}
+          error={billingError}
+        />
 
         {role?.id === 1 && (
           <div className="mb-6">

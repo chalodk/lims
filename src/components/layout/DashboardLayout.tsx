@@ -16,7 +16,8 @@ import {
   Bell,
   FlaskConical,
   Loader2,
-  Microscope
+  Microscope,
+  CreditCard
 } from 'lucide-react'
 import AppBrandingLogo from '@/components/branding/AppBrandingLogo'
 import UserProfileDropdown from '@/components/UserProfileDropdown'
@@ -82,6 +83,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: 'Templates PDF', href: '/admin/company-templates', icon: FileText, roles: ['csx'] },
     { name: 'Metodologias', href: '/admin/methodology-options', icon: FlaskConical, roles: ['csx'] },
     { name: 'Analitos', href: '/admin/analytes', icon: TestTube, roles: ['csx'] },
+    { name: 'Billing', href: '/admin/billing', icon: CreditCard, roles: ['csx'] },
   ]
 
   const filteredNavigation = navigation.filter(item => 

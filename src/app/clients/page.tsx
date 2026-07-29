@@ -7,6 +7,8 @@ import DashboardLayout from '@/components/layout/DashboardLayout'
 import CreateClientModal from '@/components/clients/CreateClientModal'
 import EditClientModal from '@/components/clients/EditClientModal'
 import DeleteClientConfirmModal from '@/components/clients/DeleteClientConfirmModal'
+import PlanUsageBanner from '@/components/billing/PlanUsageBanner'
+import { useCompanyBillingUsage } from '@/hooks/useCompanyBillingUsage'
 import { Client } from '@/types/database'
 import { 
   Plus,
@@ -22,6 +24,7 @@ import {
 
 export default function ClientsPage() {
   const { user } = useAuth()
+  const { usage: billingUsage } = useCompanyBillingUsage(Boolean(user?.company_id))
   const [clients, setClients] = useState<Client[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -204,6 +207,8 @@ export default function ClientsPage() {
             </button>
           </div>
         </div>
+
+        <PlanUsageBanner usage={billingUsage} focus="clients" />
 
         {/* Search */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
