@@ -246,7 +246,9 @@ export default function EstadisticasPage() {
                 <TrendingUp className="h-6 w-6 text-indigo-600" />
               </div>
               <div className="ml-4 min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-600">Tiempo promedio</p>
+                <p className="text-sm font-medium text-gray-600">
+                  Tiempo promedio de validación (mes en curso)
+                </p>
                 <p className="text-2xl font-bold text-gray-900">
                   {stats.averageLeadTimeResultCount === 0
                     ? '—'
@@ -256,10 +258,10 @@ export default function EstadisticasPage() {
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   {stats.averageLeadTimeResultCount > 0
-                    ? `Ingreso de muestra → validación del resultado · ${stats.averageLeadTimeResultCount} validado${
+                    ? `Muestras ingresadas este mes → validación · ${stats.averageLeadTimeResultCount} validado${
                         stats.averageLeadTimeResultCount === 1 ? '' : 's'
                       }`
-                    : 'Solo resultados con validación e ingreso de muestra fechados'}
+                    : 'Sin muestras ingresadas este mes con validación fechada'}
                 </p>
               </div>
             </div>

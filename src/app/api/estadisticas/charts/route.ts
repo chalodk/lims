@@ -87,7 +87,7 @@ function sampleIngressTimeMs(sample: {
 
 /**
  * Promedio en horas: validation_date del resultado menos ingreso de muestra.
- * (En esquema: validation_date ≈ momento de validación.)
+ * Solo muestras cuyo ingreso (received_at / received_date) cae en el mes calendario en curso.
  */
 type SampleIngressSlice = {
   received_at: string | null
@@ -99,7 +99,19 @@ type ValidatedLeadRow = {
   samples: SampleIngressSlice | SampleIngressSlice[] | null
 }
 
-function computeAverageValidationLeadHours(rows: ValidatedLeadRow[]): { averageHours: number; resultCount: number } {
+function currentCalendarMonthBoundsMs(referenceDate: Date = new Date()): {
+  startMs: number
+  endMs: number
+} {
+  const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1, 0, 0, 0, 0)
+  const end = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 1, 0, 0, 0, 0)
+  return { startMs: start.getTime(), endMs: end.getTime() }
+}
+
+function computeAverageValidationLeadHours(
+  rows: ValidatedLeadRow[],
+  monthBounds: { startMs: number; endMs: number } = currentCalendarMonthBoundsMs()
+): { averageHours: number; resultCount: number } {
   let totalHours = 0
   let usedCount = 0
   for (const row of rows) {
@@ -108,6 +120,8 @@ function computeAverageValidationLeadHours(rows: ValidatedLeadRow[]): { averageH
     const ingressMs = sampleIngressTimeMs(sample)
     const validationMs = row.validation_date ? Date.parse(row.validation_date) : NaN
     if (ingressMs === null || Number.isNaN(validationMs)) continue
+    // KPI acotado al mes en curso por fecha de ingreso de la muestra
+    if (ingressMs < monthBounds.startMs || ingressMs >= monthBounds.endMs) continue
     const deltaMs = validationMs - ingressMs
     if (deltaMs < 0) continue
     totalHours += deltaMs / (1000 * 60 * 60)
@@ -231,6 +245,9 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
       }))
       .sort((a, b) => b.count - a.count)
 
+    const leadTimeMonthBounds = currentCalendarMonthBoundsMs()
+
+    // Validados de la company; el KPI se acota en memoria a muestras ingresadas en el mes en curso.
     const validatedLeadRows = (await fetchAllPages<ValidatedLeadRow>(async (fromInclusive, toInclusive) => {
       if (companyId) {
         return supabase
@@ -259,7 +276,10 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
         .range(fromInclusive, toInclusive)
     })) as ValidatedLeadRow[]
 
-    const { averageHours, resultCount } = computeAverageValidationLeadHours(validatedLeadRows)
+    const { averageHours, resultCount } = computeAverageValidationLeadHours(
+      validatedLeadRows,
+      leadTimeMonthBounds
+    )
 
     return NextResponse.json({
       samplesByMonth,
