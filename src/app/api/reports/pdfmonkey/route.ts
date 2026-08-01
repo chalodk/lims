@@ -769,13 +769,16 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           sampleNematodes.push({ generoEspecie: 'No se encontraron nematodos', cantidad: '0' })
         }
         
-        // Build identificacionCliente: Especie + Variedad (si existe) + (Año) (si existe)
+        // Build identificacionCliente: Especie + Variedad + (Año) + [Portainjerto]
         let identificacion = resultado?.samples?.species || 'Especie no especificada'
         if (resultado?.samples?.variety) {
           identificacion += ` ${resultado.samples.variety}`
         }
         if (resultado?.samples?.planting_year) {
           identificacion += ` (${resultado.samples.planting_year})`
+        }
+        if (resultado?.samples?.rootstock) {
+          identificacion += ` [${resultado.samples.rootstock}]`
         }
         
         resultadosPayload.push({
