@@ -155,6 +155,7 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
 
   useEffect(() => {
     if (isOpen) {
+      setIsSubmitting(false)
       fetchClients()
       fetchProjects()
       loadAnalytes()
@@ -201,18 +202,62 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
     }))
   }
 
+  /** Renueva el token en silencio si está por expirar. No muestra errores al usuario. */
+  const ensureFreshSessionQuietly = async (): Promise<boolean> => {
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !session) {
+        const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession()
+        return !refreshError && !!refreshed.session
+      }
+      const expiresAt = session.expires_at
+      if (expiresAt) {
+        const expiresInSeconds = expiresAt - Math.floor(Date.now() / 1000)
+        if (expiresInSeconds < 120) {
+          const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession()
+          return !refreshError && !!refreshed.session
+        }
+      }
+      return true
+    } catch (error) {
+      console.error('Silent session refresh failed:', error)
+      return false
+    }
+  }
+
+  const postCreateSample = async (
+    requestBody: Record<string, unknown>,
+    signal: AbortSignal
+  ): Promise<Response> => {
+    return fetch('/api/samples', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+      signal,
+    })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isSubmitting) return
+
     setValidationError(null)
     setIsSubmitting(true)
+
+    const abortController = new AbortController()
+    const timeoutId = window.setTimeout(() => abortController.abort(), 60_000)
 
     try {
       // Validation
       if (formData.analysis_types.length === 0) {
         setValidationError('Debe seleccionar al menos un tipo de análisis')
-        setIsSubmitting(false)
         return
       }
+
+      // Refresh silencioso (el usuario no ve mensajes de sesión)
+      await ensureFreshSessionQuietly()
 
       const requestBody: Record<string, unknown> = {
         client_id: formData.client_id,
@@ -244,32 +289,48 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
         analysis_types: formData.analysis_types
       }
 
-      const url = '/api/samples'
-      const method = 'POST'
+      let response = await postCreateSample(requestBody, abortController.signal)
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      })
+      // 401: un retry silencioso tras refresh; sin mencionar sesión al usuario
+      if (response.status === 401) {
+        const refreshed = await ensureFreshSessionQuietly()
+        if (refreshed && !abortController.signal.aborted) {
+          response = await postCreateSample(requestBody, abortController.signal)
+        }
+      }
 
       if (!response.ok) {
-        const errorData = await response.json()
-        const errorMessage = errorData.error || 'Failed to create sample'
-        
+        let errorMessage = 'No se pudo crear la muestra. Intenta nuevamente.'
+        try {
+          const errorData = await response.json()
+          if (typeof errorData.error === 'string' && errorData.error.trim()) {
+            errorMessage = errorData.error
+          }
+        } catch {
+          // ignore JSON parse errors
+        }
+
+        if (response.status === 401) {
+          setValidationError('No se pudo crear la muestra. Intenta nuevamente.')
+          return
+        }
+
         // Parse common database errors
         if (errorMessage.includes('NOT NULL')) {
-          setValidationError('Uno o más campos obligatorios están vacíos')
+          setValidationError('Uno o más campos obligatorios estaban vacíos')
         } else if (errorMessage.includes('FOREIGN KEY')) {
           setValidationError('Uno de los valores seleccionados no existe en la base de datos')
         } else if (errorMessage.includes('CHECK')) {
           setValidationError('Uno de los valores seleccionados no es válido según las restricciones')
+        } else if (
+          errorMessage.toLowerCase().includes('unauthorized') ||
+          errorMessage.toLowerCase().includes('sesión') ||
+          errorMessage.toLowerCase().includes('session')
+        ) {
+          setValidationError('No se pudo crear la muestra. Intenta nuevamente.')
         } else {
           setValidationError(errorMessage)
         }
-        setIsSubmitting(false)
         return
       }
 
@@ -308,7 +369,13 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
       setValidationError(null)
     } catch (error: unknown) {
       console.error('Error creating sample:', error)
-      setValidationError('Error al crear la muestra: ' + (error instanceof Error ? error.message : 'Error desconocido'))
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setValidationError('La creación tardó demasiado. Verifica si la muestra se creó; si no, intenta nuevamente.')
+      } else {
+        setValidationError('No se pudo crear la muestra. Intenta nuevamente.')
+      }
+    } finally {
+      window.clearTimeout(timeoutId)
       setIsSubmitting(false)
     }
   }
@@ -758,7 +825,11 @@ export default function CreateSampleModal({ isOpen, onClose, onSuccess }: Create
               </button>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={() => {
+                  setIsSubmitting(false)
+                  setValidationError(null)
+                  onClose()
+                }}
                 className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
               >
                 Cancelar
