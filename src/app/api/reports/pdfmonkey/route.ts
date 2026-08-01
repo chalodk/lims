@@ -249,13 +249,16 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         
         const tests = Array.isArray((findings as Record<string, unknown>)?.tests) ? (findings as Record<string, unknown>).tests as unknown[] : []
         
-        // Build sample identification: Especie + Variedad (si existe) + (Año) (si existe)
+        // Build sample identification: Especie + Variedad + (Año) + [Portainjerto]
         let sampleIdentification = resultado?.samples?.species || 'Especie no especificada'
         if (resultado?.samples?.variety) {
           sampleIdentification += ` ${resultado.samples.variety}`
         }
         if (resultado?.samples?.planting_year) {
           sampleIdentification += ` (${resultado.samples.planting_year})`
+        }
+        if (resultado?.samples?.rootstock) {
+          sampleIdentification += ` [${resultado.samples.rootstock}]`
         }
         
         // Add tests with sample identification
@@ -328,7 +331,10 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         informacionGeneral: {
           especie: (resultados[0] as ResultadoData)?.samples?.species || 'No especificado',
           cuartel: '',
-          variedadPortainjerto: (resultados[0] as ResultadoData)?.samples?.variety || '',
+          variedadPortainjerto: [
+            (resultados[0] as ResultadoData)?.samples?.variety,
+            (resultados[0] as ResultadoData)?.samples?.rootstock
+          ].filter(Boolean).join(' / '),
           anoPlantacion: (resultados[0] as ResultadoData)?.samples?.planting_year ? String((resultados[0] as ResultadoData).samples!.planting_year) : '',
           organoAnalizado: [...new Set(resultados.map(r => (r as ResultadoData)?.samples?.organo_analizado).filter(Boolean))].join(', ')
         },
@@ -362,7 +368,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
 
       // Combine findings from all resultados
       const allTests: unknown[] = []
-      const allVarieties: string[] = []
+      const allVarietyLabels: string[] = []
 
       resultados.forEach((resultado, resultIdx) => {
         let findings = resultado?.findings as unknown
@@ -371,27 +377,29 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         }
         
         const tests = Array.isArray((findings as Record<string, unknown>)?.tests) ? (findings as Record<string, unknown>).tests as unknown[] : []
+        const sampleRootstock = resultado?.samples?.rootstock || null
         
         // Add tests with sample identification
         tests.forEach((test: unknown) => {
           const testObj = test as Record<string, unknown>
+          const varietyLabel = [testObj.variety as string | undefined, sampleRootstock]
+            .filter(Boolean)
+            .join(' / ')
+
           allTests.push({
             ...testObj,
             sample_code: resultado?.samples?.code || `SAMPLE-${resultIdx + 1}`,
-            sample_id: resultado?.sample_id
+            sample_id: resultado?.sample_id,
+            variety_label: varietyLabel || null
           })
-        })
 
-        // Collect varieties
-        tests.forEach((t: unknown) => {
-          const test = t as Record<string, unknown>
-          if (test.variety) allVarieties.push(test.variety as string)
+          if (varietyLabel) allVarietyLabels.push(varietyLabel)
         })
       })
 
       // Get sample data for tipoMuestra description
       const sampleSpecies = resultados[0]?.samples?.species || 'No especificado'
-      const varieties = Array.from(new Set(allVarieties))
+      const varieties = Array.from(new Set(allVarietyLabels))
       const varietiesText = varieties.length > 0 ? varieties.join(', ') : 'No especificado'
       
       const tipoMuestraDesc = `${allTests.length} muestras de ${sampleSpecies} de las variedades ${varietiesText}.`
@@ -406,7 +414,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         return {
           numeroMuestra: test.sample_code as string || String(idx + 1),
           numeroCuartel: test.identification || `Cuartel ${idx + 1}`,
-          variedad: test.variety || 'No especificado',
+          variedad: (test.variety_label as string) || (test.variety as string) || 'No especificado',
           racimosEvaluados: parseInt(test.units_evaluated as string) || 0,
           escalaSeveridad: {
             nota0: parseInt((test.severity_scale as Record<string, string>)['0']) || 0,
