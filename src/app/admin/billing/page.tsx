@@ -7,6 +7,18 @@ import DashboardLayout from '@/components/layout/DashboardLayout'
 import { BILLING_TIERS, PLAN_TIER_KEYS, TRIAL_DURATION_DAYS, formatTierPriceLabel, type PlanTier } from '@/config/billingTiers'
 import type { CompanyUsageSnapshot } from '@/lib/services/companyUsageService'
 import { CreditCard, Loader2, Save, Sparkles } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { fieldClassName } from '@/components/ui/form-field-styles'
 
 function formatLimit(value: number | null): string {
   return value === null ? '∞' : String(value)
@@ -140,166 +152,186 @@ export default function AdminBillingPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
-        <div className="mb-6 flex items-start gap-3">
-          <div className="p-2 bg-green-100 rounded-lg">
+      <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
+        <div className="flex items-start gap-3">
+          <div className="rounded-lg bg-green-100 p-2">
             <CreditCard className="h-6 w-6 text-green-700" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Billing / Planes</h1>
-            <p className="text-gray-600">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Billing / Planes
+            </h1>
+            <p className="text-sm text-muted-foreground">
               Uso por compañía vs tier. Prueba gratuita {TRIAL_DURATION_DAYS} días · cobro manual.
             </p>
           </div>
         </div>
 
-        {error && (
-          <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        {error ? (
+          <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
-        )}
-        {successMsg && (
-          <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        ) : null}
+        {successMsg ? (
+          <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
             {successMsg}
           </div>
-        )}
+        ) : null}
 
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-500">Compañía</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-500">Prueba</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-500">Muestras/mes</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-500">Clientes</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-500">Plan</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-500">Sugerido</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-500">Precio</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-500">Notas</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-500">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {companies.map((row) => {
-                const draftTier = draftTiers[row.companyId] ?? row.planTier
-                const priceLabel = formatTierPriceLabel(draftTier)
-                const needsAttention =
-                  row.overLimit ||
-                  row.isTrialExpired ||
-                  row.suggestedTier !== row.planTier
-                return (
-                  <tr
-                    key={row.companyId}
-                    className={
-                      row.isTrialActive
-                        ? 'bg-sky-50/50'
-                        : needsAttention
-                          ? 'bg-amber-50/40'
-                          : undefined
-                    }
-                  >
-                    <td className="px-4 py-3 font-medium text-gray-900">{row.companyName}</td>
-                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
-                      {row.isTrialActive ? (
-                        <span className="text-sky-700 font-medium">
-                          Activa · {row.trialDaysRemaining}d
-                        </span>
-                      ) : row.isTrialExpired ? (
-                        <span className="text-amber-700">Vencida</span>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">
-                      {row.samplesThisMonth} / {formatLimit(row.limits.maxSamplesPerMonth)}
-                      {row.samplesOverLimit && (
-                        <span className="ml-1 text-amber-700 text-xs">over</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">
-                      {row.clientCount} / {formatLimit(row.limits.maxClients)}
-                      {row.clientsOverLimit && (
-                        <span className="ml-1 text-amber-700 text-xs">over</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <select
-                        value={draftTier}
-                        onChange={(e) =>
-                          setDraftTiers((prev) => ({
-                            ...prev,
-                            [row.companyId]: e.target.value as PlanTier,
-                          }))
-                        }
-                        className="border border-gray-300 rounded-md px-2 py-1"
-                      >
-                        {PLAN_TIER_KEYS.map((tierKey) => (
-                          <option key={tierKey} value={tierKey}>
-                            {BILLING_TIERS[tierKey].label}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">
-                      {BILLING_TIERS[row.suggestedTier].label}
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">{priceLabel ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      <input
-                        type="text"
-                        value={draftNotes[row.companyId] ?? ''}
-                        onChange={(e) =>
-                          setDraftNotes((prev) => ({
-                            ...prev,
-                            [row.companyId]: e.target.value,
-                          }))
-                        }
-                        placeholder="Notas de facturación"
-                        className="w-44 border border-gray-300 rounded-md px-2 py-1"
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => void handleSave(row.companyId)}
-                          disabled={savingId === row.companyId}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-                        >
-                          {savingId === row.companyId ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Save className="h-3.5 w-3.5" />
-                          )}
-                          Guardar
-                        </button>
-                        {!row.isTrialActive && (
-                          <button
-                            type="button"
-                            onClick={() => void handleStartTrial(row.companyId, row.companyName)}
-                            disabled={savingId === row.companyId}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-sky-300 text-sky-800 bg-sky-50 hover:bg-sky-100 disabled:opacity-50"
-                          >
-                            <Sparkles className="h-3.5 w-3.5" />
-                            Prueba {TRIAL_DURATION_DAYS}d
-                          </button>
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-gray-100 py-3">
+            <CardTitle className="text-base">Compañías y planes</CardTitle>
+            <CardDescription>
+              {companies.length} compañía{companies.length === 1 ? '' : 's'}
+            </CardDescription>
+          </CardHeader>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Compañía</TableHead>
+                  <TableHead>Prueba</TableHead>
+                  <TableHead>Muestras/mes</TableHead>
+                  <TableHead>Clientes</TableHead>
+                  <TableHead>Plan</TableHead>
+                  <TableHead>Sugerido</TableHead>
+                  <TableHead>Precio</TableHead>
+                  <TableHead>Notas</TableHead>
+                  <TableHead>Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {companies.map((row) => {
+                  const draftTier = draftTiers[row.companyId] ?? row.planTier
+                  const priceLabel = formatTierPriceLabel(draftTier)
+                  const needsAttention =
+                    row.overLimit ||
+                    row.isTrialExpired ||
+                    row.suggestedTier !== row.planTier
+                  return (
+                    <TableRow
+                      key={row.companyId}
+                      className={
+                        row.isTrialActive
+                          ? 'bg-sky-50/50'
+                          : needsAttention
+                            ? 'bg-amber-50/40'
+                            : undefined
+                      }
+                    >
+                      <TableCell className="font-medium text-foreground">
+                        {row.companyName}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                        {row.isTrialActive ? (
+                          <span className="font-medium text-sky-700">
+                            Activa · {row.trialDaysRemaining}d
+                          </span>
+                        ) : row.isTrialExpired ? (
+                          <span className="text-amber-700">Vencida</span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-              {companies.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
-                    No hay compañías registradas
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {row.samplesThisMonth} / {formatLimit(row.limits.maxSamplesPerMonth)}
+                        {row.samplesOverLimit ? (
+                          <span className="ml-1 text-xs text-amber-700">over</span>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {row.clientCount} / {formatLimit(row.limits.maxClients)}
+                        {row.clientsOverLimit ? (
+                          <span className="ml-1 text-xs text-amber-700">over</span>
+                        ) : null}
+                      </TableCell>
+                      <TableCell>
+                        <select
+                          value={draftTier}
+                          onChange={(e) =>
+                            setDraftTiers((prev) => ({
+                              ...prev,
+                              [row.companyId]: e.target.value as PlanTier,
+                            }))
+                          }
+                          className={`${fieldClassName} h-8 w-auto`}
+                        >
+                          {PLAN_TIER_KEYS.map((tierKey) => (
+                            <option key={tierKey} value={tierKey}>
+                              {BILLING_TIERS[tierKey].label}
+                            </option>
+                          ))}
+                        </select>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {BILLING_TIERS[row.suggestedTier].label}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {priceLabel ?? '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="text"
+                          value={draftNotes[row.companyId] ?? ''}
+                          onChange={(e) =>
+                            setDraftNotes((prev) => ({
+                              ...prev,
+                              [row.companyId]: e.target.value,
+                            }))
+                          }
+                          placeholder="Notas de facturación"
+                          className="h-8 w-44"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1.5">
+                          <Button
+                            type="button"
+                            onClick={() => void handleSave(row.companyId)}
+                            disabled={savingId === row.companyId}
+                            size="sm"
+                            className="gap-1"
+                          >
+                            {savingId === row.companyId ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Save className="h-3.5 w-3.5" />
+                            )}
+                            Guardar
+                          </Button>
+                          {!row.isTrialActive ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                void handleStartTrial(row.companyId, row.companyName)
+                              }
+                              disabled={savingId === row.companyId}
+                              className="gap-1"
+                            >
+                              <Sparkles className="h-3.5 w-3.5" />
+                              Prueba {TRIAL_DURATION_DAYS}d
+                            </Button>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+                {companies.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
+                      No hay compañías registradas
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
       </div>
     </DashboardLayout>
   )
+
 }

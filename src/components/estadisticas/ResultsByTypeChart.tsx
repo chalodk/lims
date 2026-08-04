@@ -10,15 +10,15 @@ export type ResultsByTypeRow = {
 
 const ANALYSIS_AREA_PALETTE = [
   '#16a34a',
-  '#2563eb',
-  '#dc2626',
-  '#ca8a04',
-  '#9333ea',
-  '#0891b2',
-  '#ea580c',
-  '#4f46e5',
-  '#059669',
-  '#7c3aed'
+  '#4b5563',
+  '#15803d',
+  '#6b7280',
+  '#22c55e',
+  '#374151',
+  '#86efac',
+  '#9ca3af',
+  '#166534',
+  '#d1d5db'
 ]
 
 function sliceColor(typeKey: string, index: number): string {

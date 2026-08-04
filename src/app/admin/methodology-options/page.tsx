@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { FlaskConical, Loader2, Plus, Edit, X, Check, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { fieldClassName } from '@/components/ui/form-field-styles'
 
 interface MethodologyOption {
   id: string
@@ -187,14 +190,13 @@ export default function MethodologyOptionsPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
-        <div className="mb-8">
-          <div className="flex items-center space-x-3 mb-2">
-            <FlaskConical className="h-8 w-8 text-green-600" />
-            <h1 className="text-3xl font-bold text-gray-900">Metodologias y Tecnicas</h1>
-          </div>
-          <p className="text-gray-600">
-            Gestiona las opciones de metodologia y tecnicas de identificacion disponibles en los resultados.
+      <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Metodologías y técnicas
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Gestiona las opciones de metodología y técnicas de identificación disponibles en los resultados.
           </p>
         </div>
 
@@ -217,13 +219,13 @@ export default function MethodologyOptionsPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Metodologias */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <div className="p-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Metodologias ({methodologies.length})
-                </h2>
-              </div>
-              <div className="p-4 space-y-2">
+            <Card>
+              <CardHeader className="border-b border-gray-100 py-3">
+                <CardTitle className="text-base">
+                  Metodologías ({methodologies.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 p-4">
                 {methodologies.map((option) => (
                   <div
                     key={option.id}
@@ -236,7 +238,7 @@ export default function MethodologyOptionsPage() {
                             type="text"
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
-                            className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-green-500"
+                            className={`${fieldClassName} h-8`}
                             autoFocus
                           />
                           <button
@@ -299,7 +301,7 @@ export default function MethodologyOptionsPage() {
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
                       placeholder="Nueva metodologia..."
-                      className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-green-500"
+                      className={`${fieldClassName} h-8`}
                       autoFocus
                       onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
                     />
@@ -321,29 +323,31 @@ export default function MethodologyOptionsPage() {
                     </button>
                   </div>
                 ) : (
-                  <button
+                  <Button
+                    type="button"
+                    variant="ghost"
                     onClick={() => {
                       setIsCreating(true)
                       setNewCategory('methodology')
                       setNewName('')
                     }}
-                    className="flex items-center space-x-1 text-sm text-green-600 hover:text-green-800 mt-2"
+                    className="mt-2 gap-1 text-green-700"
                   >
                     <Plus className="h-4 w-4" />
-                    <span>Agregar metodologia</span>
-                  </button>
+                    Agregar metodología
+                  </Button>
                 )}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
             {/* Tecnicas */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <div className="p-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Tecnicas de Identificacion ({techniques.length})
-                </h2>
-              </div>
-              <div className="p-4 space-y-2">
+            <Card>
+              <CardHeader className="border-b border-gray-100 py-3">
+                <CardTitle className="text-base">
+                  Técnicas de identificación ({techniques.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 p-4">
                 {techniques.map((option) => (
                   <div
                     key={option.id}
@@ -356,7 +360,7 @@ export default function MethodologyOptionsPage() {
                             type="text"
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
-                            className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-green-500"
+                            className={`${fieldClassName} h-8`}
                             autoFocus
                           />
                           <button
@@ -419,7 +423,7 @@ export default function MethodologyOptionsPage() {
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
                       placeholder="Nueva tecnica..."
-                      className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-green-500"
+                      className={`${fieldClassName} h-8`}
                       autoFocus
                       onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
                     />
@@ -441,20 +445,22 @@ export default function MethodologyOptionsPage() {
                     </button>
                   </div>
                 ) : (
-                  <button
+                  <Button
+                    type="button"
+                    variant="ghost"
                     onClick={() => {
                       setIsCreating(true)
                       setNewCategory('technique')
                       setNewName('')
                     }}
-                    className="flex items-center space-x-1 text-sm text-green-600 hover:text-green-800 mt-2"
+                    className="mt-2 gap-1 text-green-700"
                   >
                     <Plus className="h-4 w-4" />
-                    <span>Agregar tecnica</span>
-                  </button>
+                    Agregar técnica
+                  </Button>
                 )}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>

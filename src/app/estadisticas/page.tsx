@@ -22,6 +22,14 @@ import {
 } from '@/components/estadisticas/ResultsByTypeChart'
 import PlanUsageCard from '@/components/billing/PlanUsageCard'
 import { useCompanyBillingUsage } from '@/hooks/useCompanyBillingUsage'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 
 export default function EstadisticasPage() {
   const { role } = useAuth()
@@ -157,14 +165,14 @@ export default function EstadisticasPage() {
 
         {role?.id === 1 && (
           <div className="mb-6">
-            <button
+            <Button
               onClick={handleSolicitarDatos}
               disabled={solicitarStatus === 'loading'}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="gap-2"
             >
               <Mail className="h-4 w-4" />
               {solicitarStatus === 'loading' ? 'Enviando solicitud...' : 'Solicitar todos los datos'}
-            </button>
+            </Button>
             {solicitarStatus === 'success' && (
               <p className="mt-2 text-sm text-green-600 font-medium">
                 Solicitud enviada con éxito. Recibirás los datos por correo electrónico.
@@ -180,113 +188,135 @@ export default function EstadisticasPage() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <TestTube className="h-6 w-6 text-blue-600" />
+          <Card className="border-gray-200 shadow-sm">
+            <CardContent className="pt-2">
+              <div className="flex items-center">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <TestTube className="h-6 w-6 text-green-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Muestras</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalSamples}</p>
+                </div>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Muestras</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalSamples}</p>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <CheckCircle className="h-6 w-6 text-green-600" />
+          <Card className="border-gray-200 shadow-sm">
+            <CardContent className="pt-2">
+              <div className="flex items-center">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <CheckCircle className="h-6 w-6 text-green-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Resultados</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalResults}</p>
+                </div>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Resultados</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalResults}</p>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="flex items-center">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Users className="h-6 w-6 text-purple-600" />
+          <Card className="border-gray-200 shadow-sm">
+            <CardContent className="pt-2">
+              <div className="flex items-center">
+                <div className="p-2 bg-gray-100 rounded-lg">
+                  <Users className="h-6 w-6 text-gray-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Clientes</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalClients}</p>
+                </div>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Clientes</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalClients}</p>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="flex items-center">
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <Clock className="h-6 w-6 text-yellow-600" />
+          <Card className="border-gray-200 shadow-sm">
+            <CardContent className="pt-2">
+              <div className="flex items-center">
+                <div className="p-2 bg-yellow-100 rounded-lg">
+                  <Clock className="h-6 w-6 text-yellow-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Pendientes</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.pendingResults}</p>
+                </div>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Pendientes</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.pendingResults}</p>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <Calendar className="h-6 w-6 text-green-600" />
+          <Card className="border-gray-200 shadow-sm">
+            <CardContent className="pt-2">
+              <div className="flex items-center">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Calendar className="h-6 w-6 text-green-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Completados Hoy</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.completedToday}</p>
+                </div>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Completados Hoy</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.completedToday}</p>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="flex items-center">
-              <div className="p-2 bg-indigo-100 rounded-lg">
-                <TrendingUp className="h-6 w-6 text-indigo-600" />
+          <Card className="border-gray-200 shadow-sm">
+            <CardContent className="pt-2">
+              <div className="flex items-center">
+                <div className="p-2 bg-gray-100 rounded-lg">
+                  <TrendingUp className="h-6 w-6 text-gray-600" />
+                </div>
+                <div className="ml-4 min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-600">
+                    Tiempo promedio de validación (mes en curso)
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {stats.averageLeadTimeResultCount === 0
+                      ? '—'
+                      : `${stats.averageProcessingTime?.toLocaleString('es', {
+                          maximumFractionDigits: 1
+                        })} h`}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {stats.averageLeadTimeResultCount > 0
+                      ? `Muestras ingresadas este mes → validación · ${stats.averageLeadTimeResultCount} validado${
+                          stats.averageLeadTimeResultCount === 1 ? '' : 's'
+                        }`
+                      : 'Sin muestras ingresadas este mes con validación fechada'}
+                  </p>
+                </div>
               </div>
-              <div className="ml-4 min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-600">
-                  Tiempo promedio de validación (mes en curso)
-                </p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {stats.averageLeadTimeResultCount === 0
-                    ? '—'
-                    : `${stats.averageProcessingTime?.toLocaleString('es', {
-                        maximumFractionDigits: 1
-                      })} h`}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {stats.averageLeadTimeResultCount > 0
-                    ? `Muestras ingresadas este mes → validación · ${stats.averageLeadTimeResultCount} validado${
-                        stats.averageLeadTimeResultCount === 1 ? '' : 's'
-                      }`
-                    : 'Sin muestras ingresadas este mes con validación fechada'}
-                </p>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Muestras por mes</h3>
-              <p className="text-sm text-gray-500">Últimos 12 meses según fecha de registro</p>
-            </div>
-            <SamplesByMonthChart data={samplesByMonth} />
-          </div>
+          <Card className="border-gray-200 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-gray-900">
+                Muestras por mes
+              </CardTitle>
+              <CardDescription>
+                Últimos 12 meses según fecha de registro
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SamplesByMonthChart data={samplesByMonth} />
+            </CardContent>
+          </Card>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Resultados por tipo de análisis</h3>
-              <p className="text-sm text-gray-500">
+          <Card className="border-gray-200 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-gray-900">
+                Resultados por tipo de análisis
+              </CardTitle>
+              <CardDescription>
                 Cantidad de resultados según área / tipo de análisis registrado en cada resultado
-              </p>
-            </div>
-            <ResultsByTypeChart data={resultsByType} />
-          </div>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResultsByTypeChart data={resultsByType} />
+            </CardContent>
+          </Card>
         </div>
       </div>
     </DashboardLayout>

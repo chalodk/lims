@@ -6,6 +6,19 @@ import { useAuth } from '@/hooks/useAuth'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { Microscope, Loader2, Plus, Edit, Trash2, Save, X, Search, RefreshCw } from 'lucide-react'
 import { AnalysisTypeRow } from '@/types/database'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { fieldClassName, textareaClassName } from '@/components/ui/form-field-styles'
 
 interface FormData {
   key: string
@@ -214,327 +227,232 @@ export default function AnalysisTypesAdminPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3">
-            <Microscope className="h-8 w-8 text-green-600" />
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Tipos de Analisis</h1>
-              <p className="text-gray-600 mt-1">
-                Gestiona los tipos de analisis del laboratorio. Los cambios se reflejan en la interfaz de generacion de informes.
-              </p>
-            </div>
+      <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Tipos de análisis
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Gestiona los tipos de análisis del laboratorio. Los cambios se reflejan en la interfaz de generación de informes.
+            </p>
           </div>
+          <Button type="button" onClick={openCreate} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Nuevo tipo
+          </Button>
         </div>
 
-        {/* Content card */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          {/* Card header */}
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <Microscope className="h-5 w-5 text-green-600" />
-                  Tipos registrados
-                </h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  {types.length} tipo{types.length !== 1 ? 's' : ''} en total
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Actions bar */}
-          <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
+        <Card>
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
                 type="text"
                 placeholder="Buscar por key o label..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="pl-9"
               />
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => fetchTypes(true)}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-100"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refrescar
-              </button>
-              <button
-                onClick={openCreate}
-                className="inline-flex items-center px-3 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Nuevo tipo
-              </button>
-            </div>
+            <Button type="button" variant="outline" onClick={() => fetchTypes(true)} className="gap-2">
+              <RefreshCw className="h-4 w-4" />
+              Refrescar
+            </Button>
+          </CardContent>
+        </Card>
+
+        {error ? (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {error}
+            <button type="button" onClick={() => setError(null)} className="ml-2 underline">
+              Cerrar
+            </button>
           </div>
+        ) : null}
 
-          {/* Error banner */}
-          {error && (
-            <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-              {error}
-              <button onClick={() => setError(null)} className="ml-2 underline">Cerrar</button>
-            </div>
-          )}
-
-          {/* Form modal (inline) */}
-          {(isCreating || editingId) && (
-            <div className="m-6 p-6 bg-gray-50 border border-gray-200 rounded-lg">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {isCreating ? 'Nuevo tipo de analisis' : 'Editar tipo de analisis'}
-                </h3>
-                <button onClick={closeForm} className="p-1 hover:bg-gray-200 rounded">
-                  <X className="h-5 w-5 text-gray-500" />
-                </button>
+        {(isCreating || editingId) && (
+          <Card>
+            <CardHeader className="border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">
+                  {isCreating ? 'Nuevo tipo de análisis' : 'Editar tipo de análisis'}
+                </CardTitle>
+                <Button type="button" variant="ghost" size="icon-sm" onClick={closeForm}>
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-
-              {formError && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+            </CardHeader>
+            <CardContent className="space-y-4 p-4">
+              {formError ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                   {formError}
                 </div>
-              )}
+              ) : null}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Key *</label>
-                  <input
-                    type="text"
-                    value={form.key}
-                    onChange={(e) => updateForm('key', e.target.value)}
-                    placeholder="virology"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Identificador unico en ingles, sin espacios.</p>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Key *</label>
+                  <Input type="text" value={form.key} onChange={(e) => updateForm('key', e.target.value)} placeholder="virology" className={fieldClassName} />
+                  <p className="mt-1 text-xs text-muted-foreground">Identificador único en inglés, sin espacios.</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Label *</label>
-                  <input
-                    type="text"
-                    value={form.label}
-                    onChange={(e) => updateForm('label', e.target.value)}
-                    placeholder="Virologico"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
-                  />
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Label *</label>
+                  <Input type="text" value={form.label} onChange={(e) => updateForm('label', e.target.value)} placeholder="Virologico" className={fieldClassName} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Inicial</label>
-                  <input
-                    type="text"
-                    value={form.initial}
-                    onChange={(e) => updateForm('initial', e.target.value)}
-                    placeholder="V"
-                    maxLength={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
-                  />
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Inicial</label>
+                  <Input type="text" value={form.initial} onChange={(e) => updateForm('initial', e.target.value)} placeholder="V" maxLength={3} className={fieldClassName} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Color fondo</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Color fondo</label>
                   <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={form.bg_color}
-                      onChange={(e) => updateForm('bg_color', e.target.value)}
-                      placeholder="bg-indigo-600"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
-                    />
-                    <span className={`w-8 h-8 rounded-full ${form.bg_color}`} />
+                    <Input type="text" value={form.bg_color} onChange={(e) => updateForm('bg_color', e.target.value)} placeholder="bg-green-600" className={`flex-1 ${fieldClassName}`} />
+                    <span className={`h-8 w-8 rounded-full ${form.bg_color}`} />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Color texto</label>
-                  <input
-                    type="text"
-                    value={form.text_color}
-                    onChange={(e) => updateForm('text_color', e.target.value)}
-                    placeholder="text-white"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
-                  />
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Color texto</label>
+                  <Input type="text" value={form.text_color} onChange={(e) => updateForm('text_color', e.target.value)} placeholder="text-white" className={fieldClassName} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">DB Areas</label>
-                  <input
-                    type="text"
-                    value={form.db_areas}
-                    onChange={(e) => updateForm('db_areas', e.target.value)}
-                    placeholder="virologia, bacteriologia"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Separadas por coma. Ej: nematologia, fitopatologia.</p>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">DB Areas</label>
+                  <Input type="text" value={form.db_areas} onChange={(e) => updateForm('db_areas', e.target.value)} placeholder="virologia, bacteriologia" className={fieldClassName} />
+                  <p className="mt-1 text-xs text-muted-foreground">Separadas por coma. Ej: nematologia, fitopatologia.</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Template Env Var</label>
-                  <input
-                    type="text"
-                    value={form.template_env_var}
-                    onChange={(e) => updateForm('template_env_var', e.target.value)}
-                    placeholder="PDFMONKEY_TEMPLATE_VIROLOGY"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
-                  />
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Template Env Var</label>
+                  <Input type="text" value={form.template_env_var} onChange={(e) => updateForm('template_env_var', e.target.value)} placeholder="PDFMONKEY_TEMPLATE_VIROLOGY" className={fieldClassName} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">PDFMonkey Template ID</label>
-                  <input
-                    type="text"
-                    value={form.pdfmonkey_template_id}
-                    onChange={(e) => updateForm('pdfmonkey_template_id', e.target.value)}
-                    placeholder="00000000-0000-0000-0000-000000000000"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
-                  />
+                  <label className="mb-1 block text-sm font-medium text-gray-700">PDFMonkey Template ID</label>
+                  <Input type="text" value={form.pdfmonkey_template_id} onChange={(e) => updateForm('pdfmonkey_template_id', e.target.value)} placeholder="00000000-0000-0000-0000-000000000000" className={fieldClassName} />
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Titulo informe</label>
-                  <input
-                    type="text"
-                    value={form.titulo_informe}
-                    onChange={(e) => updateForm('titulo_informe', e.target.value)}
-                    placeholder="INFORME VIROLOGICO"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
-                  />
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Título informe</label>
+                  <Input type="text" value={form.titulo_informe} onChange={(e) => updateForm('titulo_informe', e.target.value)} placeholder="INFORME VIROLOGICO" className={fieldClassName} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Descripcion tipo analisis</label>
-                  <textarea
-                    value={form.tipo_analisis_descripcion}
-                    onChange={(e) => updateForm('tipo_analisis_descripcion', e.target.value)}
-                    rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
-                  />
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Descripción tipo análisis</label>
+                  <textarea value={form.tipo_analisis_descripcion} onChange={(e) => updateForm('tipo_analisis_descripcion', e.target.value)} rows={2} className={textareaClassName} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Descripcion metodologia</label>
-                  <textarea
-                    value={form.metodologia_descripcion}
-                    onChange={(e) => updateForm('metodologia_descripcion', e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
-                  />
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Descripción metodología</label>
+                  <textarea value={form.metodologia_descripcion} onChange={(e) => updateForm('metodologia_descripcion', e.target.value)} rows={3} className={textareaClassName} />
                 </div>
               </div>
 
-              <div className="mt-6 flex justify-end gap-2">
-                <button
-                  onClick={closeForm}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-100"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving || !form.key || !form.label}
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
-                >
-                  {saving ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Save className="h-4 w-4 mr-2" />
-                  )}
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={closeForm}>Cancelar</Button>
+                <Button type="button" onClick={handleSave} disabled={saving || !form.key || !form.label} className="gap-2">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   {editingId ? 'Guardar cambios' : 'Crear tipo'}
-                </button>
+                </Button>
               </div>
-            </div>
-          )}
+            </CardContent>
+          </Card>
+        )}
 
-          {/* Table */}
-          <div className="overflow-x-auto">
-            {filteredTypes.length === 0 && !isLoading ? (
-              <div className="p-12 text-center text-gray-500">
-                {searchQuery ? 'Sin resultados para esta busqueda.' : 'No hay tipos de analisis registrados.'}
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-gray-100 py-3">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Microscope className="h-4 w-4 text-green-700" />
+                  Tipos registrados
+                </CardTitle>
+                <CardDescription>
+                  {filteredTypes.length > 0 ? 'Lista de tipos de análisis' : 'Sin resultados'}
+                </CardDescription>
               </div>
-            ) : (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Key</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DB Areas</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Template</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Activo</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+              <p className="text-xs font-medium text-muted-foreground">
+                {types.length} tipo{types.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+          </CardHeader>
+
+          {filteredTypes.length === 0 && !isLoading ? (
+            <CardContent className="py-12 text-center text-muted-foreground">
+              {searchQuery ? 'Sin resultados para esta búsqueda.' : 'No hay tipos de análisis registrados.'}
+            </CardContent>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Key</TableHead>
+                    <TableHead className="hidden md:table-cell">DB Areas</TableHead>
+                    <TableHead className="hidden lg:table-cell">Template</TableHead>
+                    <TableHead>Activo</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {filteredTypes.map((t) => (
-                    <tr key={t.id} className={!t.active ? 'opacity-50' : ''}>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                    <TableRow key={t.id} className={!t.active ? 'opacity-50' : undefined}>
+                      <TableCell>
                         <div className="flex items-center gap-3">
-                          <span className={`w-8 h-8 rounded-full ${t.bg_color} ${t.text_color} flex items-center justify-center text-sm font-bold`}>
+                          <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${t.bg_color} ${t.text_color}`}>
                             {t.initial}
                           </span>
-                          <span className="font-medium text-gray-900">{t.label}</span>
+                          <span className="font-medium text-foreground">{t.label}</span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <code className="text-xs bg-gray-100 px-2 py-1 rounded">{t.key}</code>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      </TableCell>
+                      <TableCell>
+                        <code className="rounded bg-muted px-2 py-1 text-xs">{t.key}</code>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <div className="flex flex-wrap gap-1">
                           {(t.db_areas || []).map((area) => (
-                            <span key={area} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                            <Badge key={area} variant="outline" className="font-normal">
                               {area}
-                            </span>
+                            </Badge>
                           ))}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         {t.template_env_var ? (
-                          <code className="text-xs bg-gray-100 px-2 py-1 rounded">{t.template_env_var}</code>
+                          <code className="rounded bg-muted px-2 py-1 text-xs">{t.template_env_var}</code>
                         ) : (
-                          <span className="text-gray-400 text-xs">—</span>
+                          <span className="text-xs text-muted-foreground">—</span>
                         )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      </TableCell>
+                      <TableCell>
                         {t.active ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Activo</span>
+                          <Badge variant="outline" className="border-green-200 bg-green-50 font-normal text-green-800">Activo</Badge>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Inactivo</span>
+                          <Badge variant="outline" className="border-red-200 bg-red-50 font-normal text-red-800">Inactivo</Badge>
                         )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => openEdit(t)}
-                            className="p-1 hover:bg-gray-100 rounded text-gray-600"
-                            title="Editar"
-                          >
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="inline-flex items-center justify-end gap-1">
+                          <Button type="button" variant="ghost" size="icon-sm" onClick={() => openEdit(t)} title="Editar">
                             <Edit className="h-4 w-4" />
-                          </button>
+                          </Button>
                           {t.active ? (
-                            <button
-                              onClick={() => handleDeactivate(t)}
-                              className="p-1 hover:bg-red-50 rounded text-red-600"
-                              title="Desactivar"
-                            >
+                            <Button type="button" variant="ghost" size="icon-sm" onClick={() => handleDeactivate(t)} title="Desactivar" className="text-destructive hover:text-destructive">
                               <Trash2 className="h-4 w-4" />
-                            </button>
+                            </Button>
                           ) : (
-                            <button
-                              onClick={() => handleReactivate(t)}
-                              className="p-1 hover:bg-green-50 rounded text-green-600"
-                              title="Reactivar"
-                            >
+                            <Button type="button" variant="ghost" size="icon-sm" onClick={() => handleReactivate(t)} title="Reactivar">
                               <RefreshCw className="h-4 w-4" />
-                            </button>
+                            </Button>
                           )}
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </Card>
       </div>
     </DashboardLayout>
   )
+
 }

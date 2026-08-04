@@ -1,8 +1,20 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { X, Link2, Search, Plus, Trash2, Loader2, Users } from 'lucide-react'
+import { Link2, Search, Plus, Trash2, Loader2, Users } from 'lucide-react'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { FormSection } from '@/components/ui/form-section'
+import { cn } from '@/lib/utils'
 
 interface UserProfile {
   id: string
@@ -32,7 +44,12 @@ interface LinkUserClientsModalProps {
   onSuccess: () => void
 }
 
-export default function LinkUserClientsModal({ isOpen, onClose, user, onSuccess }: LinkUserClientsModalProps) {
+export default function LinkUserClientsModal({
+  isOpen,
+  onClose,
+  user,
+  onSuccess,
+}: LinkUserClientsModalProps) {
   const [linkedClients, setLinkedClients] = useState<LinkedClient[]>([])
   const [availableClients, setAvailableClients] = useState<Client[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -41,27 +58,26 @@ export default function LinkUserClientsModal({ isOpen, onClose, user, onSuccess 
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedClientId, setSelectedClientId] = useState<string>('')
-  
+
   const supabase = getSupabaseClient()
 
-  // Cargar clientes vinculados
   const fetchLinkedClients = useCallback(async () => {
     if (!user?.id) return
-    
+
     try {
       setIsLoading(true)
       setError(null)
-      
+
       const response = await fetch(`/api/settings/users/${user.id}/clients`)
       const data = await response.json()
-      
+
       if (!response.ok) {
         const errorMsg = data.details
           ? `${data.error}: ${data.details}${data.code ? ` (code: ${data.code})` : ''}`
-          : (data.error || 'Error al cargar clientes vinculados')
+          : data.error || 'Error al cargar clientes vinculados'
         throw new Error(errorMsg)
       }
-      
+
       setLinkedClients(data.clients || [])
     } catch (err) {
       console.error('Error fetching linked clients:', err)
@@ -71,11 +87,11 @@ export default function LinkUserClientsModal({ isOpen, onClose, user, onSuccess 
     }
   }, [user?.id])
 
-  // Cargar clientes disponibles
   const fetchAvailableClients = useCallback(async () => {
     try {
-      // Obtener el company_id del usuario actual
-      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser()
       if (!currentUser) return
 
       const { data: currentUserData } = await supabase
@@ -123,8 +139,8 @@ export default function LinkUserClientsModal({ isOpen, onClose, user, onSuccess 
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          client_id: selectedClientId
-        })
+          client_id: selectedClientId,
+        }),
       })
 
       const data = await response.json()
@@ -133,7 +149,6 @@ export default function LinkUserClientsModal({ isOpen, onClose, user, onSuccess 
         throw new Error(data.error || 'Error al vincular cliente')
       }
 
-      // Recargar la lista de clientes vinculados
       await fetchLinkedClients()
       setSelectedClientId('')
       onSuccess()
@@ -157,7 +172,7 @@ export default function LinkUserClientsModal({ isOpen, onClose, user, onSuccess 
       setError(null)
 
       const response = await fetch(`/api/settings/users/${user.id}/clients/${clientId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
       })
 
       const data = await response.json()
@@ -166,7 +181,6 @@ export default function LinkUserClientsModal({ isOpen, onClose, user, onSuccess 
         throw new Error(data.error || 'Error al eliminar vínculo')
       }
 
-      // Recargar la lista de clientes vinculados
       await fetchLinkedClients()
       onSuccess()
     } catch (err) {
@@ -177,11 +191,10 @@ export default function LinkUserClientsModal({ isOpen, onClose, user, onSuccess 
     }
   }
 
-  // Filtrar clientes disponibles (excluir el ya vinculado si existe)
-  const linkedClientIds = new Set(linkedClients.map(lc => lc.client_id))
+  const linkedClientIds = new Set(linkedClients.map((lc) => lc.client_id))
   const filteredAvailableClients = availableClients
-    .filter(client => !linkedClientIds.has(client.id))
-    .filter(client => {
+    .filter((client) => !linkedClientIds.has(client.id))
+    .filter((client) => {
       if (!searchTerm) return true
       const search = searchTerm.toLowerCase()
       return (
@@ -200,177 +213,181 @@ export default function LinkUserClientsModal({ isOpen, onClose, user, onSuccess 
     }
   }
 
-  if (!isOpen || !user) return null
-
-  // Solo mostrar para usuarios con rol consumidor
-  if (user.role !== 'consumidor') {
-    return null
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open) handleClose()
   }
 
+  const busy = isLinking || !!isDeleting
+  const canOpen = isOpen && !!user && user.role === 'consumidor'
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={handleClose} />
-        
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-                  <Link2 className="h-6 w-6 text-green-600" />
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">
-                    Vincular Clientes
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    {user.name} - {user.email}
-                  </p>
-                </div>
+    <Dialog open={canOpen} onOpenChange={handleDialogOpenChange}>
+      <DialogContent
+        showCloseButton={!busy}
+        className="flex max-h-[90vh] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+        onInteractOutside={(event) => {
+          if (busy) event.preventDefault()
+        }}
+        onEscapeKeyDown={(event) => {
+          if (busy) event.preventDefault()
+        }}
+      >
+        <DialogHeader className="border-b border-gray-100 bg-white">
+          <div className="flex items-start gap-3 pr-8">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100">
+              <Link2 className="h-5 w-5 text-green-700" />
+            </div>
+            <div>
+              <DialogTitle>Vincular clientes</DialogTitle>
+              <DialogDescription className="mt-1">
+                {user?.name} — {user?.email}
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-6 py-5">
+          {error ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              {error}
+            </div>
+          ) : null}
+
+          <FormSection
+            step={1}
+            title="Clientes vinculados"
+            description="Clientes actualmente asociados a este usuario"
+          >
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-green-600" />
               </div>
-              <button
-                type="button"
-                onClick={handleClose}
-                className="rounded-md text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"
-                disabled={isLinking || !!isDeleting}
-              >
-                <X className="h-6 w-6" />
-              </button>
+            ) : linkedClients.length === 0 ? (
+              <div className="rounded-lg border border-gray-200 bg-white py-8 text-center">
+                <Users className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">No hay clientes vinculados</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Selecciona un cliente de la lista para vincularlo
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {linkedClients.map((linkedClient) => (
+                  <div
+                    key={linkedClient.id}
+                    className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 p-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground">
+                        {linkedClient.clients.name}
+                      </p>
+                      {linkedClient.clients.rut ? (
+                        <p className="text-xs text-muted-foreground">
+                          RUT: {linkedClient.clients.rut}
+                        </p>
+                      ) : null}
+                      {linkedClient.clients.contact_email ? (
+                        <p className="text-xs text-muted-foreground">
+                          {linkedClient.clients.contact_email}
+                        </p>
+                      ) : null}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => handleUnlinkClient(linkedClient.client_id)}
+                      disabled={isDeleting === linkedClient.client_id}
+                      title="Eliminar vínculo"
+                      className="ml-4 text-destructive hover:text-destructive"
+                    >
+                      {isDeleting === linkedClient.client_id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </FormSection>
+
+          <FormSection
+            step={2}
+            title="Vincular nuevo cliente"
+            description="Busca y selecciona un cliente disponible"
+          >
+            <div className="relative mb-4">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Buscar cliente por nombre, RUT o email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
             </div>
 
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-800 text-sm">
-                {error}
+            {filteredAvailableClients.length === 0 ? (
+              <div className="rounded-lg border border-gray-200 bg-white py-4 text-center">
+                <p className="text-sm text-muted-foreground">
+                  {searchTerm
+                    ? 'No se encontraron clientes'
+                    : 'No hay clientes disponibles para vincular'}
+                </p>
+              </div>
+            ) : (
+              <div className="mb-4 max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-white">
+                {filteredAvailableClients.map((client) => (
+                  <button
+                    key={client.id}
+                    type="button"
+                    onClick={() => setSelectedClientId(client.id)}
+                    className={cn(
+                      'w-full border-b border-gray-100 p-3 text-left transition-colors last:border-b-0 hover:bg-accent/40',
+                      selectedClientId === client.id && 'border-green-200 bg-green-50'
+                    )}
+                  >
+                    <p className="text-sm font-medium text-foreground">{client.name}</p>
+                    {client.rut ? (
+                      <p className="text-xs text-muted-foreground">RUT: {client.rut}</p>
+                    ) : null}
+                    {client.contact_email ? (
+                      <p className="text-xs text-muted-foreground">{client.contact_email}</p>
+                    ) : null}
+                  </button>
+                ))}
               </div>
             )}
 
-            {/* Cliente Vinculado */}
-            <div className="mb-6">
-              <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                <Users className="h-4 w-4 mr-2" />
-                Clientes Vinculados
-              </h4>
-              
-              {isLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-green-600" />
-                </div>
-              ) : linkedClients.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
-                  <p className="text-sm text-gray-500">No hay clientes vinculados</p>
-                  <p className="text-xs text-gray-400 mt-1">Selecciona un cliente de la lista para vincularlo</p>
-                </div>
+            <Button
+              type="button"
+              onClick={handleLinkClient}
+              disabled={!selectedClientId || isLinking}
+              className="w-full gap-2"
+            >
+              {isLinking ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Vinculando...
+                </>
               ) : (
-                <div className="space-y-2">
-                  {linkedClients.map((linkedClient) => (
-                    <div
-                      key={linkedClient.id}
-                      className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200"
-                    >
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">
-                          {linkedClient.clients.name}
-                        </p>
-                        {linkedClient.clients.rut && (
-                          <p className="text-xs text-gray-500">RUT: {linkedClient.clients.rut}</p>
-                        )}
-                        {linkedClient.clients.contact_email && (
-                          <p className="text-xs text-gray-500">{linkedClient.clients.contact_email}</p>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => handleUnlinkClient(linkedClient.client_id)}
-                        disabled={isDeleting === linkedClient.client_id}
-                        className="ml-4 p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
-                        title="Eliminar vínculo"
-                      >
-                        {isDeleting === linkedClient.client_id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                <>
+                  <Plus className="h-4 w-4" />
+                  Vincular cliente seleccionado
+                </>
               )}
-            </div>
-
-            {/* Agregar Nuevo Cliente */}
-            <div className="border-t border-gray-200 pt-6">
-              <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                <Plus className="h-4 w-4 mr-2" />
-                Vincular Nuevo Cliente
-              </h4>
-
-              {/* Buscador */}
-              <div className="mb-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Buscar cliente por nombre, RUT o email..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  />
-                </div>
-              </div>
-
-              {/* Lista de clientes disponibles */}
-              {filteredAvailableClients.length === 0 ? (
-                <div className="text-center py-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <p className="text-sm text-gray-500">
-                    {searchTerm ? 'No se encontraron clientes' : 'No hay clientes disponibles para vincular'}
-                  </p>
-                </div>
-              ) : (
-                <div className="mb-4 max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
-                  {filteredAvailableClients.map((client) => (
-                    <button
-                      key={client.id}
-                      type="button"
-                      onClick={() => setSelectedClientId(client.id)}
-                      className={`w-full text-left p-3 hover:bg-gray-50 transition-colors border-b border-gray-200 last:border-b-0 ${
-                        selectedClientId === client.id ? 'bg-green-50 border-green-200' : ''
-                      }`}
-                    >
-                      <p className="text-sm font-medium text-gray-900">{client.name}</p>
-                      {client.rut && (
-                        <p className="text-xs text-gray-500">RUT: {client.rut}</p>
-                      )}
-                      {client.contact_email && (
-                        <p className="text-xs text-gray-500">{client.contact_email}</p>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Botón de vincular */}
-              <button
-                type="button"
-                onClick={handleLinkClient}
-                disabled={!selectedClientId || isLinking}
-                className="w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isLinking ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Vinculando...
-                  </>
-                ) : (
-                  <>
-                    <Link2 className="h-4 w-4 mr-2" />
-                    Vincular Cliente Seleccionado
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
+            </Button>
+          </FormSection>
         </div>
-      </div>
-    </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={handleClose} disabled={busy}>
+            Cerrar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
-

@@ -1,13 +1,21 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { 
-  X, 
-  FileText, 
+import {
+  FileText,
   AlertCircle,
   Loader2,
-  Download
+  Download,
 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 
 interface ReportData {
   id: string
@@ -132,8 +140,8 @@ export default function ViewReportModal({ isOpen, onClose, reportId }: ViewRepor
     }
   }, [isOpen, reportId, fetchReport])
 
-
   const formatDate = (dateString: string) => {
+    if (!dateString) return '—'
     return new Date(dateString).toLocaleDateString('es-ES', {
       year: 'numeric',
       month: 'long',
@@ -141,119 +149,130 @@ export default function ViewReportModal({ isOpen, onClose, reportId }: ViewRepor
     })
   }
 
-  if (!isOpen) return null
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open) onClose()
+  }
+
+  const handleDownloadPdf = () => {
+    if (report?.download_url) {
+      window.open(report.download_url, '_blank')
+    } else {
+      alert('El archivo PDF aún no está disponible para descarga.')
+    }
+  }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-start justify-center min-h-screen pt-4 px-4 pb-20 text-center">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
-        
-        <div className="inline-block align-top bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all my-8 max-w-5xl w-full max-h-[90vh] overflow-y-auto">
-          {/* Header */}
-          <div className="bg-white px-6 pt-6 pb-4 border-b border-gray-200 sticky top-0 z-10">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100">
-                  <FileText className="h-6 w-6 text-blue-600" />
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">
-                    Informe de Análisis
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    {report?.clients?.name} - {formatDate(report?.created_at || '')}
-                  </p>
-                </div>
+    <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
+      <DialogContent
+        className="flex max-h-[90vh] max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
+      >
+        <DialogHeader className="border-b border-gray-100 bg-white">
+          <div className="flex items-start justify-between gap-3 pr-8">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100">
+                <FileText className="h-5 w-5 text-green-700" />
               </div>
-              <div className="flex items-center space-x-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (report?.download_url) {
-                      window.open(report.download_url, '_blank')
-                    } else {
-                      alert('El archivo PDF aún no está disponible para descarga.')
-                    }
-                  }}
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Descargar PDF
-                </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="rounded-md text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-6 w-6" />
-                </button>
+              <div>
+                <DialogTitle>Informe de análisis</DialogTitle>
+                <DialogDescription className="mt-1">
+                  {report?.clients?.name
+                    ? `${report.clients.name} — ${formatDate(report.created_at)}`
+                    : 'Vista previa del informe'}
+                </DialogDescription>
               </div>
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadPdf}
+              className="mr-6 gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Descargar PDF
+            </Button>
           </div>
+        </DialogHeader>
 
-          {/* Content */}
-          <div className="bg-white px-6 py-6 h-[70vh] overflow-hidden">
-            {isLoading ? (
-              <div className="flex justify-center items-center h-full">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                <span className="ml-2 text-gray-600">Cargando informe...</span>
-              </div>
-            ) : error ? (
-              <div className="text-center py-12">
-                <AlertCircle className="mx-auto h-12 w-12 text-red-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">Error al cargar</h3>
-                <p className="mt-1 text-sm text-gray-500">{error}</p>
-                <button
-                  onClick={fetchReport}
-                  className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200"
-                >
-                  Reintentar
-                </button>
-              </div>
-            ) : report ? (
-              <div className="h-full">
-                {report.rendered_pdf_url?.startsWith('https://') ? (
-                  <iframe
-                    src={report.rendered_pdf_url}
-                    className="w-full h-full border-0 rounded"
-                    title="Vista previa del informe PDF"
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
-                    allow="fullscreen"
-                  />
-                ) : report.rendered_pdf_url ? (
-                  <div className="flex flex-col justify-center items-center h-full text-center">
-                    <AlertCircle className="h-12 w-12 text-yellow-500 mb-4" />
-                    <p className="text-lg text-gray-600">Vista previa no disponible</p>
-                    <p className="text-sm text-gray-500 mt-2">La URL del documento no es segura</p>
-                    <button
-                      onClick={() => window.open(report.rendered_pdf_url!, '_blank')}
-                      className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Abrir en nueva pestaña
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col justify-center items-center h-full text-center">
-                    <Loader2 className="h-12 w-12 animate-spin text-blue-600 mb-4" />
-                    <p className="text-lg text-gray-600">Generando vista previa...</p>
-                    <p className="text-sm text-gray-500 mt-2">El informe se está procesando</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <FileText className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">Informe no encontrado</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  El informe solicitado no se pudo encontrar.
-                </p>
-              </div>
-            )}
-          </div>
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-6 py-5">
+          {isLoading ? (
+            <div className="flex h-64 items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2 text-muted-foreground">Cargando informe...</span>
+            </div>
+          ) : error ? (
+            <div className="py-12 text-center">
+              <AlertCircle className="mx-auto h-12 w-12 text-red-400" />
+              <h3 className="mt-2 text-sm font-medium text-foreground">Error al cargar</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{error}</p>
+              <Button type="button" onClick={fetchReport} className="mt-4">
+                Reintentar
+              </Button>
+            </div>
+          ) : report ? (
+            <>
+              <div className="h-[65vh] overflow-hidden rounded-lg border border-gray-200 bg-white">
+                  {report.rendered_pdf_url?.startsWith('https://') ? (
+                    <iframe
+                      src={report.rendered_pdf_url}
+                      className="h-full w-full border-0"
+                      title="Vista previa del informe PDF"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                      allow="fullscreen"
+                    />
+                  ) : report.rendered_pdf_url ? (
+                    <div className="flex h-full flex-col items-center justify-center text-center">
+                      <AlertCircle className="mb-4 h-12 w-12 text-yellow-500" />
+                      <p className="text-lg text-foreground">Vista previa no disponible</p>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        La URL del documento no es segura
+                      </p>
+                      <Button
+                        type="button"
+                        className="mt-4 gap-2"
+                        onClick={() => window.open(report.rendered_pdf_url!, '_blank')}
+                      >
+                        <Download className="h-4 w-4" />
+                        Abrir en nueva pestaña
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex h-full flex-col items-center justify-center text-center">
+                      <Loader2 className="mb-4 h-12 w-12 animate-spin text-primary" />
+                      <p className="text-lg text-foreground">Generando vista previa...</p>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        El informe se está procesando
+                      </p>
+                    </div>
+                  )}
+                </div>
+            </>
+          ) : (
+            <div className="py-12 text-center">
+              <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-2 text-sm font-medium text-foreground">
+                Informe no encontrado
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                El informe solicitado no se pudo encontrar.
+              </p>
+            </div>
+          )}
         </div>
-      </div>
-    </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cerrar
+          </Button>
+          {report && (
+            <Button type="button" onClick={handleDownloadPdf} className="gap-2">
+              <Download className="h-4 w-4" />
+              Descargar PDF
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -3,9 +3,25 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { useAuth } from '@/contexts/AuthContext'
-import { X, Search, CheckSquare, Square, Loader2 } from 'lucide-react'
+import { Search, CheckSquare, Square, Loader2, FileText } from 'lucide-react'
 import { Client } from '@/types/database'
-import { getAnalysisTypeFromTestArea, getAllAnalysisTypesFromTestArea, ANALYSIS_TYPE_REGISTRY } from '@/config/analysisTypes'
+import {
+  getAllAnalysisTypesFromTestArea,
+  ANALYSIS_TYPE_REGISTRY,
+} from '@/config/analysisTypes'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { FormSection, Field } from '@/components/ui/form-section'
+import { fieldClassName } from '@/components/ui/form-field-styles'
+import { cn } from '@/lib/utils'
 
 interface CreateReportModalProps {
   isOpen: boolean
@@ -245,8 +261,6 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
           return
         }
 
-        const firstResult = results.find(r => resultIds.includes(r.id))
-
         const { data: reportData, error: reportError } = await supabase
           .from('reports')
           .insert({
@@ -314,107 +328,132 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
     (client.rut && client.rut.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
-  if (!isOpen) return null
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open && !isCreating) {
+      onClose()
+    }
+  }
+
+  const groupsByArea = selectedResults.length > 0 ? groupResultsByTestArea() : new Map<string, string[]>()
+  const selectedTestAreas = [...new Set(
+    results
+      .filter((r) => selectedResults.includes(r.id))
+      .map((r) => r.test_area)
+      .filter(Boolean)
+  )]
+  const ambiguousAreas = Array.from(groupsByArea.keys()).filter((area) => {
+    const types = getAvailableTypesForArea(area)
+    return types.length > 1
+  })
 
   return (
-    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium text-gray-900">Crear Nuevo Informe</h3>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-500"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="px-6 py-4 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 140px)' }}>
-          {/* Client Selection */}
-          <div className="mb-6">
-            <h4 className="text-sm font-medium text-gray-900 mb-3">Seleccionar Cliente</h4>
-            
-            {/* Search */}
-            <div className="relative mb-3">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar por nombre o RUT..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
+    <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
+      <DialogContent
+        showCloseButton={!isCreating}
+        className="flex max-h-[90vh] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
+        onInteractOutside={(event) => {
+          if (isCreating) event.preventDefault()
+        }}
+        onEscapeKeyDown={(event) => {
+          if (isCreating) event.preventDefault()
+        }}
+      >
+        <DialogHeader className="border-b border-gray-100 bg-white">
+          <div className="flex items-start gap-3 pr-8">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100">
+              <FileText className="h-5 w-5 text-green-700" />
             </div>
+            <div>
+              <DialogTitle>Crear nuevo informe</DialogTitle>
+              <DialogDescription className="mt-1">
+                Selecciona cliente, resultados y formato. Se generará un PDF por tipo de análisis.
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
 
-            {/* Clients List */}
-            <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-6 py-5">
+          <FormSection
+            step={1}
+            title="Cliente"
+            description="Cliente al que pertenecen las muestras del informe"
+          >
+            <Field label="Buscar cliente">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Buscar por nombre o RUT..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className={cn(fieldClassName, 'pl-9')}
+                />
+              </div>
+            </Field>
+
+            <div className="mt-3 max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-white">
               {isLoadingClients ? (
                 <div className="p-4 text-center">
-                  <Loader2 className="h-5 w-5 animate-spin text-gray-400 mx-auto" />
+                  <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               ) : filteredClients.length === 0 ? (
-                <div className="p-4 text-center text-gray-500">
+                <div className="p-4 text-center text-sm text-muted-foreground">
                   No se encontraron clientes
                 </div>
               ) : (
-                <div className="divide-y divide-gray-200">
+                <div className="divide-y divide-gray-100">
                   {filteredClients.map((client) => (
                     <button
                       key={client.id}
+                      type="button"
                       onClick={() => {
                         setSelectedClient(client.id)
-                        setSelectedResults([]) // Clear results when changing client
+                        setSelectedResults([])
                       }}
-                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
-                        selectedClient === client.id ? 'bg-indigo-50' : ''
-                      }`}
+                      className={cn(
+                        'w-full px-4 py-3 text-left transition-colors hover:bg-gray-50',
+                        selectedClient === client.id && 'bg-green-50'
+                      )}
                     >
-                      <div className="font-medium text-gray-900">{client.name}</div>
+                      <div className="font-medium text-foreground">{client.name}</div>
                       {client.rut && (
-                        <div className="text-sm text-gray-500">RUT: {client.rut}</div>
+                        <div className="text-sm text-muted-foreground">RUT: {client.rut}</div>
                       )}
                     </button>
                   ))}
                 </div>
               )}
             </div>
-          </div>
+          </FormSection>
 
-          {/* Results Selection */}
           {selectedClient && (
-            <div>
-              <h4 className="text-sm font-medium text-gray-900 mb-3">Seleccionar Resultados</h4>
-              
+            <FormSection
+              step={2}
+              title="Resultados"
+              description="Resultados validados aún no asociados a un informe"
+            >
               {isLoadingResults ? (
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <div className="text-center">
-                    <Loader2 className="h-5 w-5 animate-spin text-gray-400 mx-auto" />
-                  </div>
+                <div className="rounded-lg border border-gray-200 bg-white p-4 text-center">
+                  <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               ) : results.length === 0 ? (
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <div className="text-center text-gray-500">
-                    No hay resultados validados disponibles para este cliente
-                  </div>
+                <div className="rounded-lg border border-gray-200 bg-white p-4 text-center text-sm text-muted-foreground">
+                  No hay resultados validados disponibles para este cliente
                 </div>
               ) : (
-                <div className="border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
-                  <div className="divide-y divide-gray-200">
+                <div className="max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white">
+                  <div className="divide-y divide-gray-100">
                     {results.map((result) => (
                       <div
                         key={result.id}
-                        className="px-4 py-3 hover:bg-gray-50 transition-colors"
+                        className="px-4 py-3 transition-colors hover:bg-gray-50"
                       >
-                        <label className="flex items-start cursor-pointer">
+                        <label className="flex cursor-pointer items-start">
                           <div className="mt-0.5">
                             <button
                               type="button"
                               onClick={() => toggleResultSelection(result.id)}
-                              className="text-indigo-600"
+                              className="text-green-700"
                             >
                               {selectedResults.includes(result.id) ? (
                                 <CheckSquare className="h-5 w-5" />
@@ -424,19 +463,24 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
                             </button>
                           </div>
                           <div className="ml-3 flex-1">
-                            <div className="font-medium text-gray-900">
+                            <div className="font-medium text-foreground">
                               Muestra: {result.samples?.code || 'N/A'}
-                              {!result.samples && <span className="text-red-500 text-xs ml-2">(No sample data)</span>}
+                              {!result.samples && (
+                                <span className="ml-2 text-xs text-red-500">
+                                  (No sample data)
+                                </span>
+                              )}
                             </div>
-                            <div className="text-sm text-gray-500">
-                              {result.samples?.species} {result.samples?.variety && `- ${result.samples.variety}`}
+                            <div className="text-sm text-muted-foreground">
+                              {result.samples?.species}{' '}
+                              {result.samples?.variety && `- ${result.samples.variety}`}
                             </div>
-                            <div className="text-sm text-gray-500 mt-1">
-                              Área: {result.test_area || 'N/A'} | 
-                              Patógeno: {result.pathogen_identified || 'N/A'} | 
-                              Severidad: {result.severity || 'N/A'}
+                            <div className="mt-1 text-sm text-muted-foreground">
+                              Área: {result.test_area || 'N/A'} | Patógeno:{' '}
+                              {result.pathogen_identified || 'N/A'} | Severidad:{' '}
+                              {result.severity || 'N/A'}
                             </div>
-                            <div className="text-xs text-gray-400 mt-1">
+                            <div className="mt-1 text-xs text-muted-foreground">
                               {new Date(result.created_at).toLocaleDateString('es-ES')}
                             </div>
                           </div>
@@ -446,101 +490,91 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
                   </div>
                 </div>
               )}
-              
-              {selectedResults.length > 0 && (
-                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="text-sm text-blue-800">
-                    <strong>{selectedResults.length} resultado(s) seleccionado(s)</strong>
-                  </div>
-                  <div className="text-xs text-blue-600 mt-1">
-                    {(() => {
-                      const selectedTestAreas = [...new Set(
-                        results
-                          .filter(r => selectedResults.includes(r.id))
-                          .map(r => r.test_area)
-                          .filter(Boolean)
-                      )]
-                      if (selectedTestAreas.length === 1) {
-                        return `Tipo de análisis: ${selectedTestAreas[0]}`
-                      } else if (selectedTestAreas.length > 1) {
-                        return `Tipos de análisis: ${selectedTestAreas.join(', ')} (se generarán ${selectedTestAreas.length} PDFs separados)`
-                      }
-                      return 'Tipo de análisis: N/A'
-                    })()}
-                  </div>
+            </FormSection>
+          )}
+
+          {selectedClient && selectedResults.length > 0 && (
+            <FormSection
+              step={3}
+              title="Formato y resumen"
+              description="Confirma el contenido y el formato del informe a generar"
+            >
+              <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                <div className="text-sm text-green-800">
+                  <strong>{selectedResults.length} resultado(s) seleccionado(s)</strong>
+                </div>
+                <div className="mt-1 text-xs text-green-700">
+                  {selectedTestAreas.length === 1
+                    ? `Tipo de análisis: ${selectedTestAreas[0]}`
+                    : selectedTestAreas.length > 1
+                      ? `Tipos de análisis: ${selectedTestAreas.join(', ')} (se generarán ${selectedTestAreas.length} PDFs separados)`
+                      : 'Tipo de análisis: N/A'}
+                </div>
+              </div>
+
+              {ambiguousAreas.length > 0 && (
+                <div className="mt-3 space-y-3">
+                  {ambiguousAreas.map((area) => {
+                    const types = getAvailableTypesForArea(area)
+                    const count = (groupsByArea.get(area) || []).length
+                    return (
+                      <Field
+                        key={area}
+                        label={`Formato para “${area}” (${count} resultado(s))`}
+                        required
+                      >
+                        <select
+                          value={typeSelections[area] || ''}
+                          onChange={(e) =>
+                            setTypeSelections((prev) => ({
+                              ...prev,
+                              [area]: e.target.value,
+                            }))
+                          }
+                          className={fieldClassName}
+                        >
+                          <option value="">Seleccionar formato...</option>
+                          {types.map((t) => (
+                            <option key={t.key} value={t.key}>
+                              {t.label}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    )
+                  })}
                 </div>
               )}
-
-              {/* Type selectors for ambiguous test areas */}
-              {selectedResults.length > 0 && (() => {
-                const groups = groupResultsByTestArea()
-                const ambiguousAreas = Array.from(groups.keys()).filter(area => {
-                  const types = getAvailableTypesForArea(area)
-                  return types.length > 1
-                })
-
-                if (ambiguousAreas.length === 0) return null
-
-                return (
-                  <div className="mt-3 space-y-3">
-                    {ambiguousAreas.map(area => {
-                      const types = getAvailableTypesForArea(area)
-                      const count = (groups.get(area) || []).length
-                      return (
-                        <div key={area} className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                          <label className="block text-sm font-medium text-yellow-800 mb-2">
-                            Formato para &ldquo;{area}&rdquo; ({count} resultado(s)):
-                          </label>
-                          <select
-                            value={typeSelections[area] || ''}
-                            onChange={(e) => setTypeSelections(prev => ({ ...prev, [area]: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                          >
-                            <option value="">Seleccionar formato...</option>
-                            {types.map(t => (
-                              <option key={t.key} value={t.key}>{t.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })()}
-            </div>
+            </FormSection>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-          <div className="flex items-center justify-end space-x-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleCreateReport}
-              disabled={!selectedClient || selectedResults.length === 0 || isCreating}
-              className={`px-4 py-2 text-sm font-medium text-white rounded-lg flex items-center space-x-2 ${
-                !selectedClient || selectedResults.length === 0 || isCreating
-                  ? 'bg-gray-300 cursor-not-allowed'
-                  : 'bg-indigo-600 hover:bg-indigo-700'
-              }`}
-            >
-              {isCreating ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Creando...</span>
-                </>
-              ) : (
-                <span>Crear Informe</span>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isCreating}
+            onClick={onClose}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            onClick={handleCreateReport}
+            disabled={!selectedClient || selectedResults.length === 0 || isCreating}
+            className="gap-2"
+          >
+            {isCreating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Creando...
+              </>
+            ) : (
+              'Crear informe'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

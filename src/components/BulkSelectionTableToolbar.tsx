@@ -1,6 +1,7 @@
 'use client'
 
 import { Check, Loader2, Trash2, X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 export type BulkToolbarValidateAction = {
   onClick: () => void
@@ -53,17 +54,18 @@ export function BulkSelectionToolbarRow({
               type="checkbox"
               checked={allFilteredSelected}
               onChange={onSelectAll}
-              className="h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+              className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-600"
             />
             <span className="text-sm font-medium text-gray-700">{selectionSummaryText}</span>
           </div>
           <div className="flex items-center gap-2">
             {validateAction && (
-              <button
+              <Button
                 type="button"
+                size="sm"
                 onClick={validateAction.onClick}
                 disabled={validateAction.disabled}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="gap-1.5"
               >
                 {validateAction.isLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -71,14 +73,16 @@ export function BulkSelectionToolbarRow({
                   <Check className="h-4 w-4" />
                 )}
                 Validar
-              </button>
+              </Button>
             )}
             {deleteAction && (
-              <button
+              <Button
                 type="button"
+                size="sm"
+                variant="destructive"
                 onClick={deleteAction.onClick}
                 disabled={deleteAction.disabled}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="gap-1.5"
               >
                 {deleteAction.isLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -86,16 +90,18 @@ export function BulkSelectionToolbarRow({
                   <Trash2 className="h-4 w-4" />
                 )}
                 Borrar
-              </button>
+              </Button>
             )}
-            <button
+            <Button
               type="button"
+              size="sm"
+              variant="outline"
               onClick={onClearSelection}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200 transition-colors"
+              className="gap-1.5"
             >
               <X className="h-4 w-4" />
               Cancelar
-            </button>
+            </Button>
           </div>
         </div>
       </th>
@@ -118,12 +124,12 @@ export function BulkSelectAllHeaderCheckbox({
   title = 'Seleccionar todos',
 }: BulkSelectAllHeaderCheckboxProps) {
   return (
-    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+    <th className="w-12 px-3 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
       <input
         type="checkbox"
         checked={checked}
         onChange={onChange}
-        className="h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+        className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-600"
         title={title}
       />
     </th>
@@ -142,7 +148,7 @@ export function BulkRowSelectionCheckbox({ checked, onChange }: BulkRowSelection
         type="checkbox"
         checked={checked}
         onChange={onChange}
-        className="h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+        className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-600"
       />
     </td>
   )

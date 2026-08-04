@@ -106,14 +106,11 @@ function getColumnLabel(findings: unknown, areaKey: string, labelKey: string, fa
 
 import {
   FlaskConical,
-  X,
-  Calendar,
   User,
   TestTube,
   AlertCircle,
   CheckCircle,
   Clock,
-  FileText,
   Microscope,
   Bug,
   TrendingUp,
@@ -121,6 +118,16 @@ import {
   Loader2,
   CheckCheck
 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { FormSection, ReadOnlyField } from '@/components/ui/form-section'
 
 interface ViewResultModalProps {
   isOpen: boolean
@@ -518,326 +525,340 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
     )
   }
 
-  if (!isOpen) return null
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open && !isValidating) onClose()
+  }
+
+  const findingsMethodologies =
+    result?.findings && typeof result.findings === 'object'
+      ? (result.findings as Record<string, unknown>).methodologies
+      : null
+
+  const methodologyDisplay =
+    findingsMethodologies &&
+    Array.isArray(findingsMethodologies) &&
+    findingsMethodologies.length > 0
+      ? findingsMethodologies.join(', ')
+      : result?.sample_tests?.methods?.name || result?.methodology || 'No especificado'
+
+  const proseHtmlClassName =
+    'prose prose-sm max-w-none text-sm text-gray-900 [&_h1]:whitespace-pre-wrap [&_h2]:whitespace-pre-wrap [&_h3]:whitespace-pre-wrap [&_li]:whitespace-pre-wrap [&_p]:whitespace-pre-wrap'
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
-        
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-          {/* Header */}
-          <div className="bg-white px-6 pt-6 pb-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-                  <FlaskConical className="h-6 w-6 text-green-600" />
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">
-                    Detalles del Resultado
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    {result?.samples?.code ? `Muestra: ${result.samples.code}` : 'Información del resultado de análisis'}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-md text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <X className="h-6 w-6" />
-              </button>
+    <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
+      <DialogContent
+        showCloseButton={!isValidating}
+        className="flex max-h-[90vh] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
+        onInteractOutside={(event) => {
+          if (isValidating) event.preventDefault()
+        }}
+        onEscapeKeyDown={(event) => {
+          if (isValidating) event.preventDefault()
+        }}
+      >
+        <DialogHeader className="border-b border-gray-100 bg-white">
+          <div className="flex items-start gap-3 pr-8">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100">
+              <FlaskConical className="h-5 w-5 text-green-700" />
+            </div>
+            <div>
+              <DialogTitle>Detalles del Resultado</DialogTitle>
+              <DialogDescription className="mt-1">
+                {result?.samples?.code
+                  ? `Muestra: ${result.samples.code}`
+                  : 'Información del resultado de análisis'}
+              </DialogDescription>
             </div>
           </div>
+        </DialogHeader>
 
-          {/* Content */}
-          <div className="bg-white px-6 py-6 max-h-[70vh] overflow-y-auto">
-            {isLoading ? (
-              <div className="flex justify-center items-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-                <span className="ml-2 text-gray-600">Cargando resultado...</span>
-              </div>
-            ) : error ? (
-              <div className="text-center py-12">
-                <AlertCircle className="mx-auto h-12 w-12 text-red-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">Error al cargar</h3>
-                <p className="mt-1 text-sm text-gray-500">{error}</p>
-                <button
-                  onClick={fetchResult}
-                  className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200"
-                >
-                  Reintentar
-                </button>
-              </div>
-            ) : result ? (
-              <div className="space-y-6">
-                {/* Status and Basic Info */}
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-900 mb-3">Estado y Resultados</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Estado</label>
-                        {getStatusBadge(result.status)}
-                      </div>
-                      {result.result_type && (
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Tipo de Resultado</label>
-                          {getResultTypeBadge(result.result_type)}
-                        </div>
-                      )}
-                      {result.severity && (
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Severidad</label>
-                          {getSeverityBadge(result.severity)}
-                        </div>
-                      )}
-                      {result.confidence && (
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Confianza</label>
-                          {getConfidenceBadge(result.confidence)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-900 mb-3">Información de la Muestra</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center">
-                        <TestTube className="h-4 w-4 text-gray-400 mr-2" />
-                        <span className="text-sm font-medium">{result.samples?.code}</span>
-                      </div>
-                      <div className="flex items-center">
-                        <User className="h-4 w-4 text-gray-400 mr-2" />
-                        <span className="text-sm">{result.samples?.clients?.name}</span>
-                      </div>
-                      <div className="flex items-center">
-                        <Microscope className="h-4 w-4 text-gray-400 mr-2" />
-                        <span className="text-sm">{result.samples?.species}</span>
-                        {result.samples?.variety && (
-                          <span className="text-sm text-gray-500"> - {result.samples.variety}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                        <span className="text-sm">
-                          {result.samples?.received_date ? 
-                            new Date(result.samples.received_date).toLocaleDateString() : 
-                            'Fecha no disponible'
-                          }
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-6 py-5">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+              <span className="ml-2 text-gray-600">Cargando resultado...</span>
+            </div>
+          ) : error ? (
+            <div className="py-12 text-center">
+              <AlertCircle className="mx-auto h-12 w-12 text-red-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">Error al cargar</h3>
+              <p className="mt-1 text-sm text-gray-500">{error}</p>
+              <Button type="button" variant="outline" onClick={fetchResult} className="mt-4">
+                Reintentar
+              </Button>
+            </div>
+          ) : result ? (
+            <>
+              <FormSection
+                step={1}
+                title="Estado y muestra"
+                description="Estado del resultado e información de la muestra"
+              >
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <ReadOnlyField label="Estado" value={getStatusBadge(result.status)} />
+                  {result.result_type ? (
+                    <ReadOnlyField
+                      label="Tipo de Resultado"
+                      value={getResultTypeBadge(result.result_type)}
+                    />
+                  ) : null}
+                  {result.severity ? (
+                    <ReadOnlyField
+                      label="Severidad"
+                      value={getSeverityBadge(result.severity)}
+                    />
+                  ) : null}
+                  {result.confidence ? (
+                    <ReadOnlyField
+                      label="Confianza"
+                      value={getConfidenceBadge(result.confidence)}
+                    />
+                  ) : null}
+                  <ReadOnlyField
+                    label="Código de muestra"
+                    value={
+                      <span className="inline-flex items-center gap-2">
+                        <TestTube className="h-4 w-4 text-muted-foreground" />
+                        {result.samples?.code || '—'}
+                      </span>
+                    }
+                  />
+                  <ReadOnlyField
+                    label="Cliente"
+                    value={
+                      <span className="inline-flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        {result.samples?.clients?.name || '—'}
+                      </span>
+                    }
+                  />
+                  <ReadOnlyField
+                    label="Especie"
+                    value={
+                      <span className="inline-flex items-center gap-2">
+                        <Microscope className="h-4 w-4 text-muted-foreground" />
+                        {result.samples?.species || '—'}
+                        {result.samples?.variety
+                          ? ` - ${result.samples.variety}`
+                          : ''}
+                      </span>
+                    }
+                  />
+                  <ReadOnlyField
+                    label="Fecha de recepción"
+                    value={
+                      result.samples?.received_date
+                        ? new Date(result.samples.received_date).toLocaleDateString()
+                        : 'Fecha no disponible'
+                    }
+                  />
                 </div>
+              </FormSection>
 
-                {/* Test Information */}
-                {result.sample_tests && (
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                      <TestTube className="h-4 w-4 mr-2" />
-                      Información del Análisis
-                    </h4>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Área</label>
-                        <p className="text-sm text-gray-900 capitalize">
+              {result.sample_tests ? (
+                <FormSection
+                  step={2}
+                  title="Información del análisis"
+                  description="Área, prueba y método asociados"
+                >
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <ReadOnlyField
+                      label="Área"
+                      value={
+                        <span className="capitalize">
                           {result.test_area?.replace('_', ' ') || 'No especificada'}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Prueba</label>
-                        <p className="text-sm text-gray-900">
-                          {result.sample_tests.test_catalog?.name || 'No especificada'}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Método</label>
-                        <p className="text-sm text-gray-900">
-                          {(() => {
-                            const findingsMethodologies = (result.findings as Record<string, unknown>)?.methodologies
-                            if (findingsMethodologies && Array.isArray(findingsMethodologies) && findingsMethodologies.length > 0) {
-                              return findingsMethodologies.join(', ')
-                            }
-                            return result.sample_tests.methods?.name || result.methodology || 'No especificado'
-                          })()}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Pathogen Information */}
-                {result.pathogen_identified && (
-                  <div className="bg-red-50 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                      <Bug className="h-4 w-4 mr-2" />
-                      Información del Patógeno
-                    </h4>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Patógeno Identificado</label>
-                        <p className="text-sm text-gray-900 font-medium">
-                          {result.pathogen_identified}
-                        </p>
-                      </div>
-                      {result.pathogen_type && (
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Tipo</label>
-                          <p className="text-sm text-gray-900 capitalize">
-                            {result.pathogen_type}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Clinical Information */}
-                {(result.diagnosis || result.conclusion) && (
-                  <div className="bg-yellow-50 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                      <FileText className="h-4 w-4 mr-2" />
-                      Información Clínica
-                    </h4>
-                    <div className="space-y-4">
-                      {result.diagnosis && (
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Diagnóstico</label>
-                          <div 
-                            className="text-sm text-gray-900 prose prose-sm max-w-none [&_p]:whitespace-pre-wrap [&_li]:whitespace-pre-wrap [&_h1]:whitespace-pre-wrap [&_h2]:whitespace-pre-wrap [&_h3]:whitespace-pre-wrap"
-                            dangerouslySetInnerHTML={{ __html: result.diagnosis }}
-                          />
-                        </div>
-                      )}
-                      {result.conclusion && (
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Conclusión</label>
-                          <div 
-                            className="text-sm text-gray-900 prose prose-sm max-w-none [&_p]:whitespace-pre-wrap [&_li]:whitespace-pre-wrap [&_h1]:whitespace-pre-wrap [&_h2]:whitespace-pre-wrap [&_h3]:whitespace-pre-wrap"
-                            dangerouslySetInnerHTML={{ __html: result.conclusion }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Recommendations */}
-                {result.recommendations && (
-                  <div className="bg-green-50 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-900 mb-3">Recomendaciones</h4>
-                    <div 
-                      className="text-sm text-gray-900 prose prose-sm max-w-none [&_p]:whitespace-pre-wrap [&_li]:whitespace-pre-wrap [&_h1]:whitespace-pre-wrap [&_h2]:whitespace-pre-wrap [&_h3]:whitespace-pre-wrap"
-                      dangerouslySetInnerHTML={{ __html: result.recommendations }}
+                        </span>
+                      }
+                    />
+                    <ReadOnlyField
+                      label="Prueba"
+                      value={result.sample_tests.test_catalog?.name || 'No especificada'}
+                    />
+                    <ReadOnlyField
+                      label="Método"
+                      value={methodologyDisplay}
+                      className="sm:col-span-2"
                     />
                   </div>
-                )}
+                </FormSection>
+              ) : null}
 
-                {/* Technical Findings */}
-                {result.findings && Object.keys(result.findings).length > 0 && (
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-900 mb-3">Hallazgos Técnicos</h4>
-                    
-                    {/* Render specialized findings tables if applicable */}
-                    {renderNematologyFindings(result.findings)}
-                    {renderVirologyFindings(result.findings)}
-                    {renderPhytopathologyFindings(result.findings)}
-                    
-                    {/* Fallback to JSON display for non-specialized findings */}
-                    {!renderNematologyFindings(result.findings) && !renderVirologyFindings(result.findings) && !renderPhytopathologyFindings(result.findings) && (
-                      <div className="bg-white rounded border p-3">
-                        <pre className="text-sm text-gray-700 whitespace-pre-wrap">
+              {result.pathogen_identified ? (
+                <FormSection
+                  step={3}
+                  title="Información del patógeno"
+                  description="Identificación del organismo detectado"
+                >
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <ReadOnlyField
+                      label="Patógeno Identificado"
+                      value={
+                        <span className="inline-flex items-center gap-2 font-medium">
+                          <Bug className="h-4 w-4 text-muted-foreground" />
+                          {result.pathogen_identified}
+                        </span>
+                      }
+                    />
+                    {result.pathogen_type ? (
+                      <ReadOnlyField
+                        label="Tipo"
+                        value={
+                          <span className="capitalize">{result.pathogen_type}</span>
+                        }
+                      />
+                    ) : null}
+                  </div>
+                </FormSection>
+              ) : null}
+
+              {(result.diagnosis || result.conclusion || result.recommendations) && (
+                <FormSection
+                  step={result.pathogen_identified ? 4 : 3}
+                  title="Diagnóstico y notas"
+                  description="Información clínica y recomendaciones"
+                >
+                  <div className="space-y-4">
+                    {result.diagnosis ? (
+                      <ReadOnlyField
+                        label="Diagnóstico"
+                        value={
+                          <div
+                            className={proseHtmlClassName}
+                            dangerouslySetInnerHTML={{ __html: result.diagnosis }}
+                          />
+                        }
+                      />
+                    ) : null}
+                    {result.conclusion ? (
+                      <ReadOnlyField
+                        label="Conclusión"
+                        value={
+                          <div
+                            className={proseHtmlClassName}
+                            dangerouslySetInnerHTML={{ __html: result.conclusion }}
+                          />
+                        }
+                      />
+                    ) : null}
+                    {result.recommendations ? (
+                      <ReadOnlyField
+                        label="Recomendaciones"
+                        value={
+                          <div
+                            className={proseHtmlClassName}
+                            dangerouslySetInnerHTML={{ __html: result.recommendations }}
+                          />
+                        }
+                      />
+                    ) : null}
+                  </div>
+                </FormSection>
+              )}
+
+              {result.findings && Object.keys(result.findings).length > 0 ? (
+                <FormSection
+                  step={5}
+                  title="Hallazgos técnicos"
+                  description="Tablas y datos estructurados del análisis"
+                >
+                  {renderNematologyFindings(result.findings)}
+                  {renderVirologyFindings(result.findings)}
+                  {renderPhytopathologyFindings(result.findings)}
+                  {!renderNematologyFindings(result.findings) &&
+                    !renderVirologyFindings(result.findings) &&
+                    !renderPhytopathologyFindings(result.findings) && (
+                      <div className="rounded-lg border border-gray-100 bg-white p-3">
+                        <pre className="whitespace-pre-wrap text-sm text-gray-700">
                           {JSON.stringify(result.findings, null, 2)}
                         </pre>
                       </div>
                     )}
-                  </div>
-                )}
+                </FormSection>
+              ) : null}
 
-                {/* Personnel Information */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-gray-900 mb-3">Información del Personal</h4>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Realizado por</label>
-                      <div className="flex items-center">
-                        <User className="h-4 w-4 text-gray-400 mr-2" />
-                        <span className="text-sm text-gray-900">
-                          {result.performed_by_user?.name || result.performed_by_user?.email || 'No disponible'}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {result.performed_at ? new Date(result.performed_at).toLocaleString() : 'N/A'}
-                      </p>
-                    </div>
-                    {result.validated_by_user && (
+              <FormSection
+                title="Información del personal"
+                description="Quién realizó y validó el resultado"
+              >
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <ReadOnlyField
+                    label="Realizado por"
+                    value={
                       <div>
-                        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Validado por</label>
-                        <div className="flex items-center">
-                          <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                          <span className="text-sm text-gray-900">
-                            {result.validated_by_user.name || result.validated_by_user.email}
-                          </span>
+                        <div className="inline-flex items-center gap-2">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          {result.performed_by_user?.name ||
+                            result.performed_by_user?.email ||
+                            'No disponible'}
                         </div>
-                        {result.validation_date && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            {new Date(result.validation_date).toLocaleString()}
-                          </p>
-                        )}
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {result.performed_at
+                            ? new Date(result.performed_at).toLocaleString()
+                            : 'N/A'}
+                        </p>
                       </div>
-                    )}
-                  </div>
+                    }
+                  />
+                  {result.validated_by_user ? (
+                    <ReadOnlyField
+                      label="Validado por"
+                      value={
+                        <div>
+                          <div className="inline-flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            {result.validated_by_user.name ||
+                              result.validated_by_user.email}
+                          </div>
+                          {result.validation_date ? (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {new Date(result.validation_date).toLocaleString()}
+                            </p>
+                          ) : null}
+                        </div>
+                      }
+                    />
+                  ) : null}
                 </div>
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <FlaskConical className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">Resultado no encontrado</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  El resultado solicitado no se pudo encontrar.
-                </p>
-              </div>
-            )}
-          </div>
+              </FormSection>
+            </>
+          ) : (
+            <div className="py-12 text-center">
+              <FlaskConical className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">
+                Resultado no encontrado
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                El resultado solicitado no se pudo encontrar.
+              </p>
+            </div>
+          )}
+        </div>
 
-          {/* Footer */}
-          <div className="bg-gray-50 px-6 py-3 flex justify-between items-center">
-            <div className="flex space-x-3">
-              {result && result.status !== 'validated' && (userRole === 'admin' || userRole === 'validador') && (
-                <button
+        <DialogFooter className="justify-between sm:justify-between">
+          <div>
+            {result &&
+              result.status !== 'validated' &&
+              (userRole === 'admin' || userRole === 'validador') && (
+                <Button
                   type="button"
                   onClick={handleValidateResult}
                   disabled={isValidating}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="gap-2"
                 >
                   {isValidating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Validando...
-                    </>
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <>
-                      <CheckCheck className="h-4 w-4 mr-2" />
-                      Validar Resultado
-                    </>
+                    <CheckCheck className="h-4 w-4" />
                   )}
-                </button>
+                  {isValidating ? 'Validando...' : 'Validar Resultado'}
+                </Button>
               )}
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-            >
-              Cerrar
-            </button>
           </div>
-        </div>
-      </div>
-    </div>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isValidating}>
+            Cerrar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

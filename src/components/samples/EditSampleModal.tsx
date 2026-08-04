@@ -8,11 +8,20 @@ import { SPECIES_CATEGORIES } from '@/constants/species'
 import { PROJECT_OPTIONS } from '@/constants/projects'
 import { canEditField } from '@/config/sampleEditRules'
 import { getLabelFromDbArea, getAllLabels } from '@/config/analysisTypes'
-import { 
-  TestTube, 
-  Loader2,
-  X
-} from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { FormSection, Field } from '@/components/ui/form-section'
+import { fieldClassName, textareaClassName } from '@/components/ui/form-field-styles'
+import { cn } from '@/lib/utils'
+import { TestTube, Loader2 } from 'lucide-react'
 
 interface EditSampleModalProps {
   isOpen: boolean
@@ -385,7 +394,6 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
     }
   }
 
-  if (!isOpen) return null
 
   const statusOptions = [
     { value: 'received', label: 'Recibida' },
@@ -405,584 +413,458 @@ export default function EditSampleModal({ isOpen, onClose, sample, onSuccess }: 
   ]
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
-        
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full max-h-[90vh] overflow-y-auto">
-          <form onSubmit={handleSubmit}>
-            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center">
-                          <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-          <TestTube className="h-6 w-6 text-green-600" />
-                  </div>
-                  <div className="ml-4">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900">
-                      Editar Muestra
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      Modifica la información de la muestra {sample.code}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="rounded-md text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-6 w-6" />
-                </button>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open && !isSubmitting) onClose()
+      }}
+    >
+      <DialogContent
+        showCloseButton={!isSubmitting}
+        className="flex max-h-[90vh] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl"
+        onInteractOutside={(event) => {
+          if (isSubmitting) event.preventDefault()
+        }}
+      >
+        <DialogHeader className="border-b border-gray-100 bg-white">
+          <div className="flex items-start gap-3 pr-8">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100">
+              <TestTube className="h-5 w-5 text-green-700" />
+            </div>
+            <div>
+              <DialogTitle>Editar muestra</DialogTitle>
+              <DialogDescription className="mt-1">
+                Modifica la información de {sample.code}
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="space-y-4 overflow-y-auto overscroll-contain px-6 py-5">
+            {validationError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                <p className="font-medium">{validationError}</p>
+                {hasValidatedResults ? (
+                  <p className="mt-1 text-xs text-red-600">
+                    Puedes editar: Estado, Estado SLA, Fecha de vencimiento y notas/observaciones.
+                  </p>
+                ) : null}
               </div>
+            ) : null}
 
-              {/* Validation Error Display */}
-              {validationError && (
-                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-sm text-red-800 font-medium">{validationError}</p>
-                  {hasValidatedResults && (
-                    <p className="text-xs text-red-600 mt-2">
-                      💡 Puedes editar: Estado, Estado SLA, Fecha de vencimiento y todas las notas/observaciones.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {isCheckingValidated ? (
-                <div className="flex justify-center items-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-                  <span className="ml-2 text-gray-600">Verificando estado de la muestra...</span>
-                </div>
-              ) : (
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {/* Basic Info Section */}
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <h4 className="text-md font-medium text-gray-900 mb-4">Información básica</h4>
-                </div>
-
-                {/* Client */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Cliente *
-                  </label>
-                  <select
-                    required
-                    value={formData.client_id}
-                    onChange={(e) => setFormData(prev => ({ ...prev, client_id: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('client_id', hasValidatedResults)}
-                  >
-                    <option value="">Seleccionar cliente</option>
-                    {clients.map(client => (
-                      <option key={client.id} value={client.id}>{client.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Code */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Código de muestra *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.code}
-                    onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('code', hasValidatedResults)}
-                    placeholder="Ej: LIM-2024-001"
-                  />
-                </div>
-
-                {/* Status */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Estado
-                  </label>
-                  <select
-                    value={formData.status || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as SampleStatus }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('status', hasValidatedResults)}
-                  >
-                    {statusOptions.map(option => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Received Date */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fecha de recepción *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.received_date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, received_date: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('received_date', hasValidatedResults)}
-                  />
-                </div>
-
-                {/* Due Date */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fecha de vencimiento
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.due_date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('due_date', hasValidatedResults)}
-                  />
-                </div>
-
-                {/* SLA Type */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Prioridad (SLA)
-                  </label>
-                  <select
-                    value={formData.sla_type || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, sla_type: e.target.value as SLAType }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('sla_type', hasValidatedResults)}
-                  >
-                    <option value="normal">Normal</option>
-                    <option value="express">Express</option>
-                  </select>
-                </div>
-
-                {/* SLA Status */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Estado SLA
-                  </label>
-                  <select
-                    value={formData.sla_status || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, sla_status: e.target.value as SLAStatus }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('sla_status', hasValidatedResults)}
-                  >
-                    {slaStatusOptions.map(option => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Project */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Proyecto
-                  </label>
-                  <select
-                    value={formData.project_id}
-                    onChange={(e) => setFormData(prev => ({ ...prev, project_id: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={isLoadingProjects || !canEditField('project_id', hasValidatedResults)}
-                  >
-                    <option value="">
-                      {isLoadingProjects ? 'Cargando proyectos...' : 'Seleccionar proyecto'}
-                    </option>
-                    {projects.map(project => (
-                      <option key={project.id} value={project.id}>{project.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Species */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Especie *
-                  </label>
-                  <select
-                    required
-                    value={formData.species}
-                    onChange={(e) => setFormData(prev => ({ ...prev, species: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('species', hasValidatedResults)}
-                  >
-                    <option value="">Seleccionar especie</option>
-                    <option value="Desconocido">Desconocido</option>
-                    {SPECIES_CATEGORIES.map(category => (
-                      <optgroup key={category.label} label={category.label}>
-                        {category.options.map((species: string) => (
-                          <option key={species} value={species}>{species}</option>
+            {isCheckingValidated ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+                <span className="ml-2 text-sm text-muted-foreground">
+                  Verificando estado de la muestra...
+                </span>
+              </div>
+            ) : (
+              <>
+                <FormSection
+                  step={1}
+                  title="Identificación"
+                  description="Cliente, código, fechas y estado operativo"
+                >
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Field label="Cliente" required className="sm:col-span-2">
+                      <select
+                        required
+                        value={formData.client_id}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, client_id: e.target.value }))}
+                        className={fieldClassName}
+                        disabled={!canEditField('client_id', hasValidatedResults)}
+                      >
+                        <option value="">Seleccionar cliente</option>
+                        {clients.map((client) => (
+                          <option key={client.id} value={client.id}>{client.name}</option>
                         ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Variety */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Variedad
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.variety}
-                    onChange={(e) => setFormData(prev => ({ ...prev, variety: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('variety', hasValidatedResults)}
-                    placeholder="Ej: Cherry"
-                  />
-                </div>
-
-                {/* Rootstock */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Portainjerto
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.rootstock}
-                    onChange={(e) => setFormData(prev => ({ ...prev, rootstock: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('rootstock', hasValidatedResults)}
-                    placeholder="Ej: Mahaleb, Gisela 6"
-                  />
-                </div>
-
-                {/* Planting Year */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Año de plantación
-                  </label>
-                  <input
-                    type="number"
-                    min="1950"
-                    max={new Date().getFullYear()}
-                    value={formData.planting_year}
-                    onChange={(e) => setFormData(prev => ({ ...prev, planting_year: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('planting_year', hasValidatedResults)}
-                    placeholder="2023"
-                  />
-                </div>
-
-                {/* Órgano analizado */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tejido analizado
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.organo_analizado}
-                    onChange={(e) => setFormData(prev => ({ ...prev, organo_analizado: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('organo_analizado', hasValidatedResults)}
-                    placeholder="Ej: Hoja, Fruto, Raíz, Tallo"
-                  />
-                </div>
-
-                {/* Previous Crop */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Cultivo anterior
-                  </label>
-                  <select
-                    value={formData.previous_crop}
-                    onChange={(e) => setFormData(prev => ({ ...prev, previous_crop: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('previous_crop', hasValidatedResults)}
-                  >
-                    <option value="">Sin cultivo anterior</option>
-                    <option value="Barbecho">Barbecho</option>
-                    <option value="Desconocido">Desconocido</option>
-                    {SPECIES_CATEGORIES.map(category => (
-                      <optgroup key={`prev-${category.label}`} label={category.label}>
-                        {category.options.map((species: string) => (
-                          <option key={`prev-${species}`} value={species}>{species}</option>
+                      </select>
+                    </Field>
+                    <Field label="Código de muestra" required>
+                      <Input
+                        type="text"
+                        required
+                        value={formData.code}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, code: e.target.value }))}
+                        className={fieldClassName}
+                        disabled={!canEditField('code', hasValidatedResults)}
+                      />
+                    </Field>
+                    <Field label="Estado">
+                      <select
+                        value={formData.status || ''}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value as SampleStatus }))}
+                        className={fieldClassName}
+                        disabled={!canEditField('status', hasValidatedResults)}
+                      >
+                        {statusOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
                         ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Next Crop */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Próximo cultivo
-                  </label>
-                  <select
-                    value={formData.next_crop}
-                    onChange={(e) => setFormData(prev => ({ ...prev, next_crop: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('next_crop', hasValidatedResults)}
-                  >
-                    <option value="">Sin próximo cultivo planificado</option>
-                    <option value="Barbecho">Barbecho</option>
-                    <option value="Desconocido">Desconocido</option>
-                    {SPECIES_CATEGORIES.map(category => (
-                      <optgroup key={`next-${category.label}`} label={category.label}>
-                        {category.options.map((species: string) => (
-                          <option key={`next-${species}`} value={species}>{species}</option>
+                      </select>
+                    </Field>
+                    <Field label="Fecha de recepción" required>
+                      <Input
+                        type="date"
+                        required
+                        value={formData.received_date}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, received_date: e.target.value }))}
+                        className={fieldClassName}
+                        disabled={!canEditField('received_date', hasValidatedResults)}
+                      />
+                    </Field>
+                    <Field label="Fecha de vencimiento">
+                      <Input
+                        type="date"
+                        value={formData.due_date}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, due_date: e.target.value }))}
+                        className={fieldClassName}
+                        disabled={!canEditField('due_date', hasValidatedResults)}
+                      />
+                    </Field>
+                    <Field label="Prioridad (SLA)">
+                      <select
+                        value={formData.sla_type || ''}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, sla_type: e.target.value as SLAType }))}
+                        className={fieldClassName}
+                        disabled={!canEditField('sla_type', hasValidatedResults)}
+                      >
+                        <option value="normal">Normal</option>
+                        <option value="express">Express</option>
+                      </select>
+                    </Field>
+                    <Field label="Estado SLA">
+                      <select
+                        value={formData.sla_status || ''}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, sla_status: e.target.value as SLAStatus }))}
+                        className={fieldClassName}
+                        disabled={!canEditField('sla_status', hasValidatedResults)}
+                      >
+                        {slaStatusOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
                         ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                </div>
+                      </select>
+                    </Field>
+                    <Field label="Proyecto" className="sm:col-span-2">
+                      <select
+                        value={formData.project_id}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, project_id: e.target.value }))}
+                        className={fieldClassName}
+                        disabled={isLoadingProjects || !canEditField('project_id', hasValidatedResults)}
+                      >
+                        <option value="">
+                          {isLoadingProjects ? 'Cargando proyectos...' : 'Seleccionar proyecto'}
+                        </option>
+                        {projects.map((project) => (
+                          <option key={project.id} value={project.id}>{project.name}</option>
+                        ))}
+                      </select>
+                    </Field>
+                  </div>
+                </FormSection>
 
-                {/* Fallow */}
-                <div>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={formData.fallow}
-                      onChange={(e) => setFormData(prev => ({ ...prev, fallow: e.target.checked }))}
-                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
-                      disabled={!canEditField('fallow', hasValidatedResults)}
-                    />
-                    <span className="ml-2 text-sm text-gray-700">Terreno en barbecho</span>
-                  </label>
-                </div>
-
-                {/* Location Section */}
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <h4 className="text-md font-medium text-gray-900 mb-4 mt-6">Ubicación</h4>
-                </div>
-
-                {/* Region */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Región
-                  </label>
-                        <input
-                    type="text"
-                    value={formData.region}
-                    onChange={(e) => setFormData(prev => ({ ...prev, region: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('region', hasValidatedResults)}
-                    placeholder="Ej: Región Metropolitana"
-                  />
-                </div>
-
-                {/* Locality */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Localidad
-                      </label>
-                  <input
-                    type="text"
-                    value={formData.locality}
-                    onChange={(e) => setFormData(prev => ({ ...prev, locality: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('locality', hasValidatedResults)}
-                    placeholder="Ej: Maipú, Santiago"
-                  />
-                </div>
-
-                {/* Delivery Info Section */}
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <h4 className="text-md font-medium text-gray-900 mb-4 mt-6">Información de entrega</h4>
-                </div>
-
-                {/* Taken By */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Recolectada por
-                  </label>
-                  <select
-                    value={formData.taken_by}
-                    onChange={(e) => setFormData(prev => ({ ...prev, taken_by: e.target.value as SampleTakenBy }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('taken_by', hasValidatedResults)}
-                  >
-                    <option value="client">Cliente</option>
-                    <option value="lab">Laboratorio</option>
-                  </select>
-                </div>
-
-                {/* Sampling Method */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Método de muestreo
-                  </label>
-                  <select
-                    value={formData.sampling_method}
-                    onChange={(e) => setFormData(prev => ({ ...prev, sampling_method: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('sampling_method', hasValidatedResults)}
-                  >
-                    <option value="">No especificado</option>
-                    <option value="Muestra compuesta">Muestra compuesta</option>
-                  </select>
-                </div>
-
-                {/* Suspected Pathogen */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Patógeno sospechado
-                      </label>
-                  <select
-                    value={formData.suspected_pathogen}
-                    onChange={(e) => setFormData(prev => ({ ...prev, suspected_pathogen: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('suspected_pathogen', hasValidatedResults)}
-                  >
-                    <option value="">Seleccionar patógeno</option>
-                    {availableAnalytes.map(analyte => (
-                      <option key={analyte.id} value={analyte.scientific_name}>
-                        {analyte.scientific_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Analysis Types - Show as read-only based on sample_tests */}
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Tipo de análisis
-                  </label>
-                  {(() => {
-                    // Get unique areas from sample_tests
-                    let analysisTypes: string[] = []
-                    const extendedSample = sample as SampleWithClient
-                    if (extendedSample?.sample_tests && Array.isArray(extendedSample.sample_tests) && extendedSample.sample_tests.length > 0) {
-                      const uniqueAreas = new Set(
-                        extendedSample.sample_tests
-                          .map((st) => st.test_catalog?.area)
-                          .filter((area): area is AreaType => {
-                            if (!area) return false
-                            const label = getLabelFromDbArea(area as AreaType)
-                            return label !== area // solo válido si hay entrada en el registro
-                          })
-                      )
-
-                      // Map to display names
-                      analysisTypes = Array.from(uniqueAreas)
-                        .map((area: AreaType) => getLabelFromDbArea(area))
-                        .filter((name): name is string => typeof name === 'string')
-                    }
-
-                    // All possible types for display
-                    const allTypes = getAllLabels()
-                    
-                    return (
-                      <>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-                          {allTypes.map(type => (
-                            <label key={type} className="flex items-center">
+                <FormSection step={2} title="Material vegetal" description="Especie, tejido y contexto agronómico">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <Field label="Especie" required>
+                      <select
+                        required
+                        value={formData.species}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, species: e.target.value }))}
+                        className={fieldClassName}
+                        disabled={!canEditField('species', hasValidatedResults)}
+                      >
+                        <option value="">Seleccionar especie</option>
+                        <option value="Desconocido">Desconocido</option>
+                        {SPECIES_CATEGORIES.map((category) => (
+                          <optgroup key={category.label} label={category.label}>
+                            {category.options.map((species: string) => (
+                              <option key={species} value={species}>{species}</option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="Variedad">
+                      <Input
+                        type="text"
+                        value={formData.variety}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, variety: e.target.value }))}
+                        className={fieldClassName}
+                        disabled={!canEditField('variety', hasValidatedResults)}
+                        placeholder="Ej: Cherry"
+                      />
+                    </Field>
+                    <Field label="Portainjerto">
+                      <Input
+                        type="text"
+                        value={formData.rootstock}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, rootstock: e.target.value }))}
+                        className={fieldClassName}
+                        disabled={!canEditField('rootstock', hasValidatedResults)}
+                        placeholder="Ej: Mahaleb"
+                      />
+                    </Field>
+                    <Field label="Tejido analizado">
+                      <Input
+                        type="text"
+                        value={formData.organo_analizado}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, organo_analizado: e.target.value }))}
+                        className={fieldClassName}
+                        disabled={!canEditField('organo_analizado', hasValidatedResults)}
+                      />
+                    </Field>
+                    <Field label="Año de plantación">
+                      <Input
+                        type="number"
+                        min="1950"
+                        max={new Date().getFullYear()}
+                        value={formData.planting_year}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, planting_year: e.target.value }))}
+                        className={fieldClassName}
+                        disabled={!canEditField('planting_year', hasValidatedResults)}
+                      />
+                    </Field>
+                    <Field label="Cultivo anterior">
+                      <select
+                        value={formData.previous_crop}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, previous_crop: e.target.value }))}
+                        className={fieldClassName}
+                        disabled={!canEditField('previous_crop', hasValidatedResults)}
+                      >
+                        <option value="">Sin cultivo anterior</option>
+                        <option value="Barbecho">Barbecho</option>
+                        <option value="Desconocido">Desconocido</option>
+                        {SPECIES_CATEGORIES.map((category) => (
+                          <optgroup key={`prev-${category.label}`} label={category.label}>
+                            {category.options.map((species: string) => (
+                              <option key={`prev-${species}`} value={species}>{species}</option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="Próximo cultivo">
+                      <select
+                        value={formData.next_crop}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, next_crop: e.target.value }))}
+                        className={fieldClassName}
+                        disabled={!canEditField('next_crop', hasValidatedResults)}
+                      >
+                        <option value="">Sin próximo cultivo planificado</option>
+                        <option value="Barbecho">Barbecho</option>
+                        <option value="Desconocido">Desconocido</option>
+                        {SPECIES_CATEGORIES.map((category) => (
+                          <optgroup key={`next-${category.label}`} label={category.label}>
+                            {category.options.map((species: string) => (
+                              <option key={`next-${species}`} value={species}>{species}</option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                    </Field>
+                    <div className="flex items-end pb-1">
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700">
                         <input
                           type="checkbox"
-                                checked={analysisTypes.includes(type)}
-                                disabled={true}
-                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
-                              />
-                              <span className={`ml-2 text-sm ${analysisTypes.includes(type) ? 'text-gray-700' : 'text-gray-400'}`}>
-                                {type}
-                              </span>
+                          checked={formData.fallow}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, fallow: e.target.checked }))}
+                          className="rounded border-gray-300 text-green-600 focus:ring-green-600 disabled:opacity-50"
+                          disabled={!canEditField('fallow', hasValidatedResults)}
+                        />
+                        Terreno en barbecho
                       </label>
-                    ))}
+                    </div>
+                    <Field label="Región">
+                      <Input
+                        type="text"
+                        value={formData.region}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, region: e.target.value }))}
+                        className={fieldClassName}
+                        disabled={!canEditField('region', hasValidatedResults)}
+                      />
+                    </Field>
+                    <Field label="Localidad">
+                      <Input
+                        type="text"
+                        value={formData.locality}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, locality: e.target.value }))}
+                        className={fieldClassName}
+                        disabled={!canEditField('locality', hasValidatedResults)}
+                      />
+                    </Field>
                   </div>
-                        <p className="text-xs text-gray-500 mt-2">
-                          {analysisTypes.length > 0 
-                            ? 'Los tipos de análisis no se pueden modificar después de crear la muestra'
-                            : 'No se han asignado tipos de análisis a esta muestra'}
-                        </p>
-                      </>
-                    )
-                  })()}
-                </div>
+                </FormSection>
 
-                {/* Notes Section */}
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <h4 className="text-md font-medium text-gray-900 mb-4 mt-6">Notas y observaciones</h4>
-                </div>
+                <FormSection step={3} title="Muestreo" description="Cómo y quién tomó la muestra">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Field label="Recolectada por">
+                      <select
+                        value={formData.taken_by}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, taken_by: e.target.value as SampleTakenBy }))}
+                        className={fieldClassName}
+                        disabled={!canEditField('taken_by', hasValidatedResults)}
+                      >
+                        <option value="client">Cliente</option>
+                        <option value="lab">Laboratorio</option>
+                      </select>
+                    </Field>
+                    <Field label="Método de muestreo">
+                      <select
+                        value={formData.sampling_method}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, sampling_method: e.target.value }))}
+                        className={fieldClassName}
+                        disabled={!canEditField('sampling_method', hasValidatedResults)}
+                      >
+                        <option value="">No especificado</option>
+                        <option value="Muestra compuesta">Muestra compuesta</option>
+                      </select>
+                    </Field>
+                  </div>
+                </FormSection>
 
-                {/* Client Notes */}
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Notas del cliente
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={formData.client_notes}
-                    onChange={(e) => setFormData(prev => ({ ...prev, client_notes: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('client_notes', hasValidatedResults)}
-                    placeholder="Notas proporcionadas por el cliente..."
-                  />
-                </div>
+                <FormSection
+                  step={4}
+                  title="Análisis"
+                  description="Patógeno sospechado y tipos asignados (solo lectura)"
+                  className="border-green-100 bg-green-50/40"
+                >
+                  <div className="space-y-4">
+                    <Field label="Patógeno sospechado">
+                      <select
+                        value={formData.suspected_pathogen}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, suspected_pathogen: e.target.value }))}
+                        className={fieldClassName}
+                        disabled={!canEditField('suspected_pathogen', hasValidatedResults)}
+                      >
+                        <option value="">Seleccionar patógeno</option>
+                        {availableAnalytes.map((analyte) => (
+                          <option key={analyte.id} value={analyte.scientific_name}>
+                            {analyte.scientific_name}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-gray-700">Tipo de análisis</p>
+                      {(() => {
+                        let analysisTypes: string[] = []
+                        const extendedSample = sample as SampleWithClient
+                        if (extendedSample?.sample_tests && Array.isArray(extendedSample.sample_tests) && extendedSample.sample_tests.length > 0) {
+                          const uniqueAreas = new Set(
+                            extendedSample.sample_tests
+                              .map((st) => st.test_catalog?.area)
+                              .filter((area): area is AreaType => {
+                                if (!area) return false
+                                const label = getLabelFromDbArea(area as AreaType)
+                                return label !== area
+                              })
+                          )
+                          analysisTypes = Array.from(uniqueAreas)
+                            .map((area: AreaType) => getLabelFromDbArea(area))
+                            .filter((name): name is string => typeof name === 'string')
+                        }
+                        const allTypes = getAllLabels()
+                        return (
+                          <>
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              {allTypes.map((type) => {
+                                const isChecked = analysisTypes.includes(type)
+                                return (
+                                  <label
+                                    key={type}
+                                    className={cn(
+                                      'flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm',
+                                      isChecked
+                                        ? 'border-green-300 bg-green-50/80 text-green-900'
+                                        : 'border-gray-200 bg-white text-gray-400'
+                                    )}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      disabled
+                                      className="rounded border-gray-300 text-green-600 opacity-70"
+                                    />
+                                    {type}
+                                  </label>
+                                )
+                              })}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {analysisTypes.length > 0
+                                ? 'Los tipos de análisis no se pueden modificar después de crear la muestra'
+                                : 'No se han asignado tipos de análisis a esta muestra'}
+                            </p>
+                          </>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                </FormSection>
 
-                {/* Reception Notes */}
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Notas de recepción
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={formData.reception_notes}
-                    onChange={(e) => setFormData(prev => ({ ...prev, reception_notes: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('reception_notes', hasValidatedResults)}
-                    placeholder="Observaciones del laboratorio al recibir la muestra..."
-                  />
-                </div>
+                <FormSection step={5} title="Notas" description="Observaciones editables">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Field label="Notas del cliente">
+                      <textarea
+                        rows={3}
+                        value={formData.client_notes}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, client_notes: e.target.value }))}
+                        className={textareaClassName}
+                        disabled={!canEditField('client_notes', hasValidatedResults)}
+                      />
+                    </Field>
+                    <Field label="Notas de recepción">
+                      <textarea
+                        rows={3}
+                        value={formData.reception_notes}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, reception_notes: e.target.value }))}
+                        className={textareaClassName}
+                        disabled={!canEditField('reception_notes', hasValidatedResults)}
+                      />
+                    </Field>
+                    <Field label="Observaciones de muestreo">
+                      <textarea
+                        rows={3}
+                        value={formData.sampling_observations}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, sampling_observations: e.target.value }))}
+                        className={textareaClassName}
+                        disabled={!canEditField('sampling_observations', hasValidatedResults)}
+                      />
+                    </Field>
+                    <Field label="Observaciones de recepción">
+                      <textarea
+                        rows={3}
+                        value={formData.reception_observations}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, reception_observations: e.target.value }))}
+                        className={textareaClassName}
+                        disabled={!canEditField('reception_observations', hasValidatedResults)}
+                      />
+                    </Field>
+                  </div>
+                </FormSection>
+              </>
+            )}
+          </div>
 
-                {/* Sampling Observations */}
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Observaciones de muestreo
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={formData.sampling_observations}
-                    onChange={(e) => setFormData(prev => ({ ...prev, sampling_observations: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('sampling_observations', hasValidatedResults)}
-                    placeholder="Observaciones sobre el proceso de muestreo..."
-                  />
-                </div>
-
-                {/* Reception Observations */}
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Observaciones de recepción
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={formData.reception_observations}
-                    onChange={(e) => setFormData(prev => ({ ...prev, reception_observations: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                    disabled={!canEditField('reception_observations', hasValidatedResults)}
-                    placeholder="Observaciones adicionales al recibir la muestra..."
-                  />
-                </div>
-              </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={isSubmitting} onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isSubmitting || isCheckingValidated} className="gap-2">
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                'Guardar cambios'
               )}
-            </div>
-
-            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-              <button
-                type="submit"
-                disabled={isSubmitting || isCheckingValidated}
-                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Guardando...
-                  </>
-                ) : (
-                  'Guardar cambios'
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-              >
-                Cancelar
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
+

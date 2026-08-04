@@ -2,6 +2,17 @@
 
 import Link from 'next/link'
 import { AlertTriangle, FileText } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 export type DetectionRow = {
   id: string
@@ -33,112 +44,91 @@ export function DetectionsTable({
 }: DetectionsTableProps) {
   if (!hasNormalizedFindings) {
     return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
-        <div className="mb-1 flex items-center gap-2 font-medium">
-          <AlertTriangle className="h-4 w-4" />
-          Sin marcas SAG registradas aún
-        </div>
-        <p>
-          Cuando el laboratorio marque tolerancia cero en los resultados, las detecciones aparecerán aquí.
-          No interpretes la ausencia de filas como “todo controlado”.
-        </p>
-      </div>
+      <Card className="border-amber-200 bg-amber-50">
+        <CardContent className="space-y-1 py-6 text-sm text-amber-950">
+          <div className="flex items-center gap-2 font-medium">
+            <AlertTriangle className="h-4 w-4" />
+            Sin marcas SAG registradas aún
+          </div>
+          <p>
+            Cuando el laboratorio marque tolerancia cero en los resultados, las detecciones aparecerán aquí.
+            No interpretes la ausencia de filas como “todo controlado”.
+          </p>
+        </CardContent>
+      </Card>
     )
   }
 
   if (rows.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
-        No hay detecciones en el período seleccionado.
-      </div>
+      <Card>
+        <CardContent className="py-8 text-center text-sm text-muted-foreground">
+          No hay detecciones en el período seleccionado.
+        </CardContent>
+      </Card>
     )
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Muestra
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Patógeno
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Cantidad
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Disciplina
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Tol. cero SAG
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Fecha
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Informe
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200 bg-white">
-            {rows.map((row) => (
-              <tr key={row.id} className="hover:bg-gray-50">
-                <td className="whitespace-nowrap px-4 py-3 text-sm font-mono text-gray-900">
-                  {row.sampleCode}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-900">{row.pathogenName}</td>
-                <td className="whitespace-nowrap px-4 py-3 text-sm font-mono text-gray-700">
-                  {row.quantity || '—'}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
-                  {row.testAreaLabel}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-sm">
-                  {row.isSagZeroTolerance ? (
-                    <span className="inline-flex rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-700">
-                      Crítico
-                    </span>
+    <Card className="overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Muestra</TableHead>
+            <TableHead>Patógeno</TableHead>
+            <TableHead>Cantidad</TableHead>
+            <TableHead>Disciplina</TableHead>
+            <TableHead>Tol. cero SAG</TableHead>
+            <TableHead>Fecha</TableHead>
+            <TableHead>Informe</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={row.id}>
+              <TableCell className="font-mono text-sm">{row.sampleCode}</TableCell>
+              <TableCell>{row.pathogenName}</TableCell>
+              <TableCell className="font-mono text-sm">{row.quantity || '—'}</TableCell>
+              <TableCell>{row.testAreaLabel}</TableCell>
+              <TableCell>
+                {row.isSagZeroTolerance ? (
+                  <Badge variant="destructive">Crítico</Badge>
+                ) : (
+                  <Badge variant="secondary" className="bg-primary/10 text-primary">
+                    Controlado
+                  </Badge>
+                )}
+              </TableCell>
+              <TableCell>{formatDate(row.createdAt)}</TableCell>
+              <TableCell>
+                {row.reportId ? (
+                  onOpenReport ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onOpenReport(row.reportId!)}
+                      className="gap-1 text-primary"
+                    >
+                      <FileText className="h-4 w-4" />
+                      Ver
+                    </Button>
                   ) : (
-                    <span className="inline-flex rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
-                      Controlado
-                    </span>
-                  )}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
-                  {formatDate(row.createdAt)}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-sm">
-                  {row.reportId ? (
-                    onOpenReport ? (
-                      <button
-                        type="button"
-                        onClick={() => onOpenReport(row.reportId!)}
-                        className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800"
-                      >
-                        <FileText className="h-4 w-4" />
-                        Ver
-                      </button>
-                    ) : (
-                      <Link
-                        href={`/reports?report=${row.reportId}`}
-                        className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800"
-                      >
+                    <Button variant="ghost" size="sm" asChild className="gap-1 text-primary">
+                      <Link href={`/reports?report=${row.reportId}`}>
                         <FileText className="h-4 w-4" />
                         Ver
                       </Link>
-                    )
-                  ) : (
-                    <span className="text-gray-400">—</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+                    </Button>
+                  )
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Card>
   )
 }

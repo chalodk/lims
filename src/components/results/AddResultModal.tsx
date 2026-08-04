@@ -6,13 +6,24 @@ import { useAuth } from '@/hooks/useAuth'
 import { SampleWithClient, SampleTest, TestCatalog, Method } from '@/types/database'
 import { 
   FlaskConical,
-  X,
   Loader2,
   TestTube,
   Plus,
   Minus
 } from 'lucide-react'
 import RichTextEditor from '@/components/RichTextEditor'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { FormSection, Field } from '@/components/ui/form-section'
+import { fieldClassName, textareaClassName } from '@/components/ui/form-field-styles'
+import { cn } from '@/lib/utils'
 
 interface AddResultModalProps {
   isOpen: boolean
@@ -2589,381 +2600,426 @@ export default function AddResultModal({
     }
   }
 
-  if (!isOpen) return null
-
   const selectedSample = samples.find(s => s.id === formData.sample_id)
 
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open && !isSubmitting) {
+      setValidationError(null)
+      onClose()
+    }
+  }
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
-        
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full max-w-[calc(100vw-2rem)]">
-          <form onSubmit={handleSubmit}>
-            <div className="bg-white px-6 pt-6 pb-4 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-                    <FlaskConical className="h-6 w-6 text-green-600" />
-                  </div>
-                  <div className="ml-4">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900">
-                      {resultId ? 'Editar Resultado' : 'Nuevo Resultado'}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      {resultId ? 'Modifica la información del resultado' : 'Registrar el resultado de un análisis de laboratorio'}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="rounded-md text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
+    <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
+      <DialogContent
+        showCloseButton={!isSubmitting}
+        className="flex max-h-[90vh] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
+        onInteractOutside={(event) => {
+          if (isSubmitting) event.preventDefault()
+        }}
+        onEscapeKeyDown={(event) => {
+          if (isSubmitting) event.preventDefault()
+        }}
+      >
+        <DialogHeader className="border-b border-gray-100 bg-white">
+          <div className="flex items-start gap-3 pr-8">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100">
+              <FlaskConical className="h-5 w-5 text-green-700" />
             </div>
+            <div>
+              <DialogTitle>
+                {resultId ? 'Editar Resultado' : 'Nuevo Resultado'}
+              </DialogTitle>
+              <DialogDescription className="mt-1">
+                {resultId
+                  ? 'Modifica la información del resultado'
+                  : 'Registrar el resultado de un análisis de laboratorio'}
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
 
-            {/* Validation Error Display */}
-            {validationError && (
-              <div className="px-6 py-4 bg-red-50 border-b border-red-200">
-                <p className="text-sm text-red-800">{validationError}</p>
-              </div>
-            )}
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          {validationError ? (
+            <div className="border-b border-red-200 bg-red-50 px-6 py-3 text-sm text-red-800">
+              {validationError}
+            </div>
+          ) : null}
 
-            {isLoadingResult ? (
-              <div className="bg-white px-6 py-12 flex justify-center items-center">
-                <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-                <span className="ml-2 text-gray-600">Cargando datos del resultado...</span>
-              </div>
-            ) : (
-            <div className="bg-white px-6 py-6 max-h-[70vh] overflow-y-auto">
-              <div className="flex flex-col gap-8">
-                {/* Section: Sample and Analysis */}
-                <section className="space-y-4">
-                  <h4 className="text-md font-medium text-gray-900">Selección de Muestra y Análisis</h4>
-                  <div className="grid grid-cols-1 gap-4 min-w-0 sm:grid-cols-2">
-                    <div className="min-w-0">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Muestra *
-                      </label>
-                      <select
-                        required
-                        value={formData.sample_id}
-                        onChange={(e) => setFormData(prev => ({ ...prev, sample_id: e.target.value, sample_test_id: '' }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 min-w-0"
-                        disabled={!!preselectedSampleId || !!resultId || isLoadingResult || isValidated}
+          {isLoadingResult ? (
+            <div className="flex items-center justify-center px-6 py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+              <span className="ml-2 text-gray-600">Cargando datos del resultado...</span>
+            </div>
+          ) : (
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-6 py-5">
+              <FormSection
+                step={1}
+                title="Selección de muestra y análisis"
+                description="Elige la muestra y el análisis a registrar"
+              >
+                <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Field label="Muestra" required className="min-w-0">
+                    <select
+                      required
+                      value={formData.sample_id}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          sample_id: e.target.value,
+                          sample_test_id: '',
+                        }))
+                      }
+                      className={cn(fieldClassName, 'min-w-0')}
+                      disabled={
+                        !!preselectedSampleId ||
+                        !!resultId ||
+                        isLoadingResult ||
+                        isValidated
+                      }
+                    >
+                      <option value="">Seleccionar muestra</option>
+                      {loadingSamples ? (
+                        <option disabled>Cargando muestras...</option>
+                      ) : (
+                        samples.map((sample) => (
+                          <option key={sample.id} value={sample.id}>
+                            {sample.code} - {sample.clients?.name} ({sample.species})
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </Field>
+                  <Field label="Análisis" required className="min-w-0">
+                    <select
+                      required
+                      value={formData.sample_test_id}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          sample_test_id: e.target.value,
+                        }))
+                      }
+                      className={cn(fieldClassName, 'min-w-0')}
+                      disabled={!formData.sample_id || isValidated}
+                    >
+                      <option value="">Seleccionar análisis</option>
+                      {loadingTests ? (
+                        <option disabled>Cargando análisis...</option>
+                      ) : (
+                        sampleTests.map((test) => (
+                          <option key={test.id} value={test.id}>
+                            {test.test_catalog?.name} ({test.test_catalog?.area}) -{' '}
+                            {test.methods?.name}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </Field>
+                </div>
+                {selectedSample && (
+                  <div className="mt-4 min-w-0 rounded-lg border border-gray-100 bg-white p-4">
+                    <h5 className="mb-2 flex items-center text-sm font-medium text-gray-900">
+                      <TestTube className="mr-2 h-4 w-4 shrink-0" />
+                      Información del Solicitante
+                    </h5>
+                    <div className="grid min-w-0 grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
+                      <div className="truncate" title={selectedSample.code}>
+                        <span className="text-gray-500">Código:</span> {selectedSample.code}
+                      </div>
+                      <div className="truncate" title={selectedSample.clients?.name}>
+                        <span className="text-gray-500">Cliente:</span>{' '}
+                        {selectedSample.clients?.name}
+                      </div>
+                      <div className="truncate" title={selectedSample.clients?.rut ?? ''}>
+                        <span className="text-gray-500">RUT:</span>{' '}
+                        {selectedSample.clients?.rut}
+                      </div>
+                      <div
+                        className="truncate"
+                        title={selectedSample.clients?.contact_email ?? ''}
                       >
-                        <option value="">Seleccionar muestra</option>
-                        {loadingSamples ? (
-                          <option disabled>Cargando muestras...</option>
-                        ) : (
-                          samples.map(sample => (
-                            <option key={sample.id} value={sample.id}>
-                              {sample.code} - {sample.clients?.name} ({sample.species})
-                            </option>
-                          ))
-                        )}
-                      </select>
-                    </div>
-                    <div className="min-w-0">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Análisis *
-                      </label>
-                      <select
-                        required
-                        value={formData.sample_test_id}
-                        onChange={(e) => setFormData(prev => ({ ...prev, sample_test_id: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 min-w-0"
-                        disabled={!formData.sample_id || isValidated}
-                      >
-                        <option value="">Seleccionar análisis</option>
-                        {loadingTests ? (
-                          <option disabled>Cargando análisis...</option>
-                        ) : (
-                          sampleTests.map(test => (
-                            <option key={test.id} value={test.id}>
-                              {test.test_catalog?.name} ({test.test_catalog?.area}) - {test.methods?.name}
-                            </option>
-                          ))
-                        )}
-                      </select>
-                    </div>
-                  </div>
-                  {selectedSample && (
-                    <div className="bg-blue-50 rounded-lg p-4 min-w-0">
-                      <h5 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
-                        <TestTube className="h-4 w-4 mr-2 flex-shrink-0" />
-                        Información del Solicitante
-                      </h5>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm min-w-0 sm:grid-cols-3">
-                        <div className="truncate" title={selectedSample.code}>
-                          <span className="text-gray-500">Código:</span> {selectedSample.code}
-                        </div>
-                        <div className="truncate" title={selectedSample.clients?.name}>
-                          <span className="text-gray-500">Cliente:</span> {selectedSample.clients?.name}
-                        </div>
-                        <div className="truncate" title={selectedSample.clients?.rut ?? ''}>
-                          <span className="text-gray-500">RUT:</span> {selectedSample.clients?.rut}
-                        </div>
-                        <div className="truncate" title={selectedSample.clients?.contact_email ?? ''}>
-                          <span className="text-gray-500">Email:</span> {selectedSample.clients?.contact_email || '—'}
-                        </div>
-                        <div className="truncate" title={selectedSample.species}>
-                          <span className="text-gray-500">Especie:</span> {selectedSample.species}
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Fecha:</span> {new Date(selectedSample.received_date).toLocaleDateString()}
-                        </div>
+                        <span className="text-gray-500">Email:</span>{' '}
+                        {selectedSample.clients?.contact_email || '—'}
+                      </div>
+                      <div className="truncate" title={selectedSample.species}>
+                        <span className="text-gray-500">Especie:</span>{' '}
+                        {selectedSample.species}
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Fecha:</span>{' '}
+                        {new Date(selectedSample.received_date).toLocaleDateString()}
                       </div>
                     </div>
-                  )}
-                </section>
-
-                {/* Section: Result Information */}
-                <section className="space-y-4">
-                  <h4 className="text-md font-medium text-gray-900">Información del Resultado</h4>
-                  {selectedAnalysisArea && (
-                    <div className="p-2 bg-green-50 rounded-lg min-w-0">
-                      <p className="text-sm text-green-700">
-                        <span className="font-medium">Formato de resultado:</span> {selectedAnalysisArea}
-                      </p>
-                    </div>
-                  )}
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Metodología *
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-                    {methodologyOptions.map(methodology => (
-                      <label key={methodology} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={formData.methodologies.includes(methodology)}
-                          onChange={(e) => handleMethodologyChange(methodology, e.target.checked)}
-                          className="rounded border-gray-300 text-green-600 focus:ring-green-500 disabled:opacity-50"
-                          disabled={isValidated}
-                        />
-                        <span className="ml-2 text-sm text-gray-700">{methodology}</span>
-                      </label>
-                    ))}
                   </div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Técnica de identificación *
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-                    {techniqueOptions.map(technique => (
-                      <label key={technique} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={formData.identification_techniques.includes(technique)}
-                          onChange={(e) => handleIdentificationTechniqueChange(technique, e.target.checked)}
-                          className="rounded border-gray-300 text-green-600 focus:ring-green-500 disabled:opacity-50"
-                          disabled={isValidated}
-                        />
-                        <span className="ml-2 text-sm text-gray-700">{technique}</span>
-                      </label>
-                    ))}
+                )}
+              </FormSection>
+
+              <FormSection
+                step={2}
+                title="Información del resultado"
+                description="Metodología y técnica de identificación"
+              >
+                {selectedAnalysisArea && (
+                  <div className="mb-4 min-w-0 rounded-lg bg-green-50 p-2">
+                    <p className="text-sm text-green-700">
+                      <span className="font-medium">Formato de resultado:</span>{' '}
+                      {selectedAnalysisArea}
+                    </p>
                   </div>
-                </section>
-
-                {renderResultFormatFields()}
-
-                {/* Rich Text and Findings */}
-                <section className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Diagnóstico
+                )}
+                <p className="mb-3 text-sm font-medium text-gray-700">Metodología *</p>
+                <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {methodologyOptions.map((methodology) => (
+                    <label key={methodology} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.methodologies.includes(methodology)}
+                        onChange={(e) =>
+                          handleMethodologyChange(methodology, e.target.checked)
+                        }
+                        className="rounded border-gray-300 text-green-600 focus:ring-green-600 disabled:opacity-50"
+                        disabled={isValidated}
+                      />
+                      <span className="ml-2 text-sm text-gray-700">{methodology}</span>
                     </label>
+                  ))}
+                </div>
+                <p className="mb-3 text-sm font-medium text-gray-700">
+                  Técnica de identificación *
+                </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {techniqueOptions.map((technique) => (
+                    <label key={technique} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.identification_techniques.includes(technique)}
+                        onChange={(e) =>
+                          handleIdentificationTechniqueChange(technique, e.target.checked)
+                        }
+                        className="rounded border-gray-300 text-green-600 focus:ring-green-600 disabled:opacity-50"
+                        disabled={isValidated}
+                      />
+                      <span className="ml-2 text-sm text-gray-700">{technique}</span>
+                    </label>
+                  ))}
+                </div>
+              </FormSection>
+
+              <FormSection
+                step={3}
+                title="Hallazgos / tablas de análisis"
+                description="Datos estructurados según el área de análisis"
+              >
+                {renderResultFormatFields()}
+              </FormSection>
+
+              <FormSection
+                step={4}
+                title="Información adicional / notas"
+                description="Diagnóstico, conclusiones y metadatos del resultado"
+              >
+                <div className="space-y-4">
+                  <Field label="Diagnóstico">
                     <RichTextEditor
                       value={formData.diagnosis}
-                      onChange={(value) => setFormData(prev => ({ ...prev, diagnosis: value }))}
+                      onChange={(value) =>
+                        setFormData((prev) => ({ ...prev, diagnosis: value }))
+                      }
                       placeholder="Diagnóstico detallado del análisis..."
                       disabled={isValidated}
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Conclusión
-                    </label>
+                  </Field>
+                  <Field label="Conclusión">
                     <RichTextEditor
                       value={formData.conclusion}
-                      onChange={(value) => setFormData(prev => ({ ...prev, conclusion: value }))}
+                      onChange={(value) =>
+                        setFormData((prev) => ({ ...prev, conclusion: value }))
+                      }
                       placeholder="Conclusiones del análisis..."
                       disabled={isValidated}
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Recomendaciones
-                    </label>
+                  </Field>
+                  <Field label="Recomendaciones">
                     <RichTextEditor
                       value={formData.recommendations}
-                      onChange={(value) => setFormData(prev => ({ ...prev, recommendations: value }))}
+                      onChange={(value) =>
+                        setFormData((prev) => ({ ...prev, recommendations: value }))
+                      }
                       placeholder="Recomendaciones para el cliente..."
                       disabled={isValidated}
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Hallazgos Técnicos (JSON)
-                    </label>
+                  </Field>
+                  <Field label="Hallazgos Técnicos (JSON)">
                     <textarea
                       rows={4}
                       value={formData.findings}
-                      onChange={(e) => setFormData(prev => ({ ...prev, findings: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 font-mono text-sm disabled:bg-gray-100 min-w-0"
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, findings: e.target.value }))
+                      }
+                      className={cn(textareaClassName, 'min-w-0 font-mono disabled:bg-gray-50')}
                       placeholder='{"observaciones": "...", "mediciones": "...", "notas": "..."}'
-                      readOnly={selectedAnalysisArea.toLowerCase().includes('nematolog') || selectedAnalysisArea.toLowerCase().includes('virolog') || selectedAnalysisArea.toLowerCase().includes('fitopatolog') || isValidated}
+                      readOnly={
+                        selectedAnalysisArea.toLowerCase().includes('nematolog') ||
+                        selectedAnalysisArea.toLowerCase().includes('virolog') ||
+                        selectedAnalysisArea.toLowerCase().includes('fitopatolog') ||
+                        isValidated
+                      }
                     />
-                    <p className="text-xs text-gray-500 mt-1">
-                      {selectedAnalysisArea.toLowerCase().includes('nematolog') 
+                    <p className="mt-1 text-xs text-gray-500">
+                      {selectedAnalysisArea.toLowerCase().includes('nematolog')
                         ? 'Generado automáticamente basado en los datos de nematología'
                         : selectedAnalysisArea.toLowerCase().includes('virolog')
-                        ? 'Generado automáticamente basado en los datos de virología'
-                        : selectedAnalysisArea.toLowerCase().includes('fitopatolog')
-                        ? 'Generado automáticamente basado en los datos de fitopatología'
-                        : 'Formato JSON opcional para datos estructurados'
-                      }
+                          ? 'Generado automáticamente basado en los datos de virología'
+                          : selectedAnalysisArea.toLowerCase().includes('fitopatolog')
+                            ? 'Generado automáticamente basado en los datos de fitopatología'
+                            : 'Formato JSON opcional para datos estructurados'}
                     </p>
-                  </div>
-                </section>
+                  </Field>
 
-                {/* Additional Fields for Edit Mode */}
-                {resultId && (
-                  <section className="space-y-4">
-                    <h4 className="text-md font-medium text-gray-900">Información Adicional</h4>
-                    <div className="grid grid-cols-1 gap-4 min-w-0 sm:grid-cols-2">
-                      <div className="min-w-0">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Informe
-                        </label>
+                  {resultId && (
+                    <div className="grid min-w-0 grid-cols-1 gap-4 border-t border-gray-100 pt-4 sm:grid-cols-2">
+                      <Field label="Informe" className="min-w-0">
                         <select
                           value={formData.report_id}
-                          onChange={(e) => setFormData(prev => ({ ...prev, report_id: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 min-w-0"
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              report_id: e.target.value,
+                            }))
+                          }
+                          className={cn(fieldClassName, 'min-w-0')}
                         >
                           <option value="">Sin informe asignado</option>
-                          {reports.map(report => (
+                          {reports.map((report) => (
                             <option key={report.id} value={report.id}>
-                              {report.id.slice(0, 8)} {report.created_at ? `(${new Date(report.created_at).toLocaleDateString()})` : ''}
+                              {report.id.slice(0, 8)}{' '}
+                              {report.created_at
+                                ? `(${new Date(report.created_at).toLocaleDateString()})`
+                                : ''}
                             </option>
                           ))}
                         </select>
-                      </div>
-                      <div className="min-w-0">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Estado
-                        </label>
+                      </Field>
+                      <Field label="Estado" className="min-w-0">
                         <select
                           value={formData.status}
-                          onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 min-w-0"
+                          onChange={(e) =>
+                            setFormData((prev) => ({ ...prev, status: e.target.value }))
+                          }
+                          className={cn(fieldClassName, 'min-w-0')}
                           disabled={isValidated}
                         >
                           <option value="pending">Pendiente</option>
                           <option value="completed">Completado</option>
                           <option value="validated">Validado</option>
                         </select>
-                      </div>
-                      <div className="min-w-0">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Realizado Por
-                        </label>
+                      </Field>
+                      <Field label="Realizado Por" className="min-w-0">
                         <select
                           value={formData.performed_by}
-                          onChange={(e) => setFormData(prev => ({ ...prev, performed_by: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 min-w-0"
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              performed_by: e.target.value,
+                            }))
+                          }
+                          className={cn(fieldClassName, 'min-w-0')}
                           disabled={isValidated}
                         >
                           <option value="">Sin asignar</option>
-                          {users.map(userOpt => (
+                          {users.map((userOpt) => (
                             <option key={userOpt.id} value={userOpt.id}>
                               {userOpt.name} ({userOpt.email})
                             </option>
                           ))}
                         </select>
-                      </div>
-                      <div className="min-w-0">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Fecha de Realización
-                        </label>
+                      </Field>
+                      <Field label="Fecha de Realización" className="min-w-0">
                         <input
                           type="datetime-local"
                           value={formData.performed_at}
-                          onChange={(e) => setFormData(prev => ({ ...prev, performed_at: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 min-w-0"
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              performed_at: e.target.value,
+                            }))
+                          }
+                          className={cn(fieldClassName, 'min-w-0')}
                           disabled={isValidated}
                         />
-                      </div>
-                      <div className="min-w-0">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Validado Por
-                        </label>
+                      </Field>
+                      <Field label="Validado Por" className="min-w-0">
                         <select
                           value={formData.validated_by}
-                          onChange={(e) => setFormData(prev => ({ 
-                            ...prev, 
-                            validated_by: e.target.value,
-                            validation_date: e.target.value ? (formData.validation_date || new Date().toISOString().slice(0, 16)) : ''
-                          }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 min-w-0"
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              validated_by: e.target.value,
+                              validation_date: e.target.value
+                                ? formData.validation_date ||
+                                  new Date().toISOString().slice(0, 16)
+                                : '',
+                            }))
+                          }
+                          className={cn(fieldClassName, 'min-w-0')}
                           disabled={isValidated}
                         >
                           <option value="">Sin validar</option>
-                          {users.map(userOpt => (
+                          {users.map((userOpt) => (
                             <option key={userOpt.id} value={userOpt.id}>
                               {userOpt.name} ({userOpt.email})
                             </option>
                           ))}
                         </select>
-                      </div>
-                      <div className="min-w-0">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Fecha de Validación
-                        </label>
+                      </Field>
+                      <Field label="Fecha de Validación" className="min-w-0">
                         <input
                           type="datetime-local"
                           value={formData.validation_date}
-                          onChange={(e) => setFormData(prev => ({ ...prev, validation_date: e.target.value }))}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              validation_date: e.target.value,
+                            }))
+                          }
                           disabled={!formData.validated_by || isValidated}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 min-w-0"
+                          className={cn(fieldClassName, 'min-w-0')}
                         />
                         {!formData.validated_by && !isValidated && (
-                          <p className="text-xs text-gray-500 mt-1">Asigne un validador primero</p>
+                          <p className="mt-1 text-xs text-gray-500">
+                            Asigne un validador primero
+                          </p>
                         )}
-                      </div>
+                      </Field>
                     </div>
-                  </section>
-                )}
-              </div>
+                  )}
+                </div>
+              </FormSection>
             </div>
-            )}
-            
-            <div className="bg-gray-50 px-6 py-3 flex justify-end space-x-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting || !!(resultId && isValidated)}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : null}
-                {isSubmitting 
-                  ? (resultId ? 'Actualizando...' : 'Creando...') 
-                  : (resultId ? 'Actualizar Resultado' : 'Crear Resultado')}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSubmitting || !!(resultId && isValidated)}
+              className="gap-2"
+            >
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {isSubmitting
+                ? resultId
+                  ? 'Actualizando...'
+                  : 'Creando...'
+                : resultId
+                  ? 'Actualizar Resultado'
+                  : 'Crear Resultado'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }

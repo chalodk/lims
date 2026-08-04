@@ -16,6 +16,14 @@ import {
   TestTube
 } from 'lucide-react'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 
 
 interface DashboardStats {
@@ -132,9 +140,9 @@ export default function DashboardPage() {
       received: 'bg-blue-100 text-blue-800',
       processing: 'bg-yellow-100 text-yellow-800',
       microscopy: 'bg-orange-100 text-orange-800',
-      isolation: 'bg-purple-100 text-purple-800',
-      identification: 'bg-indigo-100 text-indigo-800',
-      molecular_analysis: 'bg-pink-100 text-pink-800',
+      isolation: 'bg-gray-100 text-gray-800',
+      identification: 'bg-emerald-100 text-emerald-800',
+      molecular_analysis: 'bg-green-100 text-green-800',
       validation: 'bg-amber-100 text-amber-800',
       completed: 'bg-green-100 text-green-800'
     }
@@ -169,123 +177,136 @@ export default function DashboardPage() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Muestras Activas</p>
-                <p className="text-3xl font-bold text-gray-900">
-                  {isLoadingStats ? (
-                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                  ) : (
-                    stats?.overview.activeSamples || 0
-                  )}
-                </p>
+          <Card className="border-gray-200 shadow-sm">
+            <CardContent className="pt-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Muestras Activas</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {isLoadingStats ? (
+                      <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                    ) : (
+                      stats?.overview.activeSamples || 0
+                    )}
+                  </p>
+                </div>
+                <div className="p-3 bg-green-100 rounded-full">
+                  <FlaskConical className="h-6 w-6 text-green-600" />
+                </div>
               </div>
-              <div className="p-3 bg-green-100 rounded-full">
-                <FlaskConical className="h-6 w-6 text-green-600" />
+              <div className="mt-4">
+                <div className="flex items-center text-sm text-gray-500">
+                  <TrendingUp className="h-4 w-4 mr-1" />
+                  <span>
+                    {isLoadingStats ? 'Cargando...' : 
+                     stats ? `${stats.samples.processing} en proceso` : 'Sin datos'}
+                  </span>
+                </div>
               </div>
-            </div>
-            <div className="mt-4">
-              <div className="flex items-center text-sm text-gray-500">
-                <TrendingUp className="h-4 w-4 mr-1" />
-                <span>
-                  {isLoadingStats ? 'Cargando...' : 
-                   stats ? `${stats.samples.processing} en proceso` : 'Sin datos'}
-                </span>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Pendientes</p>
-                <p className="text-3xl font-bold text-gray-900">
-                  {isLoadingStats ? (
-                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                  ) : (
-                    stats?.overview.pendingWork || 0
-                  )}
-                </p>
+          <Card className="border-gray-200 shadow-sm">
+            <CardContent className="pt-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Pendientes</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {isLoadingStats ? (
+                      <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                    ) : (
+                      stats?.overview.pendingWork || 0
+                    )}
+                  </p>
+                </div>
+                <div className="p-3 bg-yellow-100 rounded-full">
+                  <Clock className="h-6 w-6 text-yellow-600" />
+                </div>
               </div>
-              <div className="p-3 bg-yellow-100 rounded-full">
-                <Clock className="h-6 w-6 text-yellow-600" />
+              <div className="mt-4">
+                <div className="flex items-center text-sm text-gray-500">
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  <span>
+                    {isLoadingStats ? 'Cargando...' : 
+                     stats ? `${stats.results.pending} resultados pendientes` : 'Sin datos'}
+                  </span>
+                </div>
               </div>
-            </div>
-            <div className="mt-4">
-              <div className="flex items-center text-sm text-gray-500">
-                <AlertCircle className="h-4 w-4 mr-1" />
-                <span>
-                  {isLoadingStats ? 'Cargando...' : 
-                   stats ? `${stats.results.pending} resultados pendientes` : 'Sin datos'}
-                </span>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Completadas</p>
-                <p className="text-3xl font-bold text-gray-900">
-                  {isLoadingStats ? (
-                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                  ) : (
-                    stats?.overview.completedWork || 0
-                  )}
-                </p>
+          <Card className="border-gray-200 shadow-sm">
+            <CardContent className="pt-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Completadas</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {isLoadingStats ? (
+                      <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                    ) : (
+                      stats?.overview.completedWork || 0
+                    )}
+                  </p>
+                </div>
+                <div className="p-3 bg-green-100 rounded-full">
+                  <CheckCircle className="h-6 w-6 text-green-600" />
+                </div>
               </div>
-              <div className="p-3 bg-green-100 rounded-full">
-                <CheckCircle className="h-6 w-6 text-green-600" />
+              <div className="mt-4">
+                <div className="flex items-center text-sm text-gray-500">
+                  <TrendingUp className="h-4 w-4 mr-1" />
+                  <span>
+                    {isLoadingStats ? 'Cargando...' : 
+                     stats ? `${stats.results.validated} validadas` : 'Sin datos'}
+                  </span>
+                </div>
               </div>
-            </div>
-            <div className="mt-4">
-              <div className="flex items-center text-sm text-gray-500">
-                <TrendingUp className="h-4 w-4 mr-1" />
-                <span>
-                  {isLoadingStats ? 'Cargando...' : 
-                   stats ? `${stats.results.validated} validadas` : 'Sin datos'}
-                </span>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Informes</p>
-                <p className="text-3xl font-bold text-gray-900">
-                  {isLoadingStats ? (
-                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                  ) : (
-                    stats?.overview.totalReports || 0
-                  )}
-                </p>
+          <Card className="border-gray-200 shadow-sm">
+            <CardContent className="pt-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Informes</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {isLoadingStats ? (
+                      <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                    ) : (
+                      stats?.overview.totalReports || 0
+                    )}
+                  </p>
+                </div>
+                <div className="p-3 bg-gray-100 rounded-full">
+                  <FileText className="h-6 w-6 text-gray-600" />
+                </div>
               </div>
-              <div className="p-3 bg-purple-100 rounded-full">
-                <FileText className="h-6 w-6 text-purple-600" />
+              <div className="mt-4">
+                <div className="flex items-center text-sm text-gray-500">
+                  <FileText className="h-4 w-4 mr-1" />
+                  <span>
+                    {isLoadingStats ? 'Cargando...' : 
+                     stats ? `${stats.reports.sent} enviados` : 'Sin datos'}
+                  </span>
+                </div>
               </div>
-            </div>
-            <div className="mt-4">
-              <div className="flex items-center text-sm text-gray-500">
-                <FileText className="h-4 w-4 mr-1" />
-                <span>
-                  {isLoadingStats ? 'Cargando...' : 
-                   stats ? `${stats.reports.sent} enviados` : 'Sin datos'}
-                </span>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Recent Samples */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Muestras Recientes</h3>
-            </div>
-            <div className="p-6">
+          <Card className="border-gray-200 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-gray-900">
+                Muestras Recientes
+              </CardTitle>
+              <CardDescription>
+                Últimas muestras registradas en el laboratorio
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
               {isLoadingSamples ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-green-600" />
@@ -332,45 +353,55 @@ export default function DashboardPage() {
                 </div>
               )}
               <div className="mt-6">
-                <Link 
-                  href="/samples" 
-                  className="block w-full text-center text-sm font-medium text-green-600 hover:text-green-500 transition-colors"
-                >
-                  Ver todas las muestras →
-                </Link>
+                <Button variant="link" asChild className="w-full">
+                  <Link href="/samples">Ver todas las muestras →</Link>
+                </Button>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
           {/* Quick Actions */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Acciones Rápidas</h3>
-            </div>
-            <div className="p-6">
+          <Card className="border-gray-200 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-gray-900">
+                Acciones Rápidas
+              </CardTitle>
+              <CardDescription>
+                Atajos a las tareas más comunes
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
               <div className="grid grid-cols-2 gap-4">
-                            <Link href="/samples" className="flex flex-col items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
-                  <FlaskConical className="h-8 w-8 text-green-600 mb-2" />
-                  <span className="text-sm font-medium text-green-900">Nueva Muestra</span>
-                </Link>
-                
-                <Link href="/reports" className="flex flex-col items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
-                  <FileText className="h-8 w-8 text-green-600 mb-2" />
-                  <span className="text-sm font-medium text-green-900">Generar Informe</span>
-                </Link>
-                
-                <Link href="/clients" className="flex flex-col items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
-                  <Users className="h-8 w-8 text-purple-600 mb-2" />
-                  <span className="text-sm font-medium text-purple-900">Gestionar Clientes</span>
-                </Link>
-                
-                <Link href="/results" className="flex flex-col items-center p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors">
-                  <TrendingUp className="h-8 w-8 text-orange-600 mb-2" />
-                  <span className="text-sm font-medium text-orange-900">Ver Resultados</span>
-                </Link>
+                <Button asChild className="h-auto flex-col gap-2 py-4">
+                  <Link href="/samples">
+                    <FlaskConical className="h-8 w-8" />
+                    <span>Nueva Muestra</span>
+                  </Link>
+                </Button>
+
+                <Button asChild className="h-auto flex-col gap-2 py-4">
+                  <Link href="/reports">
+                    <FileText className="h-8 w-8" />
+                    <span>Generar Informe</span>
+                  </Link>
+                </Button>
+
+                <Button variant="outline" asChild className="h-auto flex-col gap-2 py-4">
+                  <Link href="/clients">
+                    <Users className="h-8 w-8" />
+                    <span>Gestionar Clientes</span>
+                  </Link>
+                </Button>
+
+                <Button variant="outline" asChild className="h-auto flex-col gap-2 py-4">
+                  <Link href="/results">
+                    <TrendingUp className="h-8 w-8" />
+                    <span>Ver Resultados</span>
+                  </Link>
+                </Button>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
       )}

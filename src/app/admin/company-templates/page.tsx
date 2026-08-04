@@ -4,7 +4,17 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { FileText, Loader2, Save, Trash2, Building2, Eye, X } from 'lucide-react'
+import { Loader2, Save, Trash2, Building2, Eye } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { fieldClassName } from '@/components/ui/form-field-styles'
 
 interface Company {
   id: string
@@ -229,30 +239,29 @@ export default function CompanyTemplatesPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
-        <div className="mb-8">
-          <div className="flex items-center space-x-3 mb-2">
-            <FileText className="h-8 w-8 text-green-600" />
-            <h1 className="text-3xl font-bold text-gray-900">Templates PDF por Empresa</h1>
-          </div>
-          <p className="text-gray-600">
-            Gestiona los templates PDFMonkey para cada tipo de analisis por empresa.
+      <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Templates PDF por empresa
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Gestiona los templates PDFMonkey para cada tipo de análisis por empresa.
           </p>
         </div>
 
-        {/* Company Selector */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-          <div className="p-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Seleccionar Empresa
-            </label>
+        <Card>
+          <CardHeader className="border-b border-gray-100">
+            <CardTitle className="text-base">Seleccionar empresa</CardTitle>
+            <CardDescription>Elige la compañía cuyos templates deseas editar</CardDescription>
+          </CardHeader>
+          <CardContent className="p-4">
             {isLoadingCompanies ? (
-              <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             ) : (
               <select
                 value={selectedCompanyId}
                 onChange={(e) => setSelectedCompanyId(e.target.value)}
-                className="w-full md:w-96 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className={`${fieldClassName} md:w-96`}
               >
                 <option value="">-- Seleccionar empresa --</option>
                 {companies.map((c) => (
@@ -262,44 +271,41 @@ export default function CompanyTemplatesPage() {
                 ))}
               </select>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        {/* Templates Editor */}
-        {selectedCompanyId && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center space-x-3">
-                <Building2 className="h-6 w-6 text-green-600" />
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {selectedCompany?.name || 'Empresa seleccionada'}
-                </h2>
-              </div>
-              <p className="text-sm text-gray-500 mt-1">
-                Personaliza los templates PDFMonkey para cada tipo de analisis.
-              </p>
-            </div>
+        {selectedCompanyId ? (
+          <Card>
+            <CardHeader className="border-b border-gray-100">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Building2 className="h-4 w-4 text-green-700" />
+                {selectedCompany?.name || 'Empresa seleccionada'}
+              </CardTitle>
+              <CardDescription>
+                Personaliza los templates PDFMonkey para cada tipo de análisis.
+              </CardDescription>
+            </CardHeader>
 
-            <div className="p-6">
-              {error && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+            <CardContent className="space-y-4 p-4">
+              {error ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3">
                   <p className="text-sm text-red-700">{error}</p>
                 </div>
-              )}
+              ) : null}
 
-              {successMsg && (
-                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+              {successMsg ? (
+                <div className="rounded-lg border border-green-200 bg-green-50 p-3">
                   <p className="text-sm text-green-700">{successMsg}</p>
                 </div>
-              )}
+              ) : null}
 
               {isLoadingData ? (
                 <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               ) : analysisTypes.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  No hay tipos de analisis disponibles.
+                <div className="py-12 text-center text-muted-foreground">
+                  No hay tipos de análisis disponibles.
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -312,33 +318,35 @@ export default function CompanyTemplatesPage() {
                       )
 
                       return (
-                        <div key={type.key} className="border border-gray-200 rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center space-x-2">
+                        <div key={type.key} className="rounded-lg border border-gray-200 p-4">
+                          <div className="mb-2 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
                               <span
-                                className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${type.bg_color} ${type.text_color}`}
+                                className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${type.bg_color} ${type.text_color}`}
                               >
                                 {type.initial}
                               </span>
-                              <span className="text-sm font-medium text-gray-900">
+                              <span className="text-sm font-medium text-foreground">
                                 {type.label}
                               </span>
-                              <span className="text-xs text-gray-500">({type.key})</span>
+                              <span className="text-xs text-muted-foreground">({type.key})</span>
                             </div>
-                            {existingTemplate && (
-                              <button
+                            {existingTemplate ? (
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="icon-sm"
                                 onClick={() => handleDelete(existingTemplate.id, type.key)}
                                 disabled={isSaving}
-                                className="text-red-400 hover:text-red-600 disabled:opacity-50"
                                 title="Eliminar template personalizado"
+                                className="text-destructive hover:text-destructive"
                               >
                                 <Trash2 className="h-4 w-4" />
-                              </button>
-                            )}
+                              </Button>
+                            ) : null}
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <input
+                          <div className="flex items-center gap-2">
+                            <Input
                               type="text"
                               value={currentValue}
                               onChange={(e) =>
@@ -352,22 +360,24 @@ export default function CompanyTemplatesPage() {
                                   ? 'Template ID personalizado'
                                   : 'Sin template personalizado (usa global)'
                               }
-                              className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                              className={`flex-1 ${fieldClassName}`}
                             />
-                            <button
+                            <Button
                               type="button"
                               onClick={() => handleSave(type.key)}
                               disabled={isSaving || !formValues[type.key]?.trim()}
-                              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                              size="icon"
                             >
                               {isSaving ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
                                 <Save className="h-4 w-4" />
                               )}
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               type="button"
+                              variant="outline"
+                              size="icon"
                               onClick={() =>
                                 handlePreview(
                                   formValues[type.key]?.trim() ||
@@ -380,7 +390,6 @@ export default function CompanyTemplatesPage() {
                                 (!formValues[type.key]?.trim() &&
                                   !existingTemplate?.pdfmonkey_template_id)
                               }
-                              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
                               title="Previsualizar template"
                             >
                               {isLoadingPreview ? (
@@ -388,63 +397,48 @@ export default function CompanyTemplatesPage() {
                               ) : (
                                 <Eye className="h-4 w-4" />
                               )}
-                            </button>
+                            </Button>
                           </div>
-                          {existingTemplate && (
-                            <p className="text-xs text-green-600 mt-1">
+                          {existingTemplate ? (
+                            <p className="mt-1 text-xs text-green-700">
                               Template personalizado: {existingTemplate.pdfmonkey_template_id}
                             </p>
-                          )}
+                          ) : null}
                         </div>
                       )
                     })}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        ) : null}
+
+        <Dialog
+          open={isPreviewOpen && !!previewUrl}
+          onOpenChange={(open) => {
+            if (!open) {
+              setIsPreviewOpen(false)
+              setPreviewUrl(null)
+            }
+          }}
+        >
+          <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
+            <DialogHeader className="border-b border-gray-100">
+              <DialogTitle>Previsualización del template</DialogTitle>
+            </DialogHeader>
+            <div className="p-4" style={{ height: '70vh' }}>
+              {previewUrl ? (
+                <iframe
+                  src={previewUrl}
+                  className="h-full w-full rounded border border-gray-200"
+                  title="Template Preview"
+                />
+              ) : null}
             </div>
-          </div>
-        )}
+          </DialogContent>
+        </Dialog>
       </div>
-
-      {/* Preview Modal */}
-      {isPreviewOpen && previewUrl && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div
-              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-              onClick={() => {
-                setIsPreviewOpen(false)
-                setPreviewUrl(null)
-              }}
-            />
-
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">
-                    Previsualizacion del Template
-                  </h3>
-                  <button
-                    onClick={() => {
-                      setIsPreviewOpen(false)
-                      setPreviewUrl(null)
-                    }}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-                <div className="w-full" style={{ height: '70vh' }}>
-                  <iframe
-                    src={previewUrl}
-                    className="w-full h-full border border-gray-200 rounded"
-                    title="Template Preview"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </DashboardLayout>
   )
+
 }

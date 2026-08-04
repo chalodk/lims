@@ -3,7 +3,19 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
-import { X, MessageCircle, Mail, Loader2 } from 'lucide-react'
+import { MessageCircle, Mail, Loader2 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { FormSection, Field } from '@/components/ui/form-section'
+import { fieldClassName, textareaClassName } from '@/components/ui/form-field-styles'
 
 const REQUIREMENT_OPTIONS = [
   { value: 'soporte', label: 'Soporte' },
@@ -98,130 +110,144 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`, '_blank')
   }
 
-  if (!isOpen) return null
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open && !isSending) {
+      onClose()
+    }
+  }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
-
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-          <div className="bg-white px-4 pt-5 pb-4 sm:p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center">
-                <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100 sm:mx-0 sm:h-10 sm:w-10">
-                  <MessageCircle className="h-6 w-6 text-green-600" />
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Enviar feedback</h3>
-                  <p className="text-sm text-gray-500">Déjanos tu consulta o sugerencia</p>
-                </div>
-              </div>
-              <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                <X className="h-6 w-6" />
-              </button>
+    <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
+      <DialogContent
+        showCloseButton={!isSending}
+        className="flex max-h-[90vh] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-lg"
+        onInteractOutside={(event) => {
+          if (isSending) event.preventDefault()
+        }}
+        onEscapeKeyDown={(event) => {
+          if (isSending) event.preventDefault()
+        }}
+      >
+        <DialogHeader className="border-b border-gray-100 bg-white">
+          <div className="flex items-start gap-3 pr-8">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100">
+              <MessageCircle className="h-5 w-5 text-green-700" />
             </div>
+            <div>
+              <DialogTitle>Enviar feedback</DialogTitle>
+              <DialogDescription className="mt-1">
+                Déjanos tu consulta o sugerencia
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
 
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="feedback-name" className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre
-                </label>
-                <input
-                  type="text"
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-6 py-5">
+          <FormSection title="Tus datos" description="Información de contacto">
+            <div className="grid grid-cols-1 gap-4">
+              <Field label="Nombre">
+                <Input
                   id="feedback-name"
+                  type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                  className={fieldClassName}
                   placeholder="Tu nombre"
                 />
-              </div>
+              </Field>
 
-              <div>
-                <label htmlFor="feedback-email" className="block text-sm font-medium text-gray-700 mb-1">
-                  Correo electrónico
-                </label>
-                <input
-                  type="email"
+              <Field label="Correo electrónico">
+                <Input
                   id="feedback-email"
+                  type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, email: e.target.value }))
+                  }
+                  className={fieldClassName}
                   placeholder="tu@correo.com"
                 />
-              </div>
+              </Field>
 
-              <div>
-                <label htmlFor="feedback-requirement" className="block text-sm font-medium text-gray-700 mb-1">
-                  Requerimiento
-                </label>
+              <Field label="Requerimiento">
                 <select
                   id="feedback-requirement"
                   value={formData.requirement}
-                  onChange={(e) => setFormData(prev => ({ ...prev, requirement: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      requirement: e.target.value,
+                    }))
+                  }
+                  className={fieldClassName}
                 >
-                  {REQUIREMENT_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  {REQUIREMENT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
                   ))}
                 </select>
-              </div>
+              </Field>
 
-              <div>
-                <label htmlFor="feedback-analysis-type" className="block text-sm font-medium text-gray-700 mb-1">
-                  Tipo de análisis <span className="text-gray-400 font-normal">(opcional)</span>
-                </label>
-                <input
-                  type="text"
+              <Field label="Tipo de análisis (opcional)">
+                <Input
                   id="feedback-analysis-type"
+                  type="text"
                   value={formData.analysisType}
-                  onChange={(e) => setFormData(prev => ({ ...prev, analysisType: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      analysisType: e.target.value,
+                    }))
+                  }
+                  className={fieldClassName}
                   placeholder="Ej: Análisis foliar, nematodos..."
                 />
-              </div>
+              </Field>
 
-              <div>
-                <label htmlFor="feedback-message" className="block text-sm font-medium text-gray-700 mb-1">
-                  Mensaje
-                </label>
+              <Field label="Mensaje">
                 <textarea
                   id="feedback-message"
                   rows={4}
                   value={formData.message}
-                  onChange={(e) => setFormData(prev => ({ ...prev, message: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, message: e.target.value }))
+                  }
+                  className={textareaClassName}
                   placeholder="Escribe tu consulta o sugerencia aquí..."
                 />
-              </div>
+              </Field>
             </div>
-          </div>
-
-          <div className="bg-gray-50 px-4 py-4 sm:px-6 flex justify-between">
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={isSending || sent}
-              className="inline-flex items-center space-x-2 px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:opacity-50"
-            >
-              {isSending ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <Mail className="h-5 w-5" />
-              )}
-              <span>{sent ? 'Enviado' : 'Enviar'}</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleWhatsApp}
-              className="inline-flex items-center space-x-2 px-6 py-2.5 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
-            >
-              <MessageCircle className="h-5 w-5" />
-              <span>WhatsApp</span>
-            </button>
-          </div>
+          </FormSection>
         </div>
-      </div>
-    </div>
+
+        <DialogFooter className="sm:justify-between">
+          <Button
+            type="button"
+            onClick={handleSend}
+            disabled={isSending || sent}
+            className="gap-2"
+          >
+            {isSending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Mail className="h-4 w-4" />
+            )}
+            {sent ? 'Enviado' : 'Enviar'}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleWhatsApp}
+            className="gap-2 border-green-600 text-green-700 hover:bg-green-50 hover:text-green-800"
+          >
+            <MessageCircle className="h-4 w-4" />
+            WhatsApp
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -1,16 +1,24 @@
 'use client'
 
 import { useState } from 'react'
-import { 
-  Users,
-  Loader2,
-  X
-} from 'lucide-react'
+import { Users, Loader2 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { FormSection, Field } from '@/components/ui/form-section'
+import { fieldClassName, textareaClassName } from '@/components/ui/form-field-styles'
 
 interface CreateClientModalProps {
   isOpen: boolean
   onClose: () => void
-  onSuccess: (clientId?: string) => void // Ahora puede retornar el ID del cliente creado
+  onSuccess: (clientId?: string) => void
 }
 
 export default function CreateClientModal({ isOpen, onClose, onSuccess }: CreateClientModalProps) {
@@ -22,22 +30,24 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
     phone: '',
     address: '',
     client_type: 'farmer',
-    observation: false
+    observation: false,
   })
+
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open && !isSubmitting) onClose()
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
-      // Validar RUT (requerido)
       if (!formData.rut || !formData.rut.trim()) {
         alert('El RUT es requerido para crear el cliente')
         setIsSubmitting(false)
         return
       }
 
-      // Llamar a la API route que crea el cliente y opcionalmente el usuario
       const response = await fetch('/api/clients', {
         method: 'POST',
         headers: {
@@ -50,8 +60,8 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
           phone: formData.phone || null,
           address: formData.address || null,
           client_type: formData.client_type,
-          observation: formData.observation
-        })
+          observation: formData.observation,
+        }),
       })
 
       const data = await response.json()
@@ -60,16 +70,13 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
         throw new Error(data.error || 'Error al crear el cliente')
       }
 
-      // Mostrar resultado de la creación del usuario
       if (data.password) {
-        // Contraseña generada (ya sea desde RUT o aleatoria) — mostrarla al admin
         const passwordMsg = `Cliente y usuario consumidor creados exitosamente.\n\nEmail: ${formData.contact_email}\nContraseña: ${data.password}\n\n${data.warning ? '⚠️ ' + data.warning + '\n\n' : ''}Comparte estas credenciales con el cliente de forma segura.`
         alert(passwordMsg)
       } else if (data.warning) {
         alert('⚠️ ' + data.warning)
       }
 
-      // Reset form and close modal
       setFormData({
         name: '',
         rut: '',
@@ -77,103 +84,141 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
         phone: '',
         address: '',
         client_type: 'farmer',
-        observation: false
+        observation: false,
       })
       onClose()
-      
-      // Notify parent component to refresh and pass client ID
       onSuccess(data.client?.id)
     } catch (error: unknown) {
       console.error('Error creating client:', error)
-      alert('Error al crear el cliente: ' + (error instanceof Error ? error.message : 'Error desconocido'))
+      alert(
+        'Error al crear el cliente: ' +
+          (error instanceof Error ? error.message : 'Error desconocido')
+      )
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 z-[60] overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
-        
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-          <form onSubmit={handleSubmit}>
-            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-              <div className="sm:flex sm:items-start mb-4">
-                <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100 sm:mx-0 sm:h-10 sm:w-10">
-                  <Users className="h-6 w-6 text-green-600" />
-                </div>
-                <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left flex-1">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg leading-6 font-medium text-gray-900">
-                        Nuevo Cliente
-                      </h3>
-                      <div className="mt-2">
-                        <p className="text-sm text-gray-500">
-                          Agrega un nuevo cliente al sistema
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="rounded-md text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="h-6 w-6" />
-                    </button>
-                  </div>
-                </div>
-              </div>
+    <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
+      <DialogContent
+        showCloseButton={!isSubmitting}
+        className="flex max-h-[90vh] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+        onInteractOutside={(event) => {
+          if (isSubmitting) event.preventDefault()
+        }}
+        onEscapeKeyDown={(event) => {
+          if (isSubmitting) event.preventDefault()
+        }}
+      >
+        <DialogHeader className="border-b border-gray-100 bg-white">
+          <div className="flex items-start gap-3 pr-8">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100">
+              <Users className="h-5 w-5 text-green-700" />
+            </div>
+            <div>
+              <DialogTitle>Nuevo cliente</DialogTitle>
+              <DialogDescription className="mt-1">
+                Agrega un nuevo cliente al sistema. Los campos con * son obligatorios.
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
 
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="space-y-4 overflow-y-auto overscroll-contain px-6 py-5">
+            <FormSection
+              step={1}
+              title="Identidad"
+              description="Nombre legal y RUT del cliente"
+            >
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {/* Name */}
-                <div className="sm:col-span-2">
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                    Nombre *
-                  </label>
-                  <input
+                <Field label="Nombre" required className="sm:col-span-2">
+                  <Input
                     type="text"
-                    id="name"
                     required
                     value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                    className={fieldClassName}
                     placeholder="Nombre del cliente"
                   />
-                </div>
+                </Field>
 
-                {/* RUT */}
-                <div>
-                  <label htmlFor="rut" className="block text-sm font-medium text-gray-700 mb-1">
-                    RUT *
-                  </label>
-                  <input
+                <Field label="RUT" required className="sm:col-span-2">
+                  <Input
                     type="text"
-                    id="rut"
                     required
                     value={formData.rut}
-                    onChange={(e) => setFormData(prev => ({ ...prev, rut: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    onChange={(e) => setFormData((prev) => ({ ...prev, rut: e.target.value }))}
+                    className={fieldClassName}
                     placeholder="12.345.678-9"
                   />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Si se proporciona email, se creará automáticamente un usuario consumidor. La contraseña se genera desde el RUT (sin puntos ni dígito verificador). Si el RUT tiene menos de 8 dígitos se genera una contraseña aleatoria.
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Si se proporciona email, se creará automáticamente un usuario consumidor. La
+                    contraseña se genera desde el RUT (sin puntos ni dígito verificador). Si el RUT
+                    tiene menos de 8 dígitos se genera una contraseña aleatoria.
                   </p>
-                </div>
+                </Field>
+              </div>
+            </FormSection>
 
-                {/* Client Type */}
-                <div>
-                  <label htmlFor="client_type" className="block text-sm font-medium text-gray-700 mb-1">
-                    Tipo de cliente
-                  </label>
+            <FormSection
+              step={2}
+              title="Contacto"
+              description="Datos para comunicación y acceso al portal"
+            >
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="Email de contacto">
+                  <Input
+                    type="email"
+                    value={formData.contact_email}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, contact_email: e.target.value }))
+                    }
+                    className={fieldClassName}
+                    placeholder="cliente@ejemplo.com"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Si se proporciona, se creará automáticamente un usuario consumidor asociado a
+                    este cliente
+                  </p>
+                </Field>
+
+                <Field label="Teléfono">
+                  <Input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
+                    className={fieldClassName}
+                    placeholder="+56 9 1234 5678"
+                  />
+                </Field>
+
+                <Field label="Dirección" className="sm:col-span-2">
+                  <textarea
+                    rows={2}
+                    value={formData.address}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))}
+                    className={textareaClassName}
+                    placeholder="Dirección completa del cliente"
+                  />
+                </Field>
+              </div>
+            </FormSection>
+
+            <FormSection
+              step={3}
+              title="Clasificación"
+              description="Tipo de cliente y estado de seguimiento"
+            >
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="Tipo de cliente">
                   <select
-                    id="client_type"
                     value={formData.client_type}
-                    onChange={(e) => setFormData(prev => ({ ...prev, client_type: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, client_type: e.target.value }))
+                    }
+                    className={fieldClassName}
                   >
                     <option value="farmer">Agricultor</option>
                     <option value="agricultural_company">Empresa Agrícola</option>
@@ -181,104 +226,53 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
                     <option value="government_agency">Agencia Gubernamental</option>
                     <option value="consultant">Consultor</option>
                   </select>
-                </div>
+                </Field>
 
-                {/* Email */}
-                <div>
-                  <label htmlFor="contact_email" className="block text-sm font-medium text-gray-700 mb-1">
-                    Email de contacto
-                  </label>
+                <div className="flex items-start gap-3 sm:col-span-2">
                   <input
-                    type="email"
-                    id="contact_email"
-                    value={formData.contact_email}
-                    onChange={(e) => setFormData(prev => ({ ...prev, contact_email: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                    placeholder="cliente@ejemplo.com"
+                    type="checkbox"
+                    id="observation"
+                    checked={formData.observation}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, observation: e.target.checked }))
+                    }
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-green-600 focus-visible:ring-2 focus-visible:ring-green-600/20"
                   />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Si se proporciona, se creará automáticamente un usuario consumidor asociado a este cliente
-                  </p>
-                </div>
-
-                {/* Phone */}
-                <div>
-                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                    Teléfono
-                  </label>
-                  <input
-                    type="tel"
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                    placeholder="+56 9 1234 5678"
-                  />
-                </div>
-
-                {/* Address */}
-                <div className="sm:col-span-2">
-                  <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                    Dirección
-                  </label>
-                  <textarea
-                    id="address"
-                    rows={2}
-                    value={formData.address}
-                    onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                    placeholder="Dirección completa del cliente"
-                  />
-                </div>
-
-                {/* Observation Checkbox */}
-                <div className="sm:col-span-2">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="observation"
-                      checked={formData.observation}
-                      onChange={(e) => setFormData(prev => ({ ...prev, observation: e.target.checked }))}
-                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="observation" className="ml-2 block text-sm font-medium text-gray-700">
+                  <div>
+                    <label htmlFor="observation" className="text-sm font-medium text-gray-700">
                       En observación
                     </label>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Marca esta opción si el cliente está en observación
+                    </p>
                   </div>
-                  <p className="ml-6 mt-1 text-xs text-gray-500">
-                    Marca esta opción si el cliente está en observación
-                  </p>
                 </div>
               </div>
-            </div>
+            </FormSection>
+          </div>
 
-            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Creando...
-                  </>
-                ) : (
-                  'Crear cliente'
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-              >
-                Cancelar
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isSubmitting}
+              onClick={onClose}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isSubmitting} className="gap-2">
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Creando...
+                </>
+              ) : (
+                'Crear cliente'
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
-

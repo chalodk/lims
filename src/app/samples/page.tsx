@@ -25,6 +25,17 @@ import {
   Edit2,
   Trash2
 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 export default function SamplesPage() {
   const { userRole } = useAuth()
@@ -197,10 +208,8 @@ export default function SamplesPage() {
   if (isLoading) {
     return (
       <DashboardLayout>
-        <div className="p-6">
-          <div className="flex items-center justify-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-          </div>
+        <div className="flex h-64 items-center justify-center p-6">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </DashboardLayout>
     )
@@ -208,190 +217,175 @@ export default function SamplesPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Gestión de Muestras</h1>
-              <p className="text-gray-600">Administra y realiza seguimiento de todas las muestras</p>
-            </div>
-            <div className="flex items-center space-x-3">
-              <button 
-                onClick={() => setShowCreateModal(true)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Nueva muestra</span>
-              </button>
-            </div>
+      <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Gestión de Muestras
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Administra y realiza seguimiento de todas las muestras
+            </p>
           </div>
+          <Button type="button" onClick={() => setShowCreateModal(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Nueva muestra
+          </Button>
         </div>
 
         <PlanUsageBanner usage={billingUsage} focus="samples" />
 
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar por código, especie o cliente..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
+        <Card>
+          <CardContent className="flex flex-col gap-4 p-4 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Buscar por código, especie o cliente..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
             </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="h-8 rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus-visible:border-green-600 focus-visible:ring-2 focus-visible:ring-green-600/20 sm:w-48"
+            >
+              <option value="all">Todos los estados</option>
+              <option value="received">Recibidas</option>
+              <option value="processing">Procesando</option>
+              <option value="validation">Validación</option>
+              <option value="completed">Completadas</option>
+            </select>
+          </CardContent>
+        </Card>
 
-            {/* Status Filter */}
-            <div className="sm:w-48">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="all">Todos los estados</option>
-                <option value="received">Recibidas</option>
-                <option value="processing">Procesando</option>
-                <option value="validation">Validación</option>
-                <option value="completed">Completadas</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Samples List */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <Card className="overflow-hidden">
           {filteredSamples.length > 0 && (
-            <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
-              <p className="text-sm text-gray-600">
-                💡 Haz clic en cualquier fila para ver los detalles completos de la muestra
-              </p>
-            </div>
+            <CardHeader className="border-b border-gray-100 py-3">
+              <CardDescription>
+                Haz clic en cualquier fila para ver los detalles completos de la muestra
+              </CardDescription>
+            </CardHeader>
           )}
           {filteredSamples.length === 0 ? (
-            <div className="p-12 text-center">
-              <TestTube className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No hay muestras</h3>
-              <p className="text-gray-500">Comienza agregando tu primera muestra</p>
-            </div>
+            <CardContent className="flex flex-col items-center py-12 text-center">
+              <TestTube className="mb-4 h-10 w-10 text-muted-foreground" />
+              <CardTitle className="mb-2 text-lg">No hay muestras</CardTitle>
+              <CardDescription>Comienza agregando tu primera muestra</CardDescription>
+            </CardContent>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full table-auto">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
-                      Código
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">
-                      Cliente
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
-                      Especie
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
-                      Estado
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
-                      Prioridad
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell whitespace-nowrap">
-                      Fecha
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32 sticky right-0 bg-gray-50 z-10">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[120px]">Código</TableHead>
+                    <TableHead className="min-w-[150px]">Cliente</TableHead>
+                    <TableHead className="min-w-[120px]">Especie</TableHead>
+                    <TableHead className="hidden md:table-cell">Estado</TableHead>
+                    <TableHead className="hidden lg:table-cell">Prioridad</TableHead>
+                    <TableHead className="hidden whitespace-nowrap lg:table-cell">Fecha</TableHead>
+                    <TableHead className="w-32 sticky right-0 bg-card">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {filteredSamples.map((sample) => (
-                    <tr 
-                      key={sample.id} 
-                      className="group hover:bg-indigo-50 cursor-pointer transition-colors border-l-2 border-transparent hover:border-indigo-200"
+                    <TableRow
+                      key={sample.id}
+                      className="cursor-pointer border-l-2 border-transparent hover:border-primary/40 hover:bg-accent/40"
                       onClick={() => handleViewSample(sample)}
                     >
-                      <td className="px-3 py-4">
-                        <div className="flex items-center min-w-0">
+                      <TableCell>
+                        <div className="flex min-w-0 items-center">
                           {getStatusIcon(sample.status)}
-                          <span className="ml-2 font-medium text-gray-900 truncate">{sample.code}</span>
+                          <span className="ml-2 truncate font-medium text-foreground">
+                            {sample.code}
+                          </span>
                         </div>
-                      </td>
-                      <td className="px-3 py-4">
+                      </TableCell>
+                      <TableCell>
                         <div className="min-w-0">
-                          <div className="font-medium text-gray-900 truncate">
+                          <div className="truncate font-medium text-foreground">
                             {sample.clients?.name || 'Sin asignar'}
                           </div>
-                          <div className="text-xs text-gray-500 truncate">
+                          <div className="truncate text-xs text-muted-foreground">
                             {sample.clients?.contact_email || 'Cliente no especificado'}
                           </div>
                         </div>
-                      </td>
-                      <td className="px-3 py-4">
+                      </TableCell>
+                      <TableCell>
                         <div className="min-w-0">
-                          <div className="font-medium text-gray-900 truncate">{sample.species}</div>
+                          <div className="truncate font-medium text-foreground">{sample.species}</div>
                           {sample.variety && (
-                            <div className="text-xs text-gray-500 truncate">{sample.variety}</div>
+                            <div className="truncate text-xs text-muted-foreground">{sample.variety}</div>
                           )}
                         </div>
-                      </td>
-                      <td className="px-3 py-4 hidden md:table-cell">
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
                         {getSampleStatusBadge(sample.status)}
-                      </td>
-                      <td className="px-3 py-4 hidden lg:table-cell">
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         {getSlaTypeBadge(sample.sla_type)}
-                      </td>
-                      <td className="px-3 py-4 text-sm text-gray-500 hidden lg:table-cell whitespace-nowrap">
+                      </TableCell>
+                      <TableCell className="hidden whitespace-nowrap text-sm text-muted-foreground lg:table-cell">
                         {formatDate(sample.received_date)}
-                      </td>
-                      <td className="px-3 py-4 sticky right-0 bg-white z-10 group-hover:bg-indigo-50" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center space-x-1">
-                          <button
+                      </TableCell>
+                      <TableCell
+                        className="sticky right-0 bg-card"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
                             onClick={(e) => {
                               e.stopPropagation()
                               handleViewSample(sample)
                             }}
-                            className="p-1 text-gray-400 hover:text-indigo-600 transition-colors"
                             title="Ver detalles"
                           >
                             <Eye className="h-4 w-4" />
-                          </button>
+                          </Button>
                           {(userRole === 'admin' || userRole === 'validador' || userRole === 'comun') && (
                             <>
-                              <button
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   handleEditSample(sample)
                                 }}
-                                className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
                                 title="Editar"
                               >
                                 <Edit2 className="h-4 w-4" />
-                              </button>
-                              <button
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   handleDeleteSample(sample)
                                 }}
-                                className="p-1 text-gray-400 hover:text-red-600 transition-colors"
                                 title="Eliminar"
+                                className="text-destructive hover:text-destructive"
                               >
                                 <Trash2 className="h-4 w-4" />
-                              </button>
+                              </Button>
                             </>
                           )}
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Create Sample Modal */}
         <CreateSampleModal 

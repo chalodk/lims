@@ -66,7 +66,7 @@ export const ANALYSIS_TYPE_REGISTRY: Record<AnalysisType, AnalysisTypeEntry> = {
     key: 'virology',
     label: 'Virológico',
     initial: 'V',
-    bgColor: 'bg-indigo-600',
+    bgColor: 'bg-sky-700',
     textColor: 'text-white',
     dbAreas: ['virologia'],
     templateEnvVar: 'PDFMONKEY_TEMPLATE_VIROLOGY',

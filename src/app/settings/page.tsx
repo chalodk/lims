@@ -4,7 +4,20 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { Settings, Users, Loader2, Search, X, RefreshCw, Eye, Pencil, Trash2, Shield, UserPlus, Link2, FileText } from 'lucide-react'
+import {
+  Users,
+  Loader2,
+  Search,
+  X,
+  RefreshCw,
+  Eye,
+  Pencil,
+  Trash2,
+  Shield,
+  UserPlus,
+  Link2,
+  FileText,
+} from 'lucide-react'
 import { formatDateTime } from '@/lib/utils/formatters'
 import EditProfileModal from '@/components/settings/EditProfileModal'
 import CreateUserModal from '@/components/settings/CreateUserModal'
@@ -12,6 +25,19 @@ import LinkUserClientsModal from '@/components/settings/LinkUserClientsModal'
 import CompanyTemplatesModal from '@/components/settings/CompanyTemplatesModal'
 import PlanUsageCard from '@/components/billing/PlanUsageCard'
 import { useCompanyBillingUsage } from '@/hooks/useCompanyBillingUsage'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 
 interface UserProfile {
   id: string
@@ -23,6 +49,30 @@ interface UserProfile {
   client_name?: string | null
   created_at: string
   isUnauthorized?: boolean
+}
+
+function roleBadgeClass(role: string) {
+  const colors: Record<string, string> = {
+    admin: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+    validador: 'border-sky-200 bg-sky-50 text-sky-800',
+    comun: 'border-green-200 bg-green-50 text-green-800',
+    consumidor: 'border-amber-200 bg-amber-50 text-amber-800',
+    csx: 'border-teal-200 bg-teal-50 text-teal-800',
+    'Sin autorizar': 'border-orange-200 bg-orange-50 text-orange-800',
+  }
+  return colors[role] || 'border-gray-200 bg-gray-50 text-gray-700'
+}
+
+function roleLabel(role: string) {
+  const labels: Record<string, string> = {
+    admin: 'Administrador',
+    validador: 'Validador',
+    comun: 'Común',
+    consumidor: 'Consumidor',
+    csx: 'Customer Success',
+    'Sin autorizar': 'Sin autorizar',
+  }
+  return labels[role] || role
 }
 
 export default function SettingsPage() {
@@ -50,17 +100,16 @@ export default function SettingsPage() {
         setIsLoading(true)
       }
       setError(null)
-      
-      // Construir URL con parámetro de búsqueda único
+
       const params = new URLSearchParams()
       if (searchQuery.trim()) {
         params.append('search', searchQuery.trim())
       }
-      
+
       const url = `/api/settings/users${params.toString() ? `?${params.toString()}` : ''}`
       const response = await fetch(url)
       const data = await response.json()
-      
+
       if (!response.ok) {
         throw new Error(data.error || 'Error al cargar usuarios')
       }
@@ -88,12 +137,11 @@ export default function SettingsPage() {
   }
 
   const handleViewProfile = (userId: string) => {
-    // TODO: Implementar ver perfil
     console.log('Ver perfil:', userId)
   }
 
   const handleEditProfile = (userId: string) => {
-    const user = users.find(u => u.id === userId)
+    const user = users.find((u) => u.id === userId)
     if (user && user.role !== 'admin') {
       setEditingUser(user)
       setIsEditModalOpen(true)
@@ -101,13 +149,11 @@ export default function SettingsPage() {
   }
 
   const handleEditSuccess = () => {
-    // Sin pantalla de carga completa: si no, se desmonta la página y los modales abiertos
-    // (p. ej. resumen de creación masiva desde Pendientes IA) pierden su estado.
     void fetchUsers({ silent: true })
   }
 
   const handleLinkClient = (userId: string) => {
-    const user = users.find(u => u.id === userId)
+    const user = users.find((u) => u.id === userId)
     if (user && user.role === 'consumidor') {
       setLinkingUser(user)
       setIsLinkModalOpen(true)
@@ -115,7 +161,11 @@ export default function SettingsPage() {
   }
 
   const handleDeleteProfile = async (userId: string, userName: string) => {
-    if (!confirm(`¿Estás seguro de que deseas eliminar completamente el perfil de ${userName}?\n\nEsta acción es irreversible y eliminará:\n- El perfil del usuario\n- La cuenta de autenticación\n- Todos los datos asociados`)) {
+    if (
+      !confirm(
+        `¿Estás seguro de que deseas eliminar completamente el perfil de ${userName}?\n\nEsta acción es irreversible y eliminará:\n- El perfil del usuario\n- La cuenta de autenticación\n- Todos los datos asociados`
+      )
+    ) {
       return
     }
 
@@ -133,7 +183,6 @@ export default function SettingsPage() {
         throw new Error(data.error || 'Error al eliminar usuario')
       }
 
-      // Recargar la lista de usuarios
       await fetchUsers()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al eliminar usuario')
@@ -159,301 +208,247 @@ export default function SettingsPage() {
         fetchUsers()
       }
     }
-    // fetchUsers se omite intencionalmente — la búsqueda es solo manual (Enter o botón)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, isAuthenticated, userRole, router])
 
-  // ✅ Mostrar loader mientras se carga la autenticación (PRIMERO que todo)
-  if (authLoading) {
+  if (authLoading || !isAuthenticated || userRole !== 'admin' || isLoading) {
     return (
       <DashboardLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+        <div className="flex h-64 items-center justify-center p-6">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </DashboardLayout>
-    )
-  }
-
-  // ✅ Solo verificar autenticación DESPUÉS de que termine de cargar
-  // No hacer verificaciones en el render que puedan ejecutarse antes del useEffect
-  if (!isAuthenticated) {
-    // Mostrar loader mientras redirige (evita flash de contenido)
-    return (
-      <DashboardLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-        </div>
-      </DashboardLayout>
-    )
-  }
-
-  // ✅ Solo verificar rol DESPUÉS de que termine de cargar y esté autenticado
-  if (userRole !== 'admin') {
-    // Mostrar loader mientras redirige (evita flash de contenido)
-    return (
-      <DashboardLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-        </div>
-      </DashboardLayout>
-    )
-  }
-
-  // Si está cargando usuarios, mostrar loader
-  if (isLoading) {
-    return (
-        <DashboardLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-          </div>
-        </DashboardLayout>
     )
   }
 
   return (
-      <DashboardLayout>
-          <div className="p-6">
-        <div className="mb-8">
-          <div className="flex items-center space-x-3 mb-2">
-            <Settings className="h-8 w-8 text-green-600" />
-            <h1 className="text-3xl font-bold text-gray-900">Configuración</h1>
+    <DashboardLayout>
+      <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Configuración
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Gestiona la configuración del sistema
+            </p>
           </div>
-          <p className="text-gray-600">
-            Gestiona la configuración del sistema
-                </p>
-              </div>
+          <Button type="button" onClick={() => setIsCreateModalOpen(true)} className="gap-2">
+            <UserPlus className="h-4 w-4" />
+            Crear usuario
+          </Button>
+        </div>
 
         <PlanUsageCard
           usage={billingUsage}
           isLoading={billingLoading}
           error={billingError}
         />
-                  
-                  {/* Gestión de Perfiles */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center space-x-3">
-              <Users className="h-6 w-6 text-green-600" />
-              <h2 className="text-xl font-semibold text-gray-900">Gestión de Perfiles</h2>
-                  </div>
-            <p className="text-sm text-gray-500 mt-1">
-              Lista de todos los usuarios registrados en el sistema
-            </p>
-                  </div>
 
-          {/* Buscador y Botones */}
-          <div className="p-6 border-b border-gray-200 bg-gray-50">
-            <div className="flex items-center justify-between">
-              {/* Buscador con botón de búsqueda */}
-              <div className="flex items-center space-x-2 w-1/4">
-                <div className="relative flex-1">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleSearch()
-                      }
-                    }}
-                    placeholder="Buscar por nombre, email o rol..."
-                    className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                  {searchQuery && (
-                    <button
-                      onClick={clearSearch}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="h-5 w-5" />
-                    </button>
-                  )}
-                </div>
+        <Card>
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSearch()
+                }}
+                placeholder="Buscar por nombre, email o rol..."
+                className="pl-9 pr-9"
+              />
+              {searchQuery ? (
                 <button
-                  onClick={handleSearch}
-                  disabled={isLoading}
-                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  type="button"
+                  onClick={clearSearch}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
                 >
-                  <Search className="h-5 w-5" />
-                  <span>Buscar</span>
+                  <X className="h-4 w-4" />
                 </button>
-              </div>
-              
-              {/* Botones a la derecha */}
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={handleRefresh}
-                  disabled={isLoading}
-                  className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
-                  <span>Actualizar</span>
-                </button>
-                <button
-                  onClick={() => setIsCreateModalOpen(true)}
-                  disabled={isLoading}
-                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <UserPlus className="h-5 w-5" />
-                  <span>Crear Usuario</span>
-                </button>
-              </div>
+              ) : null}
             </div>
-            <p className="mt-2 text-sm text-gray-500">
-              Ingresa tu búsqueda y presiona &quot;Buscar&quot; o Enter para filtrar usuarios
-            </p>
+            <div className="flex items-center gap-2">
+              <Button type="button" onClick={handleSearch} disabled={isLoading} className="gap-2">
+                <Search className="h-4 w-4" />
+                Buscar
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleRefresh}
+                disabled={isLoading}
+                className="gap-2"
+              >
+                <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
+                Actualizar
+              </Button>
             </div>
+          </CardContent>
+        </Card>
 
-          <div className="p-6">
-            {error ? (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
-                {error}
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-gray-100 py-3">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Users className="h-4 w-4 text-green-700" />
+                  Gestión de perfiles
+                </CardTitle>
+                <CardDescription>
+                  Lista de usuarios registrados en el sistema
+                </CardDescription>
               </div>
-            ) : users.length === 0 ? (
-              <div className="text-center py-12">
-                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No hay usuarios registrados</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Nombre
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Email
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Rol
-                      </th>
-                     
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Fecha de Creación
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {users.map((user) => (
-                      <tr key={user.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {user.name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {user.email}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            user.role === 'admin'
-                              ? 'bg-purple-100 text-purple-800'
-                              : user.role === 'validador'
-                              ? 'bg-blue-100 text-blue-800'
-                              : user.role === 'comun'
-                              ? 'bg-green-100 text-green-800'
-                              : user.role === 'consumidor'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : user.role === 'csx'
-                              ? 'bg-teal-100 text-teal-800'
-                              : user.role === 'Sin autorizar'
-                              ? 'bg-orange-100 text-orange-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {user.role === 'admin' ? 'Administrador' :
-                             user.role === 'validador' ? 'Validador' :
-                             user.role === 'comun' ? 'Común' :
-                             user.role === 'consumidor' ? 'Consumidor' :
-                             user.role === 'csx' ? 'Customer Success' :
-                             user.role === 'Sin autorizar' ? 'Sin autorizar' :
-                             user.role}
-                          </span>
-                          <span className="text-xs text-gray-500 block">{user.client_name}</span>
-                        </td>
-                        
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {formatDateTime(user.created_at)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          {user.role === 'admin' ? (
-                            <div className="flex items-center space-x-1 text-purple-600" title="Usuario protegido">
-                              <Shield className="h-5 w-5" />
-                            </div>
-                          ) : (
-                            <div className="flex items-center space-x-2">
-                              <button
-                                onClick={() => handleViewProfile(user.id)}
-                                className="text-blue-600 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded p-1"
-                                title="Ver perfil"
-                              >
-                                <Eye className="h-5 w-5" />
-                              </button>
-                              {user.role === 'consumidor' && (
-                                <button
-                                  onClick={() => handleLinkClient(user.id)}
-                                  className="text-purple-600 hover:text-purple-900 focus:outline-none focus:ring-2 focus:ring-purple-500 rounded p-1"
-                                  title="Vincular cliente"
-                                >
-                                  <Link2 className="h-5 w-5" />
-                                </button>
-                              )}
-                              <button
-                                onClick={() => handleEditProfile(user.id)}
-                                className="text-green-600 hover:text-green-900 focus:outline-none focus:ring-2 focus:ring-green-500 rounded p-1"
-                                title="Editar perfil"
-                                disabled={user.role === 'admin'}
-                              >
-                                <Pencil className={`h-5 w-5 ${user.role === 'admin' ? 'opacity-50 cursor-not-allowed' : ''}`} />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteProfile(user.id, user.name)}
-                                className="text-red-600 hover:text-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-1"
-                                title="Eliminar perfil"
-                              >
-                                <Trash2 className="h-5 w-5" />
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-          </div>
-        </div>
-
-        {/* Templates PDFMonkey por Empresa */}
-        {userRole === 'admin' && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 mt-6">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center space-x-3">
-                <FileText className="h-6 w-6 text-green-600" />
-                <h2 className="text-xl font-semibold text-gray-900">Modelos informes - PDF</h2>
-              </div>
-              <p className="text-sm text-gray-500 mt-1">
-                Personaliza los modelos de informe por tipo de analisis para tu empresa.
+              <p className="text-xs font-medium text-muted-foreground">
+                {users.length} usuario{users.length === 1 ? '' : 's'}
               </p>
             </div>
-            <div className="p-6">
-              <button
-                onClick={() => setIsCompanyTemplatesOpen(true)}
-                className="inline-flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
-              >
-                <FileText className="h-5 w-5" />
-                <span>Configurar Templates</span>
-              </button>
-            </div>
-          </div>
-        )}
+          </CardHeader>
 
-        {/* Modal de Edición de Perfil */}
+          {error ? (
+            <CardContent className="p-4">
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                {error}
+              </div>
+            </CardContent>
+          ) : users.length === 0 ? (
+            <CardContent className="flex flex-col items-center py-12 text-center">
+              <Users className="mb-4 h-10 w-10 text-muted-foreground" />
+              <CardTitle className="mb-2 text-lg">No hay usuarios</CardTitle>
+              <CardDescription className="mb-4">
+                Crea el primer usuario del sistema
+              </CardDescription>
+              <Button type="button" onClick={() => setIsCreateModalOpen(true)} className="gap-2">
+                <UserPlus className="h-4 w-4" />
+                Crear usuario
+              </Button>
+            </CardContent>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[160px]">Nombre</TableHead>
+                    <TableHead className="min-w-[180px]">Email</TableHead>
+                    <TableHead className="min-w-[120px]">Rol</TableHead>
+                    <TableHead className="hidden whitespace-nowrap md:table-cell">
+                      Fecha de creación
+                    </TableHead>
+                    <TableHead className="sticky right-0 w-36 bg-card text-right">
+                      Acciones
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.id} className="hover:bg-accent/40">
+                      <TableCell>
+                        <p className="font-medium text-foreground">{user.name}</p>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {user.email}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={cn('font-normal', roleBadgeClass(user.role))}
+                        >
+                          {roleLabel(user.role)}
+                        </Badge>
+                        {user.client_name ? (
+                          <span className="mt-1 block text-xs text-muted-foreground">
+                            {user.client_name}
+                          </span>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
+                        {formatDateTime(user.created_at)}
+                      </TableCell>
+                      <TableCell className="sticky right-0 bg-card text-right">
+                        {user.role === 'admin' ? (
+                          <div
+                            className="inline-flex items-center text-emerald-700"
+                            title="Usuario protegido"
+                          >
+                            <Shield className="h-5 w-5" />
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center justify-end gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => handleViewProfile(user.id)}
+                              title="Ver perfil"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {user.role === 'consumidor' ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => handleLinkClient(user.id)}
+                                title="Vincular cliente"
+                              >
+                                <Link2 className="h-4 w-4" />
+                              </Button>
+                            ) : null}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => handleEditProfile(user.id)}
+                              title="Editar perfil"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => handleDeleteProfile(user.id, user.name)}
+                              title="Eliminar perfil"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </Card>
+
+        {userRole === 'admin' ? (
+          <Card>
+            <CardHeader className="border-b border-gray-100">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <FileText className="h-4 w-4 text-green-700" />
+                Modelos informes - PDF
+              </CardTitle>
+              <CardDescription>
+                Personaliza los modelos de informe por tipo de análisis para tu empresa.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4">
+              <Button
+                type="button"
+                onClick={() => setIsCompanyTemplatesOpen(true)}
+                className="gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                Configurar templates
+              </Button>
+            </CardContent>
+          </Card>
+        ) : null}
+
         <EditProfileModal
           isOpen={isEditModalOpen}
           onClose={() => {
@@ -464,14 +459,12 @@ export default function SettingsPage() {
           onSuccess={handleEditSuccess}
         />
 
-        {/* Modal de Crear Usuario */}
         <CreateUserModal
           isOpen={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
           onSuccess={handleEditSuccess}
         />
 
-        {/* Modal de Vincular Clientes */}
         <LinkUserClientsModal
           isOpen={isLinkModalOpen}
           onClose={() => {
@@ -482,13 +475,12 @@ export default function SettingsPage() {
           onSuccess={handleEditSuccess}
         />
 
-        {/* Modal de Templates PDFMonkey */}
         <CompanyTemplatesModal
           isOpen={isCompanyTemplatesOpen}
           onClose={() => setIsCompanyTemplatesOpen(false)}
           onSuccess={() => {}}
         />
-      </DashboardLayout>
+      </div>
+    </DashboardLayout>
   )
 }
-

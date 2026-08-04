@@ -14,7 +14,7 @@ import ViewReportModal from '@/components/reports/ViewReportModal'
 import FeedbackModal from '@/components/reports/FeedbackModal'
 import SamplesDisplay from '@/components/reports/SamplesDisplay'
 import { getAnalysisTypeIndicator } from '@/config/analysisTypes'
-import { 
+import {
   FileText,
   Download,
   Send,
@@ -28,8 +28,20 @@ import {
   Save,
   X,
   Check,
-  MessageCircle
+  MessageCircle,
 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 
 interface Report {
   id: string
@@ -56,6 +68,9 @@ interface Report {
     }
   }>
 }
+
+const filterSelectClassName =
+  'h-8 rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus-visible:border-green-600 focus-visible:ring-2 focus-visible:ring-green-600/20 sm:w-48'
 
 export default function ReportsPage() {
   const { userRole, isLoading: authLoading, user, isAuthenticated, linkedClientIds } = useAuth()
@@ -527,7 +542,7 @@ export default function ReportsPage() {
   const getStatusBadge = (status: string | null, reportId: string, completed?: boolean | null) => {
     if (!status) {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+        <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
           Sin estado
         </span>
       )
@@ -557,7 +572,7 @@ export default function ReportsPage() {
     if (status === 'draft' && !isValidated) {
       const isUpdating = updatingStatus === reportId
       return (
-        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${
           statusConfig[status as keyof typeof statusConfig] || 'bg-gray-100 text-gray-800 border-gray-200'
         }`}>
           <X className="h-3 w-3 text-gray-500" />
@@ -569,7 +584,7 @@ export default function ReportsPage() {
                 handleValidateReport(reportId)
               }}
               disabled={isUpdating}
-              className="hover:bg-gray-200 rounded p-0.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded p-0.5 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
               title="Validar informe"
             >
               {isUpdating ? (
@@ -589,7 +604,7 @@ export default function ReportsPage() {
     if (isValidated) {
       const isUpdating = updatingStatus === reportId
       return (
-        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${
           statusConfig.validated || 'bg-purple-100 text-purple-800 border-purple-200'
         }`}>
           {canValidate ? (
@@ -599,7 +614,7 @@ export default function ReportsPage() {
                 handleUnvalidateReport(reportId)
               }}
               disabled={isUpdating}
-              className="hover:bg-purple-200 rounded p-0.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded p-0.5 transition-colors hover:bg-purple-200 disabled:cursor-not-allowed disabled:opacity-50"
               title="Cambiar a borrador"
             >
               {isUpdating ? (
@@ -618,7 +633,7 @@ export default function ReportsPage() {
     }
 
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+      <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
         statusConfig[status as keyof typeof statusConfig] || 'bg-gray-100 text-gray-800 border-gray-200'
       }`}>
         {statusLabels[status as keyof typeof statusLabels] || status}
@@ -644,7 +659,7 @@ export default function ReportsPage() {
     }
 
     return (
-      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+      <span className={`inline-flex items-center rounded px-2 py-1 text-xs font-medium ${
         templateConfig[template as keyof typeof templateConfig] || 'bg-gray-100 text-gray-800'
       }`}>
         {templateLabels[template as keyof typeof templateLabels] || template}
@@ -652,405 +667,461 @@ export default function ReportsPage() {
     )
   }
 
-  // getAnalysisTypeIndicator is now imported from @/config/analysisTypes
+  if (authLoading || isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex h-64 items-center justify-center p-6">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    )
+  }
 
   return (
     <DashboardLayout>
-      {/* Show loading while fetching data or auth is loading */}
-      {(authLoading || isLoading) ? (
-        <div className="p-6">
-          <div className="flex items-center justify-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-          </div>
-        </div>
-      ) : (
-      <div className="p-6">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Informes</h1>
-              <p className="text-gray-600">
-                {userRole === 'consumidor' 
-                  ? 'Informes de análisis de tus muestras' 
-                  : 'Gestiona y genera informes de análisis'}
+      <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Informes
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {userRole === 'consumidor'
+                ? 'Informes de análisis de tus muestras'
+                : 'Gestiona y genera informes de análisis'}
+            </p>
+            {userRole === 'consumidor' && linkedClientIds.length > 0 && (
+              <p className="mt-1 text-sm text-green-700">
+                Mostrando solo informes validados vinculados a tu cuenta
               </p>
-              {userRole === 'consumidor' && linkedClientIds.length > 0 && (
-                <p className="text-sm text-blue-600 mt-1">
-                  📋 Mostrando solo informes validados vinculados a tu cuenta
-                </p>
-              )}
-            </div>
-            {userRole === 'consumidor' && (
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => setIsFeedbackModalOpen(true)}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  <span>Ayuda</span>
-                </button>
-              </div>
-            )}
-            {(userRole === 'admin' || userRole === 'comun') && (
-              <div className="flex space-x-3">
-                <button className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-gray-50 transition-colors">
-                  <Filter className="h-4 w-4" />
-                  <span>Filtros</span>
-                </button>
-                <button
-                  onClick={() => setIsCreateModalOpen(true)}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Crear informe</span>
-                </button>
-              </div>
             )}
           </div>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar por código de muestra, especie o cliente..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-            </div>
-
-            {/* Status Filter */}
-            <div className="sm:w-48">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          {userRole === 'consumidor' && (
+            <Button
+              type="button"
+              onClick={() => setIsFeedbackModalOpen(true)}
+              className="gap-2"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Ayuda
+            </Button>
+          )}
+          {(userRole === 'admin' || userRole === 'comun') && (
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" className="gap-2">
+                <Filter className="h-4 w-4" />
+                Filtros
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setIsCreateModalOpen(true)}
+                className="gap-2"
               >
-                <option value="all">Todos los estados</option>
-                <option value="draft">Borradores</option>
-                <option value="validated">Validados</option>
-                <option value="generated">Generados</option>
-                <option value="sent">Enviados</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Tabs de clientes para usuarios consumidor */}
-        {userRole === 'consumidor' && clientTabs.length > 1 && (
-          <div className="mb-4">
-            <div className="border-b border-gray-200">
-              <nav className="-mb-px flex space-x-4 overflow-x-auto">
-                {clientTabs.map((client) => (
-                  <button
-                    key={client.id}
-                    onClick={() => setSelectedClientId(client.id)}
-                    className={`whitespace-nowrap pb-3 px-1 border-b-2 text-sm font-medium transition-colors ${
-                      selectedClientId === client.id
-                        ? 'border-indigo-500 text-indigo-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    {client.name}
-                  </button>
-                ))}
-              </nav>
-            </div>
-          </div>
-        )}
-
-        {/* Reports List */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          {userRole === 'consumidor' && linkedClientIds.length === 0 ? (
-            <div className="p-12 text-center">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No tienes clientes vinculados</h3>
-              <p className="text-gray-500">Contacta a tu administrador para que te asigne clientes</p>
-            </div>
-          ) : filteredReports.length === 0 ? (
-            <div className="p-12 text-center">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No hay informes</h3>
-              <p className="text-gray-500">Los informes aparecerán aquí una vez generados</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full table-auto">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <BulkSelectionToolbarRow
-                    columnSpan={9}
-                    selectedCount={selectedReports.size}
-                    filteredRowCount={filteredReports.length}
-                    selectionSummaryText={`${selectedReports.size} informe(s) seleccionado(s)`}
-                    onSelectAll={handleSelectAll}
-                    onClearSelection={clearSelection}
-                    validateAction={
-                      userRole === 'admin' || userRole === 'validador'
-                        ? {
-                            onClick: handleBulkValidate,
-                            disabled: isBulkValidating,
-                            isLoading: isBulkValidating,
-                          }
-                        : null
-                    }
-                    deleteAction={
-                      userRole === 'admin' || userRole === 'comun'
-                        ? {
-                            onClick: handleBulkDelete,
-                            disabled: isBulkDeleting,
-                            isLoading: isBulkDeleting,
-                          }
-                        : null
-                    }
-                  />
-                  {selectedReports.size === 0 ? (
-                  <tr>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-14">
-                      Tipo
-                    </th>
-                    {userRole !== 'consumidor' && (
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
-                        Cliente
-                      </th>
-                    )}
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">
-                      Muestras
-                    </th>
-                    {userRole !== 'consumidor' && (
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
-                        Plantilla
-                      </th>
-                    )}
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
-                      Estado
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell whitespace-nowrap">
-                      Fecha
-                    </th>
-                    {userRole !== 'consumidor' && (
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell min-w-[100px]">
-                        Pago
-                      </th>
-                    )}
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32 sticky right-0 bg-gray-50 z-10">
-                      Acciones
-                    </th>
-                    {(userRole === 'admin' || userRole === 'validador' || userRole === 'comun') && (
-                      <BulkSelectAllHeaderCheckbox
-                        checked={
-                          selectedReports.size === filteredReports.length &&
-                          filteredReports.length > 0
-                        }
-                        onChange={handleSelectAll}
-                      />
-                    )}
-                  </tr>
-                  ) : null}
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredReports.map((report) => {
-                    const analysisIndicator = getAnalysisTypeIndicator(report.test_areas)
-                    return (
-                    <tr
-                      key={report.id}
-                      className="group hover:bg-gray-50 cursor-pointer"
-                      onClick={() => setViewReportId(report.id)}
-                    >
-                      <td className="px-3 py-4">
-                        <div
-                          className={`w-10 h-10 rounded-full ${analysisIndicator.bgColor} ${analysisIndicator.textColor} flex items-center justify-center font-bold text-sm shadow-sm`}
-                          title={analysisIndicator.label}
-                        >
-                          {analysisIndicator.initial}
-                        </div>
-                      </td>
-                      {userRole !== 'consumidor' && (
-                        <td className="px-3 py-4">
-                          <div className="min-w-0">
-                            <div className="font-medium text-gray-900 truncate">{report.clients?.name || 'N/A'}</div>
-                            {report.clients?.rut && (
-                              <div className="text-xs text-gray-500 truncate">RUT: {report.clients.rut}</div>
-                            )}
-                          </div>
-                        </td>
-                      )}
-                      <td className="px-3 py-4">
-                        <div className="min-w-0">
-                          <SamplesDisplay
-                            samples={report.results?.map(result => ({
-                              code: result.samples?.code || 'N/A',
-                              species: result.samples?.species || '',
-                              variety: result.samples?.variety
-                            })) || []}
-                          />
-                        </div>
-                      </td>
-                      {userRole !== 'consumidor' && (
-                        <td className="px-3 py-4 hidden lg:table-cell">
-                          {getTemplateBadge(report.template)}
-                        </td>
-                      )}
-                      <td className="px-3 py-4 hidden md:table-cell">
-                        {getStatusBadge(report.status, report.id, report.completed)}
-                      </td>
-                      <td className="px-3 py-4 text-sm text-gray-500 hidden lg:table-cell whitespace-nowrap">
-                        {report.created_at ? new Date(report.created_at).toLocaleDateString('es-ES') : 'N/A'}
-                      </td>
-                      {userRole !== 'consumidor' && (
-                        <td className="px-3 py-4 hidden xl:table-cell" onClick={(e) => e.stopPropagation()}>
-                          {editingPayment === report.id ? (
-                            <div className="space-y-3 min-w-48">
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  id={`payment-${report.id}`}
-                                  checked={paymentData[report.id]?.payment || false}
-                                  onChange={(e) => setPaymentData(prev => ({
-                                    ...prev,
-                                    [report.id]: {
-                                      ...prev[report.id],
-                                      payment: e.target.checked
-                                    }
-                                  }))}
-                                  className="h-4 w-4 text-green-600 rounded border-gray-300"
-                                />
-                                <label htmlFor={`payment-${report.id}`} className="text-sm text-gray-700">
-                                  Pagado
-                                </label>
-                              </div>
-                              <div>
-                                <input
-                                  type="text"
-                                  placeholder="Número de factura"
-                                  value={paymentData[report.id]?.invoice_number || ''}
-                                  onChange={(e) => setPaymentData(prev => ({
-                                    ...prev,
-                                    [report.id]: {
-                                      ...prev[report.id],
-                                      invoice_number: e.target.value
-                                    }
-                                  }))}
-                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                />
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={() => handleSavePayment(report.id)}
-                                  disabled={savingPayment === report.id}
-                                  className="flex items-center gap-1 px-2 py-1 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 disabled:opacity-50"
-                                >
-                                  <Save className="h-3 w-3" />
-                                  {savingPayment === report.id ? 'Guardando...' : 'Guardar'}
-                                </button>
-                                <button
-                                  onClick={() => handleClearPayment(report.id)}
-                                  disabled={savingPayment === report.id}
-                                  className="flex items-center gap-1 px-2 py-1 bg-red-600 text-white text-xs font-medium rounded hover:bg-red-700 disabled:opacity-50"
-                                >
-                                  <X className="h-3 w-3" />
-                                  Limpiar
-                                </button>
-                                <button
-                                  onClick={() => handleCancelEdit(report.id)}
-                                  disabled={savingPayment === report.id}
-                                  className="px-2 py-1 border border-gray-300 text-gray-700 text-xs font-medium rounded hover:bg-gray-50 disabled:opacity-50"
-                                >
-                                  Cancelar
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                  report.payment
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-red-100 text-red-800'
-                                }`}>
-                                  {report.payment ? 'Pagado' : 'Pendiente'}
-                                </span>
-                                {(userRole === 'admin' || userRole === 'validador' || userRole === 'comun') && (
-                                <button
-                                  onClick={() => handleEditPayment(report.id, report.payment || false, report.invoice_number || '')}
-                                  className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                                >
-                                  Editar
-                                </button>
-                                )}
-                              </div>
-                              {report.invoice_number && (
-                                <div className="text-xs text-gray-600">
-                                  <span className="font-mono">{report.invoice_number}</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </td>
-                      )}
-                      <td className="px-3 py-4 sticky right-0 bg-white z-10 group-hover:bg-gray-50">
-                        <div className="flex items-center space-x-1" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={() => setViewReportId(report.id)}
-                            className="p-1 text-gray-400 hover:text-indigo-600 transition-colors"
-                            title="Ver"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          {report.download_url && (
-                            <button className="p-1 text-gray-400 hover:text-green-600 transition-colors" title="Descargar">
-                              <Download className="h-4 w-4" />
-                            </button>
-                          )}
-                          {(userRole === 'admin' || userRole === 'validador') && report.status !== 'sent' && (
-                            <>
-                              <button className="p-1 text-gray-400 hover:text-blue-600 transition-colors" title="Editar">
-                                <Edit className="h-4 w-4" />
-                              </button>
-                              <button className="p-1 text-gray-400 hover:text-purple-600 transition-colors" title="Enviar">
-                                <Send className="h-4 w-4" />
-                              </button>
-                            </>
-                          )}
-                          {(userRole === 'admin' || userRole === 'comun') && (
-                            <button
-                              onClick={() => handleDeleteReport(report.id, report.status)}
-                              disabled={isDeleting === report.id}
-                              className="p-1 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Eliminar"
-                            >
-                              {isDeleting === report.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4" />
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                      {(userRole === 'admin' || userRole === 'validador' || userRole === 'comun') && (
-                        <BulkRowSelectionCheckbox
-                          checked={selectedReports.has(report.id)}
-                          onChange={() => handleSelectReport(report.id)}
-                        />
-                      )}
-                    </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+                <Plus className="h-4 w-4" />
+                Crear informe
+              </Button>
             </div>
           )}
         </div>
-        
-        {/* Create Report Modal */}
+
+        <Card>
+          <CardContent className="flex flex-col gap-4 p-4 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Buscar por código de muestra, especie o cliente..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className={filterSelectClassName}
+            >
+              <option value="all">Todos los estados</option>
+              <option value="draft">Borradores</option>
+              <option value="validated">Validados</option>
+              <option value="generated">Generados</option>
+              <option value="sent">Enviados</option>
+            </select>
+          </CardContent>
+        </Card>
+
+        {/* Tabs de clientes para usuarios consumidor */}
+        {userRole === 'consumidor' && clientTabs.length > 1 && (
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-4 overflow-x-auto">
+              {clientTabs.map((client) => (
+                <button
+                  key={client.id}
+                  type="button"
+                  onClick={() => setSelectedClientId(client.id)}
+                  className={cn(
+                    'whitespace-nowrap border-b-2 px-1 pb-3 text-sm font-medium transition-colors',
+                    selectedClientId === client.id
+                      ? 'border-green-600 text-green-700'
+                      : 'border-transparent text-muted-foreground hover:border-gray-300 hover:text-foreground'
+                  )}
+                >
+                  {client.name}
+                </button>
+              ))}
+            </nav>
+          </div>
+        )}
+
+        <Card className="overflow-hidden">
+          {userRole === 'consumidor' && linkedClientIds.length === 0 ? (
+            <CardContent className="flex flex-col items-center py-12 text-center">
+              <FileText className="mb-4 h-10 w-10 text-muted-foreground" />
+              <CardTitle className="mb-2 text-lg">No tienes clientes vinculados</CardTitle>
+              <CardDescription>
+                Contacta a tu administrador para que te asigne clientes
+              </CardDescription>
+            </CardContent>
+          ) : filteredReports.length === 0 ? (
+            <CardContent className="flex flex-col items-center py-12 text-center">
+              <FileText className="mb-4 h-10 w-10 text-muted-foreground" />
+              <CardTitle className="mb-2 text-lg">No hay informes</CardTitle>
+              <CardDescription>
+                Los informes aparecerán aquí una vez generados
+              </CardDescription>
+            </CardContent>
+          ) : (
+            <>
+              <CardHeader className="border-b border-gray-100 py-3">
+                <CardDescription>
+                  Haz clic en cualquier fila para ver el informe
+                </CardDescription>
+              </CardHeader>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <BulkSelectionToolbarRow
+                      columnSpan={9}
+                      selectedCount={selectedReports.size}
+                      filteredRowCount={filteredReports.length}
+                      selectionSummaryText={`${selectedReports.size} informe(s) seleccionado(s)`}
+                      onSelectAll={handleSelectAll}
+                      onClearSelection={clearSelection}
+                      validateAction={
+                        userRole === 'admin' || userRole === 'validador'
+                          ? {
+                              onClick: handleBulkValidate,
+                              disabled: isBulkValidating,
+                              isLoading: isBulkValidating,
+                            }
+                          : null
+                      }
+                      deleteAction={
+                        userRole === 'admin' || userRole === 'comun'
+                          ? {
+                              onClick: handleBulkDelete,
+                              disabled: isBulkDeleting,
+                              isLoading: isBulkDeleting,
+                            }
+                          : null
+                      }
+                    />
+                    {selectedReports.size === 0 ? (
+                      <TableRow>
+                        <TableHead className="w-14">Tipo</TableHead>
+                        {userRole !== 'consumidor' && (
+                          <TableHead className="min-w-[120px]">Cliente</TableHead>
+                        )}
+                        <TableHead className="min-w-[150px]">Muestras</TableHead>
+                        {userRole !== 'consumidor' && (
+                          <TableHead className="hidden lg:table-cell">Plantilla</TableHead>
+                        )}
+                        <TableHead className="hidden md:table-cell">Estado</TableHead>
+                        <TableHead className="hidden whitespace-nowrap lg:table-cell">
+                          Fecha
+                        </TableHead>
+                        {userRole !== 'consumidor' && (
+                          <TableHead className="hidden min-w-[100px] xl:table-cell">
+                            Pago
+                          </TableHead>
+                        )}
+                        <TableHead className="sticky right-0 z-10 w-32 bg-card">
+                          Acciones
+                        </TableHead>
+                        {(userRole === 'admin' ||
+                          userRole === 'validador' ||
+                          userRole === 'comun') && (
+                          <BulkSelectAllHeaderCheckbox
+                            checked={
+                              selectedReports.size === filteredReports.length &&
+                              filteredReports.length > 0
+                            }
+                            onChange={handleSelectAll}
+                          />
+                        )}
+                      </TableRow>
+                    ) : null}
+                  </TableHeader>
+                  <TableBody>
+                    {filteredReports.map((report) => {
+                      const analysisIndicator = getAnalysisTypeIndicator(report.test_areas)
+                      return (
+                        <TableRow
+                          key={report.id}
+                          className="group cursor-pointer border-l-2 border-transparent hover:border-primary/40 hover:bg-accent/40"
+                          onClick={() => setViewReportId(report.id)}
+                        >
+                          <TableCell>
+                            <div
+                              className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold shadow-sm ${analysisIndicator.bgColor} ${analysisIndicator.textColor}`}
+                              title={analysisIndicator.label}
+                            >
+                              {analysisIndicator.initial}
+                            </div>
+                          </TableCell>
+                          {userRole !== 'consumidor' && (
+                            <TableCell>
+                              <div className="min-w-0">
+                                <div className="truncate font-medium text-foreground">
+                                  {report.clients?.name || 'N/A'}
+                                </div>
+                                {report.clients?.rut && (
+                                  <div className="truncate text-xs text-muted-foreground">
+                                    RUT: {report.clients.rut}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                          )}
+                          <TableCell className="whitespace-normal">
+                            <div className="min-w-0">
+                              <SamplesDisplay
+                                samples={
+                                  report.results?.map((result) => ({
+                                    code: result.samples?.code || 'N/A',
+                                    species: result.samples?.species || '',
+                                    variety: result.samples?.variety,
+                                  })) || []
+                                }
+                              />
+                            </div>
+                          </TableCell>
+                          {userRole !== 'consumidor' && (
+                            <TableCell className="hidden lg:table-cell">
+                              {getTemplateBadge(report.template)}
+                            </TableCell>
+                          )}
+                          <TableCell className="hidden md:table-cell">
+                            {getStatusBadge(report.status, report.id, report.completed)}
+                          </TableCell>
+                          <TableCell className="hidden whitespace-nowrap text-sm text-muted-foreground lg:table-cell">
+                            {report.created_at
+                              ? new Date(report.created_at).toLocaleDateString('es-ES')
+                              : 'N/A'}
+                          </TableCell>
+                          {userRole !== 'consumidor' && (
+                            <TableCell
+                              className="hidden whitespace-normal xl:table-cell"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {editingPayment === report.id ? (
+                                <div className="min-w-48 space-y-3">
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      id={`payment-${report.id}`}
+                                      checked={paymentData[report.id]?.payment || false}
+                                      onChange={(e) =>
+                                        setPaymentData((prev) => ({
+                                          ...prev,
+                                          [report.id]: {
+                                            ...prev[report.id],
+                                            payment: e.target.checked,
+                                          },
+                                        }))
+                                      }
+                                      className="h-4 w-4 rounded border-gray-300 text-green-600"
+                                    />
+                                    <label
+                                      htmlFor={`payment-${report.id}`}
+                                      className="text-sm text-foreground"
+                                    >
+                                      Pagado
+                                    </label>
+                                  </div>
+                                  <Input
+                                    type="text"
+                                    placeholder="Número de factura"
+                                    value={paymentData[report.id]?.invoice_number || ''}
+                                    onChange={(e) =>
+                                      setPaymentData((prev) => ({
+                                        ...prev,
+                                        [report.id]: {
+                                          ...prev[report.id],
+                                          invoice_number: e.target.value,
+                                        },
+                                      }))
+                                    }
+                                    className="h-8"
+                                  />
+                                  <div className="flex flex-wrap items-center gap-1">
+                                    <Button
+                                      type="button"
+                                      size="xs"
+                                      onClick={() => handleSavePayment(report.id)}
+                                      disabled={savingPayment === report.id}
+                                      className="gap-1"
+                                    >
+                                      <Save className="h-3 w-3" />
+                                      {savingPayment === report.id ? 'Guardando...' : 'Guardar'}
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="xs"
+                                      variant="destructive"
+                                      onClick={() => handleClearPayment(report.id)}
+                                      disabled={savingPayment === report.id}
+                                      className="gap-1"
+                                    >
+                                      <X className="h-3 w-3" />
+                                      Limpiar
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="xs"
+                                      variant="outline"
+                                      onClick={() => handleCancelEdit(report.id)}
+                                      disabled={savingPayment === report.id}
+                                    >
+                                      Cancelar
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                                        report.payment
+                                          ? 'bg-green-100 text-green-800'
+                                          : 'bg-red-100 text-red-800'
+                                      }`}
+                                    >
+                                      {report.payment ? 'Pagado' : 'Pendiente'}
+                                    </span>
+                                    {(userRole === 'admin' ||
+                                      userRole === 'validador' ||
+                                      userRole === 'comun') && (
+                                      <Button
+                                        type="button"
+                                        variant="link"
+                                        size="xs"
+                                        onClick={() =>
+                                          handleEditPayment(
+                                            report.id,
+                                            report.payment || false,
+                                            report.invoice_number || ''
+                                          )
+                                        }
+                                        className="h-auto px-0"
+                                      >
+                                        Editar
+                                      </Button>
+                                    )}
+                                  </div>
+                                  {report.invoice_number && (
+                                    <div className="font-mono text-xs text-muted-foreground">
+                                      {report.invoice_number}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </TableCell>
+                          )}
+                          <TableCell
+                            className="sticky right-0 z-10 bg-card group-hover:bg-accent/40"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => setViewReportId(report.id)}
+                                title="Ver"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {report.download_url && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  title="Descargar"
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {(userRole === 'admin' || userRole === 'validador') &&
+                                report.status !== 'sent' && (
+                                  <>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon-sm"
+                                      title="Editar"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon-sm"
+                                      title="Enviar"
+                                    >
+                                      <Send className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                )}
+                              {(userRole === 'admin' || userRole === 'comun') && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() =>
+                                    handleDeleteReport(report.id, report.status)
+                                  }
+                                  disabled={isDeleting === report.id}
+                                  title="Eliminar"
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  {isDeleting === report.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                          {(userRole === 'admin' ||
+                            userRole === 'validador' ||
+                            userRole === 'comun') && (
+                            <BulkRowSelectionCheckbox
+                              checked={selectedReports.has(report.id)}
+                              onChange={() => handleSelectReport(report.id)}
+                            />
+                          )}
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+        </Card>
+
         <CreateReportModal
           isOpen={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
@@ -1059,21 +1130,18 @@ export default function ReportsPage() {
             fetchReports()
           }}
         />
-        
-        {/* View Report Modal */}
+
         <ViewReportModal
           isOpen={viewReportId !== null}
           onClose={() => setViewReportId(null)}
           reportId={viewReportId}
         />
 
-        {/* Feedback Modal */}
         <FeedbackModal
           isOpen={isFeedbackModalOpen}
           onClose={() => setIsFeedbackModalOpen(false)}
         />
       </div>
-      )}
     </DashboardLayout>
   )
 }

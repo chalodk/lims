@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
-import { 
+import {
   Home,
   TestTube,
   Users,
@@ -12,182 +12,225 @@ import {
   BarChart3,
   Settings,
   Menu,
-  X,
   Bell,
   FlaskConical,
   Loader2,
   Microscope,
-  CreditCard
+  CreditCard,
+  ChevronsLeft,
+  ChevronsRight,
 } from 'lucide-react'
 import AppBrandingLogo from '@/components/branding/AppBrandingLogo'
 import UserProfileDropdown from '@/components/UserProfileDropdown'
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
+import { cn } from '@/lib/utils'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
 }
 
+const PAGE_TITLES: Record<string, string> = {
+  '/cliente': 'Panel',
+  '/dashboard': 'Dashboard',
+  '/samples': 'Muestras',
+  '/results': 'Resultados',
+  '/clients': 'Clientes',
+  '/reports': 'Informes',
+  '/estadisticas': 'Estadísticas',
+  '/settings': 'Configuración',
+}
+
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const { user, authUser, isAuthenticated, isLoading, userRole } = useAuth()
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false)
+  const { authUser, isAuthenticated, isLoading, userRole } = useAuth()
   const pathname = usePathname()
 
-  // ✅ TODOS LOS HOOKS DEBEN IR ANTES DE CUALQUIER RETORNO CONDICIONAL
-  // Verificar si hay usuario autenticado DESPUÉS de que termine de cargar
-  // ✅ CRÍTICO: authUser (de la sesión) es suficiente para considerar autenticado
-  // user (de BD) es complementario pero no esencial
   useEffect(() => {
-    // Solo redirigir si terminó de cargar Y no hay sesión válida
-    // authUser viene de la sesión de Supabase y es la fuente de verdad
     if (!isLoading && (!isAuthenticated || !authUser)) {
       if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-        // Usar replace para evitar agregar al historial y loops
         window.location.replace('/login')
       }
     }
   }, [isAuthenticated, authUser, isLoading])
 
-  // Mostrar loading mientras se verifica la autenticación
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-green-600 mx-auto mb-4" />
-          <p className="text-gray-600">Verificando autenticación...</p>
-        </div>
-      </div>
-    )
-  }
+  const navigation = useMemo(
+    () => [
+      { name: 'Panel', href: '/cliente', icon: BarChart3, roles: ['consumidor'] },
+      { name: 'Dashboard', href: '/dashboard', icon: Home, roles: ['admin', 'validador', 'comun', 'csx'] },
+      { name: 'Muestras', href: '/samples', icon: TestTube, roles: ['admin', 'validador', 'comun'] },
+      { name: 'Resultados', href: '/results', icon: FlaskConical, roles: ['admin', 'validador', 'comun'] },
+      { name: 'Clientes', href: '/clients', icon: Users, roles: ['admin', 'validador', 'comun'] },
+      { name: 'Informes', href: '/reports', icon: FileText, roles: ['admin', 'validador', 'comun', 'consumidor', 'csx'] },
+      { name: 'Estadísticas', href: '/estadisticas', icon: BarChart3, roles: ['admin', 'validador'] },
+      { name: 'Configuración', href: '/settings', icon: Settings, roles: ['admin'] },
+      { name: 'Tipos de Análisis', href: '/admin/analysis-types', icon: Microscope, roles: ['csx'] },
+      { name: 'Templates PDF', href: '/admin/company-templates', icon: FileText, roles: ['csx'] },
+      { name: 'Metodologias', href: '/admin/methodology-options', icon: FlaskConical, roles: ['csx'] },
+      { name: 'Analitos', href: '/admin/analytes', icon: TestTube, roles: ['csx'] },
+      { name: 'Billing', href: '/admin/billing', icon: CreditCard, roles: ['csx'] },
+    ],
+    []
+  )
 
-  // ✅ CRÍTICO: Verificar authUser (sesión) en lugar de user (BD)
-  // Si hay sesión válida pero no datos de BD, el usuario sigue autenticado
-  if (!isAuthenticated || !authUser) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-green-600 mx-auto mb-4" />
-          <p className="text-gray-600">Redirigiendo...</p>
-        </div>
-      </div>
-    )
-  }
-
-  const navigation = [
-    { name: 'Panel', href: '/cliente', icon: BarChart3, roles: ['consumidor'] },
-    { name: 'Dashboard', href: '/dashboard', icon: Home, roles: ['admin', 'validador', 'comun', 'csx'] },
-    { name: 'Muestras', href: '/samples', icon: TestTube, roles: ['admin', 'validador', 'comun'] },
-    { name: 'Resultados', href: '/results', icon: FlaskConical, roles: ['admin', 'validador', 'comun'] },
-    { name: 'Clientes', href: '/clients', icon: Users, roles: ['admin', 'validador', 'comun'] },
-    { name: 'Informes', href: '/reports', icon: FileText, roles: ['admin', 'validador', 'comun', 'consumidor', 'csx'] },
-    { name: 'Estadísticas', href: '/estadisticas', icon: BarChart3, roles: ['admin', 'validador'] },
-    { name: 'Configuración', href: '/settings', icon: Settings, roles: ['admin'] },
-    { name: 'Tipos de Análisis', href: '/admin/analysis-types', icon: Microscope, roles: ['csx'] },
-    { name: 'Templates PDF', href: '/admin/company-templates', icon: FileText, roles: ['csx'] },
-    { name: 'Metodologias', href: '/admin/methodology-options', icon: FlaskConical, roles: ['csx'] },
-    { name: 'Analitos', href: '/admin/analytes', icon: TestTube, roles: ['csx'] },
-    { name: 'Billing', href: '/admin/billing', icon: CreditCard, roles: ['csx'] },
-  ]
-
-  const filteredNavigation = navigation.filter(item => 
+  const filteredNavigation = navigation.filter((item) =>
     item.roles.includes(userRole || 'consumidor')
   )
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex w-full overflow-hidden">
-      {/* Mobile sidebar backdrop */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-gray-600 bg-opacity-75 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+  const pageTitle =
+    PAGE_TITLES[pathname] ||
+    filteredNavigation.find((item) => item.href === pathname)?.name ||
+    'LIMS'
 
-      {/* Sidebar - Fixed */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
-        <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 shrink-0">
-            <div className="flex items-center space-x-3 min-w-0">
-              <AppBrandingLogo variant="sidebar" />
-            </div>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1 rounded-md text-gray-400 hover:text-gray-600"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
+  const isConsumer = userRole === 'consumidor'
+  const sidebarWidthClass = desktopCollapsed ? 'lg:w-[4.5rem]' : 'lg:w-64'
 
-          {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-            {filteredNavigation.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-green-100 text-green-700'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                  }`}
-                >
-                  <item.icon className="h-5 w-5 mr-3 flex-shrink-0" />
-                  <span className="truncate">{item.name}</span>
-                </Link>
-              )
-            })}
-          </nav>
+  if (isLoading || !isAuthenticated || !authUser) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">
+            {isLoading ? 'Verificando autenticación...' : 'Redirigiendo...'}
+          </p>
         </div>
       </div>
+    )
+  }
 
-      {/* Spacer for fixed sidebar on desktop */}
-      <div className="hidden lg:block w-64 flex-shrink-0" />
+  const NavLinks = ({
+    collapsed,
+    onNavigate,
+  }: {
+    collapsed?: boolean
+    onNavigate?: () => void
+  }) => (
+    <nav className={cn('flex flex-1 flex-col gap-1 overflow-y-auto px-2 py-4', collapsed && 'px-1.5')}>
+      {filteredNavigation.map((item) => {
+        const isActive = pathname === item.href
+        return (
+          <Link
+            key={item.name}
+            href={item.href}
+            title={collapsed ? item.name : undefined}
+            onClick={onNavigate}
+            className={cn(
+              'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+              collapsed && 'justify-center px-2',
+              isActive
+                ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                : 'text-sidebar-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            <item.icon className="h-5 w-5 shrink-0" />
+            {!collapsed && <span className="truncate">{item.name}</span>}
+          </Link>
+        )
+      })}
+    </nav>
+  )
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0 w-full lg:ml-0">
-        {/* Top header - Fixed */}
-        <header className="fixed top-0 right-0 left-0 lg:left-64 z-40 bg-white shadow-sm border-b border-gray-200 h-16">
-          <div className="flex items-center justify-end h-full px-2 sm:px-4 md:px-6 w-full">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden absolute left-2 sm:left-4 p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-            >
-              <Menu className="h-6 w-6" />
-            </button>
-            
-            <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
-              {/* Notifications */}
-              <button className="p-2 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 relative">
-                <Bell className="h-5 w-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
-              
-              {/* Company info */}
-              <div className="text-right hidden md:block">
-                <p className="text-sm font-medium text-gray-900">
-                  Laboratorio
-                </p>
-                <p className="text-xs text-gray-500">
-                  Sistema LIMS
-                </p>
-              </div>
-              
-              {/* User Profile Dropdown */}
-              <UserProfileDropdown />
+  return (
+    <div className="flex min-h-screen w-full overflow-hidden bg-background">
+      {/* Desktop sidebar */}
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 hidden border-r border-sidebar-border bg-sidebar transition-[width] duration-200 lg:flex lg:flex-col',
+          sidebarWidthClass
+        )}
+      >
+        <div
+          className={cn(
+            'flex h-16 shrink-0 items-center border-b border-sidebar-border px-3',
+            desktopCollapsed ? 'justify-center' : 'justify-between gap-2'
+          )}
+        >
+          {!desktopCollapsed && (
+            <div className="min-w-0">
+              <AppBrandingLogo variant="sidebar" />
             </div>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setDesktopCollapsed((prev) => !prev)}
+            aria-label={desktopCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+          >
+            {desktopCollapsed ? (
+              <ChevronsRight className="h-4 w-4" />
+            ) : (
+              <ChevronsLeft className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+        <NavLinks collapsed={desktopCollapsed} />
+        {!desktopCollapsed && (
+          <>
+            <Separator />
+            <div className="px-4 py-3 text-xs text-muted-foreground">
+              {isConsumer ? 'Portal cliente' : 'Laboratorio'}
+            </div>
+          </>
+        )}
+      </aside>
+
+      {/* Mobile nav */}
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent side="left" className="w-72 p-0">
+          <SheetHeader className="border-b border-border px-4 py-4 text-left">
+            <SheetTitle className="sr-only">Navegación</SheetTitle>
+            <AppBrandingLogo variant="sidebar" />
+          </SheetHeader>
+          <NavLinks onNavigate={() => setMobileNavOpen(false)} />
+        </SheetContent>
+      </Sheet>
+
+      <div
+        className={cn(
+          'flex min-w-0 flex-1 flex-col transition-[padding] duration-200',
+          desktopCollapsed ? 'lg:pl-[4.5rem]' : 'lg:pl-64'
+        )}
+      >
+        <header className="sticky top-0 z-40 flex h-16 items-center gap-3 border-b border-border bg-card/90 px-3 backdrop-blur supports-[backdrop-filter]:bg-card/80 sm:px-6">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            onClick={() => setMobileNavOpen(true)}
+            aria-label="Abrir menú"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-foreground sm:text-base">
+              {pageTitle}
+            </p>
+            <p className="hidden truncate text-xs text-muted-foreground sm:block">
+              {isConsumer ? 'Vista cliente' : 'Operación de laboratorio'}
+            </p>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+            <Button type="button" variant="ghost" size="icon" className="relative" aria-label="Notificaciones">
+              <Bell className="h-5 w-5" />
+              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-destructive" />
+            </Button>
+            <UserProfileDropdown />
           </div>
         </header>
 
-        {/* Spacer for fixed header */}
-        <div className="h-16 shrink-0" />
-
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden w-full">
-          <div className="w-full h-full">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto">
           {children}
-          </div>
         </main>
       </div>
     </div>

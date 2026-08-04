@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Geist } from 'next/font/google'
 import { headers } from 'next/headers'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { AppBrandingProvider } from '@/contexts/AppBrandingContext'
 import { resolveAppBrandingFromRequestHeaders } from '@/lib/branding/hostBranding'
 import AuthDebug from '@/components/auth/AuthDebug'
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -32,7 +35,7 @@ export default async function RootLayout({
   )
 
   return (
-    <html lang="es">
+    <html lang="es" className={cn("font-sans", geist.variable)}>
       <body className={inter.className}>
         <AppBrandingProvider value={appBrandingId}>
           <AuthProvider>
