@@ -11,9 +11,9 @@ export default function HomePage() {
   useEffect(() => {
     // Esperar a que se cargue la autenticación
     if (!isLoading) {
-      // Redirigir según el rol: consumidor va a /reports, otros a /dashboard
+      // Redirigir según el rol: consumidor va a /cliente, otros a /dashboard
       if (userRole === 'consumidor') {
-        router.replace('/reports')
+        router.replace('/cliente')
       } else {
         router.replace('/dashboard')
       }

@@ -68,7 +68,7 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // Si el usuario está autenticado y es consumidor intentando acceder a /dashboard, redirigir a /reports
+    // Si el usuario está autenticado y es consumidor intentando acceder a /dashboard, redirigir a /cliente
     if (user && pathname === '/dashboard') {
       try {
         const { data: userData } = await supabase
@@ -86,8 +86,8 @@ export async function middleware(request: NextRequest) {
             : (roleData as { id: number; name: string })?.name
           
           if (roleName === 'consumidor') {
-            console.log('🔄 Consumer user trying to access dashboard, redirecting to /reports')
-            return NextResponse.redirect(new URL('/reports', request.url))
+            console.log('🔄 Consumer user trying to access dashboard, redirecting to /cliente')
+            return NextResponse.redirect(new URL('/cliente', request.url))
           }
         }
       } catch (error) {
@@ -116,8 +116,8 @@ export async function middleware(request: NextRequest) {
             ? roleData[0]?.name 
             : (roleData as { id: number; name: string })?.name
           
-          // Redirigir según el rol: consumidor va a /reports, otros a /dashboard
-          const redirectPath = roleName === 'consumidor' ? '/reports' : '/dashboard'
+          // Redirigir según el rol: consumidor va a /cliente, otros a /dashboard
+          const redirectPath = roleName === 'consumidor' ? '/cliente' : '/dashboard'
           console.log(`🔄 Redirecting to ${redirectPath} based on role: ${roleName}`)
           return NextResponse.redirect(new URL(redirectPath, request.url))
         }

@@ -70,10 +70,10 @@ export default function DashboardPage() {
   const [isLoadingStats, setIsLoadingStats] = useState(true)
   const [isLoadingSamples, setIsLoadingSamples] = useState(true)
 
-  // Redirigir usuarios consumidor a /reports
+  // Redirigir usuarios consumidor a /cliente
   useEffect(() => {
     if (!authLoading && userRole === 'consumidor') {
-      router.replace('/reports')
+      router.replace('/cliente')
     }
   }, [authLoading, userRole, router])
 

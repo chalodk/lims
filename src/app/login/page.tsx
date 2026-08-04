@@ -49,9 +49,9 @@ export default function LoginPage() {
                 ? roleData[0]?.name 
                 : (roleData as { id: number; name: string })?.name
               
-              // Redirigir según el rol: consumidor va a /reports, otros a /dashboard
+              // Redirigir según el rol: consumidor va a /cliente, otros a /dashboard
               if (roleName === 'consumidor') {
-                router.push('/reports')
+                router.push('/cliente')
               } else {
                 router.push('/dashboard')
               }

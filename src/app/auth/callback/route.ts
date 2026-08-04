@@ -33,8 +33,8 @@ export async function GET(request: Request) {
             ? roleData[0]?.name 
             : (roleData as { id: number; name: string })?.name
           
-          // Redirigir según el rol: consumidor va a /reports, otros a /dashboard
-          const redirectPath = roleName === 'consumidor' ? '/reports' : '/dashboard'
+          // Redirigir según el rol: consumidor va a /cliente, otros a /dashboard
+          const redirectPath = roleName === 'consumidor' ? '/cliente' : '/dashboard'
           return NextResponse.redirect(`${origin}${redirectPath}`)
         }
       }
