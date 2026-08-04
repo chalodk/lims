@@ -164,17 +164,17 @@ export default function AddResultModal({
   // Nematology-specific state
   const [nematologyData, setNematologyData] = useState({
     negativeQuantity: '',
-    positiveNematodes: [{ name: '', quantity: '' }]
+    positiveNematodes: [{ name: '', quantity: '', is_sag_zero_tolerance: false }]
   })
 
   // Virology-specific state
   const [virologyData, setVirologyData] = useState({
-    tests: [{ identification: '', method: '', virus: '', result: '' }]
+    tests: [{ identification: '', method: '', virus: '', result: '', is_sag_zero_tolerance: false }]
   })
 
   // Bacteriology-specific state (similar to virology but using microorganism)
   const [bacteriologyData, setBacteriologyData] = useState({
-    tests: [{ identification: '', method: '', microorganism: '', result: '' }]
+    tests: [{ identification: '', method: '', microorganism: '', result: '', is_sag_zero_tolerance: false }]
   })
 
   // Early detection-specific state
@@ -197,7 +197,8 @@ export default function AddResultModal({
         '10-1': '',
         '10-2': '',
         '10-3': ''
-      }
+      },
+      is_sag_zero_tolerance: false
     }]
   })
 
@@ -386,7 +387,7 @@ export default function AddResultModal({
         if (findings.type === 'nematologia_negative') {
           setNematologyData({
             negativeQuantity: findings.nematodes?.[0]?.quantity || '',
-            positiveNematodes: [{ name: '', quantity: '' }]
+            positiveNematodes: [{ name: '', quantity: '', is_sag_zero_tolerance: false }]
           })
           setFormData(prev => ({
             ...prev,
@@ -397,8 +398,12 @@ export default function AddResultModal({
           setNematologyData({
             negativeQuantity: '',
             positiveNematodes: findings.nematodes?.length > 0 
-              ? findings.nematodes.map((n: { name: string, quantity: string }) => ({ name: n.name || '', quantity: n.quantity || '' }))
-              : [{ name: '', quantity: '' }]
+              ? findings.nematodes.map((n: { name: string, quantity: string, is_sag_zero_tolerance?: boolean }) => ({
+                  name: n.name || '',
+                  quantity: n.quantity || '',
+                  is_sag_zero_tolerance: n.is_sag_zero_tolerance === true
+                }))
+              : [{ name: '', quantity: '', is_sag_zero_tolerance: false }]
           })
           setFormData(prev => ({
             ...prev,
@@ -407,38 +412,42 @@ export default function AddResultModal({
         } else if (findings.type === 'virologia' && findings.tests) {
           setVirologyData({
             tests: findings.tests.length > 0
-              ? findings.tests.map((t: { identification?: string, method?: string, virus?: string, result?: string }) => ({
+              ? findings.tests.map((t: { identification?: string, method?: string, virus?: string, result?: string, is_sag_zero_tolerance?: boolean }) => ({
                   identification: t.identification || '',
                   method: t.method || '',
                   virus: t.virus || '',
-                  result: t.result || ''
+                  result: t.result || '',
+                  is_sag_zero_tolerance: t.is_sag_zero_tolerance === true
                 }))
-              : [{ identification: '', method: '', virus: '', result: '' }]
+              : [{ identification: '', method: '', virus: '', result: '', is_sag_zero_tolerance: false }]
           })
         } else if (findings.type === 'fitopatologia' && findings.tests) {
           setPhytopathologyData({
             tests: findings.tests.length > 0
-              ? findings.tests.map((t: { identification?: string, microorganism?: string, dilutions?: Record<string, string> }) => ({
+              ? findings.tests.map((t: { identification?: string, microorganism?: string, dilutions?: Record<string, string>, is_sag_zero_tolerance?: boolean }) => ({
                   identification: t.identification || '',
                   microorganism: t.microorganism || '',
-                  dilutions: t.dilutions || { '10-1': '', '10-2': '', '10-3': '' }
+                  dilutions: t.dilutions || { '10-1': '', '10-2': '', '10-3': '' },
+                  is_sag_zero_tolerance: t.is_sag_zero_tolerance === true
                 }))
               : [{ 
                   identification: '', 
                   microorganism: '', 
-                  dilutions: { '10-1': '', '10-2': '', '10-3': '' }
+                  dilutions: { '10-1': '', '10-2': '', '10-3': '' },
+                  is_sag_zero_tolerance: false
                 }]
           })
         } else if (findings.type === 'bacteriologia' && findings.tests) {
           setBacteriologyData({
             tests: findings.tests.length > 0
-              ? findings.tests.map((t: { identification?: string, method?: string, microorganism?: string, result?: string }) => ({
+              ? findings.tests.map((t: { identification?: string, method?: string, microorganism?: string, result?: string, is_sag_zero_tolerance?: boolean }) => ({
                   identification: t.identification || '',
                   method: t.method || '',
                   microorganism: t.microorganism || '',
-                  result: t.result || ''
+                  result: t.result || '',
+                  is_sag_zero_tolerance: t.is_sag_zero_tolerance === true
                 }))
-              : [{ identification: '', method: '', microorganism: '', result: '' }]
+              : [{ identification: '', method: '', microorganism: '', result: '', is_sag_zero_tolerance: false }]
           })
         } else if (findings.type === 'deteccion_precoz' && findings.tests) {
           setEarlyDetectionData({
@@ -524,13 +533,13 @@ export default function AddResultModal({
         setColumnLabels({})
         setNematologyData({
           negativeQuantity: '',
-          positiveNematodes: [{ name: '', quantity: '' }]
+          positiveNematodes: [{ name: '', quantity: '', is_sag_zero_tolerance: false }]
         })
         setVirologyData({
-          tests: [{ identification: '', method: '', virus: '', result: '' }]
+          tests: [{ identification: '', method: '', virus: '', result: '', is_sag_zero_tolerance: false }]
         })
         setBacteriologyData({
-          tests: [{ identification: '', method: '', microorganism: '', result: '' }]
+          tests: [{ identification: '', method: '', microorganism: '', result: '', is_sag_zero_tolerance: false }]
         })
         setEarlyDetectionData({
           tests: [{ 
@@ -549,7 +558,8 @@ export default function AddResultModal({
               '10-1': '',
               '10-2': '',
               '10-3': ''
-            }
+            },
+            is_sag_zero_tolerance: false
           }]
         })
         setValidationError(null)
@@ -963,7 +973,7 @@ export default function AddResultModal({
   const addNematodeEntry = () => {
     setNematologyData(prev => ({
       ...prev,
-      positiveNematodes: [...prev.positiveNematodes, { name: '', quantity: '' }]
+      positiveNematodes: [...prev.positiveNematodes, { name: '', quantity: '', is_sag_zero_tolerance: false }]
     }))
   }
 
@@ -974,7 +984,11 @@ export default function AddResultModal({
     }))
   }
 
-  const updateNematodeEntry = (index: number, field: 'name' | 'quantity', value: string) => {
+  const updateNematodeEntry = (
+    index: number,
+    field: 'name' | 'quantity' | 'is_sag_zero_tolerance',
+    value: string | boolean
+  ) => {
     setNematologyData(prev => ({
       ...prev,
       positiveNematodes: prev.positiveNematodes.map((nematode, i) =>
@@ -994,7 +1008,8 @@ export default function AddResultModal({
         identification: `${sampleCode}-${prev.tests.length + 1}`,
         method: '', 
         virus: '', 
-        result: '' 
+        result: '',
+        is_sag_zero_tolerance: false
       }]
     }))
   }
@@ -1010,7 +1025,8 @@ export default function AddResultModal({
         identification: `${sampleCode}-${prev.tests.length + 1}`,
         method: '', 
         microorganism: '', 
-        result: '' 
+        result: '',
+        is_sag_zero_tolerance: false
       }]
     }))
   }
@@ -1031,7 +1047,11 @@ export default function AddResultModal({
     })
   }
 
-  const updateBacteriologyTest = (index: number, field: 'identification' | 'method' | 'microorganism' | 'result', value: string) => {
+  const updateBacteriologyTest = (
+    index: number,
+    field: 'identification' | 'method' | 'microorganism' | 'result' | 'is_sag_zero_tolerance',
+    value: string | boolean
+  ) => {
     setBacteriologyData(prev => ({
       ...prev,
       tests: prev.tests.map((test, i) =>
@@ -1057,7 +1077,11 @@ export default function AddResultModal({
     })
   }
 
-  const updateVirologyTest = (index: number, field: 'identification' | 'method' | 'virus' | 'result', value: string) => {
+  const updateVirologyTest = (
+    index: number,
+    field: 'identification' | 'method' | 'virus' | 'result' | 'is_sag_zero_tolerance',
+    value: string | boolean
+  ) => {
     setVirologyData(prev => ({
       ...prev,
       tests: prev.tests.map((test, i) =>
@@ -1074,13 +1098,14 @@ export default function AddResultModal({
     setPhytopathologyData(prev => ({
       ...prev,
       tests: [...prev.tests, { 
-        identification: `${sampleCode}-${prev.tests.length + 1}`,
+        identification: `${sampleCode}-${prev.tests.length + 1}`, 
         microorganism: '', 
         dilutions: {
           '10-1': '',
           '10-2': '',
           '10-3': ''
-        }
+        },
+        is_sag_zero_tolerance: false
       }]
     }))
   }
@@ -1157,22 +1182,28 @@ export default function AddResultModal({
     }))
   }
 
-  const updatePhytopathologyTest = (index: number, field: 'identification' | 'microorganism' | string, value: string) => {
+  const updatePhytopathologyTest = (
+    index: number,
+    field: 'identification' | 'microorganism' | 'is_sag_zero_tolerance' | string,
+    value: string | boolean
+  ) => {
     setPhytopathologyData(prev => ({
       ...prev,
       tests: prev.tests.map((test, i) => {
         if (i === index) {
-          if (field === 'microorganism') {
-            return { ...test, microorganism: value }
+          if (field === 'is_sag_zero_tolerance') {
+            return { ...test, is_sag_zero_tolerance: value === true }
+          } else if (field === 'microorganism') {
+            return { ...test, microorganism: String(value) }
           } else if (field === 'identification') {
-            return { ...test, identification: value }
-          } else if (field.startsWith('dilution-')) {
+            return { ...test, identification: String(value) }
+          } else if (typeof field === 'string' && field.startsWith('dilution-')) {
             const dilutionKey = field.replace('dilution-', '')
             return {
               ...test,
               dilutions: {
                 ...test.dilutions,
-                [dilutionKey]: value
+                [dilutionKey]: String(value)
               }
             }
           }
@@ -1305,6 +1336,9 @@ export default function AddResultModal({
                       <EditableTh label="Identificación de la muestra" labelKey="identification" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
                       <EditableTh label="Microorganismo Identificado" labelKey="microorganism" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
                       <EditableTh label="Recuento de microorganismos (N° de colonias/dilución)" labelKey="colonyCount" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" colSpan={3} disabled={isValidated} />
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" title="Tolerancia cero SAG">
+                        Tol. cero SAG
+                      </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Acciones
                       </th>
@@ -1314,12 +1348,14 @@ export default function AddResultModal({
                       <EditableTh label="Dilución utilizada" labelKey="dilution" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase" disabled={isValidated} />
                       <th colSpan={2}></th>
                       <th></th>
+                      <th></th>
                     </tr>
                     <tr className="bg-green-100">
                       <th colSpan={3}></th>
                       <EditableTh label="10⁻¹" labelKey="dilution10_1" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-center text-xs font-medium text-gray-500" disabled={isValidated} />
                       <EditableTh label="10⁻²" labelKey="dilution10_2" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-center text-xs font-medium text-gray-500" disabled={isValidated} />
                       <EditableTh label="10⁻³" labelKey="dilution10_3" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-center text-xs font-medium text-gray-500" disabled={isValidated} />
+                      <th></th>
                       <th></th>
                     </tr>
                   </thead>
@@ -1378,6 +1414,16 @@ export default function AddResultModal({
                             onChange={(e) => updatePhytopathologyTest(index, 'dilution-10-3', e.target.value)}
                             className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500 text-center"
                             placeholder="0"
+                          />
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-center">
+                          <input
+                            type="checkbox"
+                            checked={test.is_sag_zero_tolerance === true}
+                            onChange={(e) => updatePhytopathologyTest(index, 'is_sag_zero_tolerance', e.target.checked)}
+                            disabled={isValidated}
+                            className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded disabled:opacity-50"
+                            title="Marcar si el patógeno tiene tolerancia cero SAG"
                           />
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
@@ -1502,6 +1548,9 @@ export default function AddResultModal({
                       <EditableTh label="Técnica utilizada" labelKey="method" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
                       <EditableTh label="Virus" labelKey="virus" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
                       <EditableTh label="Resultado" labelKey="result" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" title="Tolerancia cero SAG">
+                        Tol. cero SAG
+                      </th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Acciones
                       </th>
@@ -1550,13 +1599,29 @@ export default function AddResultModal({
                         <td className="px-4 py-2 whitespace-nowrap">
                           <select
                             value={test.result}
-                            onChange={(e) => updateVirologyTest(index, 'result', e.target.value)}
+                            onChange={(e) => {
+                              const nextResult = e.target.value
+                              updateVirologyTest(index, 'result', nextResult)
+                              if (nextResult !== 'positive') {
+                                updateVirologyTest(index, 'is_sag_zero_tolerance', false)
+                              }
+                            }}
                             className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500"
                           >
                             <option value="">Resultado</option>
                             <option value="positive">Positivo</option>
                             <option value="negative">Negativo</option>
                           </select>
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-center">
+                          <input
+                            type="checkbox"
+                            checked={test.is_sag_zero_tolerance === true}
+                            onChange={(e) => updateVirologyTest(index, 'is_sag_zero_tolerance', e.target.checked)}
+                            disabled={isValidated || test.result !== 'positive'}
+                            className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded disabled:opacity-50"
+                            title="Marcar si el patógeno tiene tolerancia cero SAG"
+                          />
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap">
                           {virologyData.tests.length > 1 && (
@@ -1681,6 +1746,9 @@ export default function AddResultModal({
                       <EditableTh label="Técnica utilizada" labelKey="method" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
                       <EditableTh label="Bacteria" labelKey="microorganism" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
                       <EditableTh label="Resultado" labelKey="result" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" title="Tolerancia cero SAG">
+                        Tol. cero SAG
+                      </th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Acciones
                       </th>
@@ -1729,13 +1797,29 @@ export default function AddResultModal({
                         <td className="px-4 py-2 whitespace-nowrap">
                           <select
                             value={test.result}
-                            onChange={(e) => updateBacteriologyTest(index, 'result', e.target.value)}
+                            onChange={(e) => {
+                              const nextResult = e.target.value
+                              updateBacteriologyTest(index, 'result', nextResult)
+                              if (nextResult !== 'positive') {
+                                updateBacteriologyTest(index, 'is_sag_zero_tolerance', false)
+                              }
+                            }}
                             className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500"
                           >
                             <option value="">Resultado</option>
                             <option value="positive">Positivo</option>
                             <option value="negative">Negativo</option>
                           </select>
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-center">
+                          <input
+                            type="checkbox"
+                            checked={test.is_sag_zero_tolerance === true}
+                            onChange={(e) => updateBacteriologyTest(index, 'is_sag_zero_tolerance', e.target.checked)}
+                            disabled={isValidated || test.result !== 'positive'}
+                            className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded disabled:opacity-50"
+                            title="Marcar si el patógeno tiene tolerancia cero SAG"
+                          />
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap">
                           {bacteriologyData.tests.length > 1 && (
@@ -1897,6 +1981,9 @@ export default function AddResultModal({
                       <tr>
                         <EditableTh label="Género y/o especie identificada" labelKey="name" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
                         <EditableTh label="N° nematodos/250 cm³ de suelo" labelKey="quantity" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" title="Tolerancia cero SAG">
+                          Tol. cero SAG
+                        </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Acciones
                         </th>
@@ -1913,9 +2000,9 @@ export default function AddResultModal({
                               disabled={loadingMethodsAndAnalytes}
                             >
                               <option value="">Seleccionar nematodo</option>
-                              {availableNematodes.map(nematode => (
-                                <option key={nematode.id} value={nematode.scientific_name}>
-                                  {nematode.scientific_name}
+                              {availableNematodes.map(nematodeOption => (
+                                <option key={nematodeOption.id} value={nematodeOption.scientific_name}>
+                                  {nematodeOption.scientific_name}
                                 </option>
                               ))}
                             </select>
@@ -1927,6 +2014,16 @@ export default function AddResultModal({
                               onChange={(e) => updateNematodeEntry(index, 'quantity', e.target.value)}
                               className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500 text-center"
                               placeholder="0"
+                            />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <input
+                              type="checkbox"
+                              checked={nematode.is_sag_zero_tolerance === true}
+                              onChange={(e) => updateNematodeEntry(index, 'is_sag_zero_tolerance', e.target.checked)}
+                              disabled={isValidated}
+                              className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded disabled:opacity-50"
+                              title="Marcar si el patógeno tiene tolerancia cero SAG"
                             />
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -2461,12 +2558,12 @@ export default function AddResultModal({
         // Reset nematology data
         setNematologyData({
           negativeQuantity: '',
-          positiveNematodes: [{ name: '', quantity: '' }]
+          positiveNematodes: [{ name: '', quantity: '', is_sag_zero_tolerance: false }]
         })
         
         // Reset virology data
         setVirologyData({
-          tests: [{ identification: '', method: '', virus: '', result: '' }]
+          tests: [{ identification: '', method: '', virus: '', result: '', is_sag_zero_tolerance: false }]
         })
         
         // Reset phytopathology data
@@ -2478,7 +2575,8 @@ export default function AddResultModal({
               '10-1': '',
               '10-2': '',
               '10-3': ''
-            }
+            },
+            is_sag_zero_tolerance: false
           }]
         })
       }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth/api-auth'
+import { syncFindingsNormalized } from '@/lib/services/findingsNormalizedService'
 
 // Minimal types to avoid any in findings normalization
 type MethodRow = { id: string; name: string }
@@ -320,6 +321,19 @@ export const POST = withAuth(async (request, { user, supabase }) => {
     if (error) {
       console.error('Database error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    const sampleTestArea =
+      (data?.sample_tests as { test_catalog?: { area?: string } | null } | null)?.test_catalog?.area ||
+      null
+    const { error: syncError } = await syncFindingsNormalized(supabase, {
+      resultId: data.id,
+      sampleId: sample_id,
+      findings: combinedFindings,
+      testAreaFallback: data.test_area || sampleTestArea,
+    })
+    if (syncError) {
+      console.error('findings_normalized sync error:', syncError)
     }
 
     return NextResponse.json(data, { status: 201 })

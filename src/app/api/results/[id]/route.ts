@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth/api-auth'
+import { syncFindingsNormalized } from '@/lib/services/findingsNormalizedService'
 
 export const GET = withAuth(async (request, { user, supabase, params }) => {
   try {
@@ -198,6 +199,21 @@ export const PUT = withAuth(async (request, { user, supabase, params }) => {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    if (findings !== undefined) {
+      const sampleTestArea =
+        (data?.sample_tests as { test_catalog?: { area?: string } | null } | null)?.test_catalog?.area ||
+        null
+      const { error: syncError } = await syncFindingsNormalized(supabase, {
+        resultId: id,
+        sampleId: data.sample_id,
+        findings: data.findings,
+        testAreaFallback: data.test_area || sampleTestArea,
+      })
+      if (syncError) {
+        console.error('findings_normalized sync error:', syncError)
+      }
     }
 
     return NextResponse.json(data)

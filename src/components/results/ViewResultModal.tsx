@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 interface NematodeEntry {
   name: string
   quantity: string
+  is_sag_zero_tolerance?: boolean
 }
 
 interface NematologyFindings {
@@ -19,6 +20,7 @@ interface VirologyTest {
   method: string
   virus: string
   result: 'positive' | 'negative' | string
+  is_sag_zero_tolerance?: boolean
 }
 
 interface VirologyFindings {
@@ -34,6 +36,7 @@ interface PhytopathologyTest {
     '10-2': string
     '10-3': string
   }
+  is_sag_zero_tolerance?: boolean
 }
 
 interface PhytopathologyFindings {
@@ -310,6 +313,9 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   {getColumnLabel(findings, 'nematology', 'quantity', 'Cantidad nematodos/250 cm³ de suelo')}
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tol. cero SAG
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -320,6 +326,15 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
                     {nematode.quantity || 'No especificado'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    {nematode.is_sag_zero_tolerance ? (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                        Sí
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -360,6 +375,9 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   {getColumnLabel(findings, 'virology', 'result', 'Resultado')}
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tol. cero SAG
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -386,6 +404,15 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
                        test.result === 'negative' ? 'Negativo' : 
                        test.result || 'No especificado'}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    {test.is_sag_zero_tolerance ? (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                        Sí
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -426,6 +453,9 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" colSpan={3}>
                   {getColumnLabel(findings, 'phytopathology', 'colonyCount', 'Recuento de microorganismos (N° de colonias/dilución)')}
                 </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tol. cero SAG
+                </th>
               </tr>
               <tr className="bg-yellow-100">
                 <th colSpan={3}></th>
@@ -433,6 +463,7 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
                   {getColumnLabel(findings, 'phytopathology', 'dilution', 'Dilución utilizada')}
                 </th>
                 <th colSpan={2}></th>
+                <th></th>
               </tr>
               <tr className="bg-yellow-100">
                 <th colSpan={3}></th>
@@ -445,6 +476,7 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
                 <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
                   {getColumnLabel(findings, 'phytopathology', 'dilution10_3', '10⁻³')}
                 </th>
+                <th></th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -467,6 +499,15 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center font-mono">
                     {test.dilutions?.['10-3'] || '-'}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm">
+                    {test.is_sag_zero_tolerance ? (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                        Sí
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </td>
                 </tr>
               ))}
