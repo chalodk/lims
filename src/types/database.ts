@@ -178,6 +178,72 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['analytes']['Insert']>
       }
 
+      products_sag: {
+        Row: {
+          numero_sag: string
+          nombre_comercial: string
+          aptitud: string
+          sustancias_activas: string
+          concentracion: string
+          formulacion: string
+          titular_autorizacion: string
+          primera_autorizacion: string
+          vencimiento_autorizacion: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          numero_sag: string
+          nombre_comercial: string
+          aptitud: string
+          sustancias_activas: string
+          concentracion: string
+          formulacion: string
+          titular_autorizacion: string
+          primera_autorizacion: string
+          vencimiento_autorizacion: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['products_sag']['Insert']>
+      }
+
+      findings_normalized: {
+        Row: {
+          id: string
+          result_id: string
+          sample_id: string
+          test_area: string | null
+          findings_type: string | null
+          source_kind: 'nematode' | 'test'
+          source_index: number
+          pathogen_name: string
+          quantity: string | null
+          quantity_numeric: number | null
+          detection_result: string | null
+          is_sag_zero_tolerance: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          result_id: string
+          sample_id: string
+          test_area?: string | null
+          findings_type?: string | null
+          source_kind: 'nematode' | 'test'
+          source_index: number
+          pathogen_name: string
+          quantity?: string | null
+          quantity_numeric?: number | null
+          detection_result?: string | null
+          is_sag_zero_tolerance?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['findings_normalized']['Insert']>
+      }
+
       applied_interpretations: {
         Row: {
           id: string
