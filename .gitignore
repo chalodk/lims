@@ -55,3 +55,7 @@ next-env.d.ts
 
 # csv files
 *.csv
+
+# one-off local backfill scripts
+scripts/normalize-client-findings.mjs
+scripts/normalize-client-findings.sql
