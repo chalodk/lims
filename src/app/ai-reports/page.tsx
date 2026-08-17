@@ -349,7 +349,8 @@ export default function AiReportsDemoPage() {
     )
   }
 
-  const yearLabel = new Date(dashboard.period.from).getFullYear()
+  // period.from is YYYY-MM-DD; avoid Date parse (UTC midnight → prior year in Chile)
+  const yearLabel = Number(dashboard.period.from.slice(0, 4))
   const kpis = dashboard.kpis
 
   return (
