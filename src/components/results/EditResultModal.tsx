@@ -779,22 +779,6 @@ export default function EditResultModal({
                       placeholder="Recomendaciones para el cliente..."
                     />
                   </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Hallazgos Técnicos (JSON)
-                    </label>
-                    <textarea
-                      rows={6}
-                      value={formData.findings}
-                      onChange={(e) => setFormData(prev => ({ ...prev, findings: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                      placeholder='{"observaciones": "...", "mediciones": "...", "notas": "..."}'
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Formato JSON opcional para datos estructurados
-                    </p>
-                  </div>
                 </div>
 
                 {/* Validation Warning */}

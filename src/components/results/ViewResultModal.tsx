@@ -44,6 +44,24 @@ interface PhytopathologyFindings {
   tests: PhytopathologyTest[]
 }
 
+interface EarlyDetectionTest {
+  sample_code: string
+  identification: string
+  variety: string
+  units_evaluated: string
+  severity_scale: {
+    '0': string
+    '1': string
+    '2': string
+    '3': string
+  }
+}
+
+interface EarlyDetectionFindings {
+  type: 'deteccion_precoz'
+  tests: EarlyDetectionTest[]
+}
+
 
 // Type guard functions
 function isNematologyFindings(f: unknown): f is NematologyFindings {
@@ -76,6 +94,17 @@ function isPhytopathologyFindings(f: unknown): f is PhytopathologyFindings {
     'type' in f &&
     'tests' in f &&
     (f as Record<string, unknown>).type === 'fitopatologia' &&
+    Array.isArray((f as Record<string, unknown>).tests)
+  )
+}
+
+function isEarlyDetectionFindings(f: unknown): f is EarlyDetectionFindings {
+  return (
+    typeof f === 'object' &&
+    f !== null &&
+    'type' in f &&
+    'tests' in f &&
+    (f as Record<string, unknown>).type === 'deteccion_precoz' &&
     Array.isArray((f as Record<string, unknown>).tests)
   )
 }
@@ -116,7 +145,8 @@ import {
   TrendingUp,
   Shield,
   Loader2,
-  CheckCheck
+  CheckCheck,
+  Search
 } from 'lucide-react'
 import {
   Dialog,
@@ -525,6 +555,92 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
     )
   }
 
+  const renderEarlyDetectionFindings = (findings: unknown) => {
+    if (!isEarlyDetectionFindings(findings)) {
+      return null
+    }
+
+    return (
+      <div className="bg-white rounded border overflow-hidden">
+        <div className="bg-orange-50 px-4 py-3 border-b">
+          <h5 className="text-sm font-medium text-orange-900 flex items-center">
+            <Search className="h-4 w-4 mr-2" />
+            Resultados de Detección Precoz
+          </h5>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-orange-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {getColumnLabel(findings, 'early_detection', 'sampleCode', 'Código Muestra')}
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {getColumnLabel(findings, 'early_detection', 'identification', 'Identificación')}
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {getColumnLabel(findings, 'early_detection', 'variety', 'Variedad')}
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {getColumnLabel(findings, 'early_detection', 'unitsEvaluated', 'Unidades Evaluadas')}
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" colSpan={4}>
+                  {getColumnLabel(findings, 'early_detection', 'severityScale', 'Escala de Severidad')}
+                </th>
+              </tr>
+              <tr className="bg-orange-100">
+                <th colSpan={4}></th>
+                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
+                  {getColumnLabel(findings, 'early_detection', 'severity0', '0')}
+                </th>
+                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
+                  {getColumnLabel(findings, 'early_detection', 'severity1', '1')}
+                </th>
+                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
+                  {getColumnLabel(findings, 'early_detection', 'severity2', '2')}
+                </th>
+                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
+                  {getColumnLabel(findings, 'early_detection', 'severity3', '3')}
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {findings.tests.map((test: EarlyDetectionTest, index: number) => (
+                <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
+                    {test.sample_code || 'No especificado'}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
+                    {test.identification || 'No especificado'}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {test.variety || 'No especificado'}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center font-mono">
+                    {test.units_evaluated || 'No especificado'}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center font-mono">
+                    {test.severity_scale?.['0'] || '-'}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center font-mono">
+                    {test.severity_scale?.['1'] || '-'}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center font-mono">
+                    {test.severity_scale?.['2'] || '-'}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center font-mono">
+                    {test.severity_scale?.['3'] || '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
   const handleDialogOpenChange = (open: boolean) => {
     if (!open && !isValidating) onClose()
   }
@@ -764,9 +880,11 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
                   {renderNematologyFindings(result.findings)}
                   {renderVirologyFindings(result.findings)}
                   {renderPhytopathologyFindings(result.findings)}
+                  {renderEarlyDetectionFindings(result.findings)}
                   {!renderNematologyFindings(result.findings) &&
                     !renderVirologyFindings(result.findings) &&
-                    !renderPhytopathologyFindings(result.findings) && (
+                    !renderPhytopathologyFindings(result.findings) &&
+                    !renderEarlyDetectionFindings(result.findings) && (
                       <div className="rounded-lg border border-gray-100 bg-white p-3">
                         <pre className="whitespace-pre-wrap text-sm text-gray-700">
                           {JSON.stringify(result.findings, null, 2)}

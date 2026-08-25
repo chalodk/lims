@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { FormSection, Field } from '@/components/ui/form-section'
-import { fieldClassName, textareaClassName } from '@/components/ui/form-field-styles'
+import { fieldClassName } from '@/components/ui/form-field-styles'
 import { cn } from '@/lib/utils'
 
 interface AddResultModalProps {
@@ -2849,32 +2849,6 @@ export default function AddResultModal({
                       placeholder="Recomendaciones para el cliente..."
                       disabled={isValidated}
                     />
-                  </Field>
-                  <Field label="Hallazgos Técnicos (JSON)">
-                    <textarea
-                      rows={4}
-                      value={formData.findings}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, findings: e.target.value }))
-                      }
-                      className={cn(textareaClassName, 'min-w-0 font-mono disabled:bg-gray-50')}
-                      placeholder='{"observaciones": "...", "mediciones": "...", "notas": "..."}'
-                      readOnly={
-                        selectedAnalysisArea.toLowerCase().includes('nematolog') ||
-                        selectedAnalysisArea.toLowerCase().includes('virolog') ||
-                        selectedAnalysisArea.toLowerCase().includes('fitopatolog') ||
-                        isValidated
-                      }
-                    />
-                    <p className="mt-1 text-xs text-gray-500">
-                      {selectedAnalysisArea.toLowerCase().includes('nematolog')
-                        ? 'Generado automáticamente basado en los datos de nematología'
-                        : selectedAnalysisArea.toLowerCase().includes('virolog')
-                          ? 'Generado automáticamente basado en los datos de virología'
-                          : selectedAnalysisArea.toLowerCase().includes('fitopatolog')
-                            ? 'Generado automáticamente basado en los datos de fitopatología'
-                            : 'Formato JSON opcional para datos estructurados'}
-                    </p>
                   </Field>
 
                   {resultId && (
