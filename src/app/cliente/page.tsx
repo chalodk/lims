@@ -140,8 +140,9 @@ export default function ClienteDashboardPage() {
   }
 
   const kpis = dashboard?.kpis
+  // period.from is YYYY-MM-DD; avoid Date parse (UTC midnight → prior year in Chile)
   const yearLabel = dashboard?.period?.from
-    ? new Date(dashboard.period.from).getFullYear()
+    ? Number(dashboard.period.from.slice(0, 4))
     : new Date().getFullYear()
 
   return (
