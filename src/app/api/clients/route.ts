@@ -7,6 +7,7 @@ import {
   checkEmailExistsInPublicUsers,
   type CreateUserOptions
 } from '@/lib/services/userCreationService'
+import { getCompanyFeatures } from '@/lib/services/companyFeatureFlags'
 
 export const GET = withAuth(async (_request, { user, supabase }) => {
   const { data: userData } = await supabase
@@ -91,8 +92,16 @@ export const POST = withAuth(async (request, { user, supabase }) => {
       }, { status: 500 })
     }
 
-    // Si hay email de contacto, crear usuario consumidor automáticamente
+    // Si hay email de contacto y el portal está activo, crear usuario consumidor
     if (contact_email && contact_email.trim()) {
+      const companyFeatures = await getCompanyFeatures(supabase, currentUser.company_id)
+      if (!companyFeatures.producer_portal) {
+        return NextResponse.json({
+          message: 'Cliente creado exitosamente',
+          client: newClient
+        }, { status: 201 })
+      }
+
       try {
         console.log(`🔍 Iniciando creación de usuario consumidor para email: ${contact_email.trim()}`)
 

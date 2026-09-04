@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FormSection, Field } from '@/components/ui/form-section'
 import { fieldClassName } from '@/components/ui/form-field-styles'
+import { useCompanyFeatures } from '@/hooks/useCompanyFeatures'
 
 interface UserProfile {
   id: string
@@ -43,6 +44,7 @@ export default function EditProfileModal({
   user,
   onSuccess,
 }: EditProfileModalProps) {
+  const { flags: companyFlags } = useCompanyFeatures(isOpen)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [roles, setRoles] = useState<Role[]>([])
@@ -248,7 +250,14 @@ export default function EditProfileModal({
                     disabled={isSubmitting}
                   >
                     <option value="">Sin rol</option>
-                    {roles.map((role) => (
+                    {roles
+                      .filter(
+                        (role) =>
+                          companyFlags.producer_portal ||
+                          role.name !== 'consumidor' ||
+                          role.id === formData.role_id
+                      )
+                      .map((role) => (
                       <option key={role.id} value={role.id}>
                         {role.name === 'admin'
                           ? 'Administrador'

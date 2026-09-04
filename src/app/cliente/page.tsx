@@ -11,8 +11,10 @@ import {
   TestTube,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
+import { useCompanyFeatures } from '@/hooks/useCompanyFeatures'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
+import ProducerPortalDisabledNotice from '@/components/cliente/ProducerPortalDisabledNotice'
 import {
   DisciplineDonutChart,
   type DisciplineRow,
@@ -53,6 +55,7 @@ type DashboardPayload = {
 export default function ClienteDashboardPage() {
   const router = useRouter()
   const { userRole, isLoading: authLoading, linkedClientIds, isAuthenticated } = useAuth()
+  const { flags: companyFlags, isLoading: featuresLoading } = useCompanyFeatures(isAuthenticated)
   const supabase = getSupabaseClient()
 
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
@@ -80,16 +83,17 @@ export default function ClienteDashboardPage() {
       return
     }
 
+    if (!selectedClientId || !linkedClientIds.includes(selectedClientId)) {
+      setSelectedClientId(linkedClientIds[0])
+    }
+
     supabase
       .from('clients')
       .select('id, name')
       .in('id', linkedClientIds)
       .then(({ data }: { data: { id: string; name: string }[] | null }) => {
-        if (data) {
+        if (data && data.length > 0) {
           setClientTabs(data)
-          if (!selectedClientId || !linkedClientIds.includes(selectedClientId)) {
-            setSelectedClientId(data[0]?.id || null)
-          }
         }
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -125,11 +129,20 @@ export default function ClienteDashboardPage() {
 
   useEffect(() => {
     if (authLoading || userRole !== 'consumidor') return
+    if (featuresLoading || !companyFlags.producer_portal) return
     if (linkedClientIds.length > 0 && !selectedClientId) return
     fetchDashboard()
-  }, [authLoading, userRole, linkedClientIds.length, selectedClientId, fetchDashboard])
+  }, [
+    authLoading,
+    userRole,
+    featuresLoading,
+    companyFlags.producer_portal,
+    linkedClientIds.length,
+    selectedClientId,
+    fetchDashboard,
+  ])
 
-  if (authLoading || (userRole && userRole !== 'consumidor')) {
+  if (authLoading || featuresLoading || (userRole && userRole !== 'consumidor')) {
     return (
       <DashboardLayout>
         <div className="flex min-h-[40vh] items-center justify-center">
@@ -144,6 +157,16 @@ export default function ClienteDashboardPage() {
   const yearLabel = dashboard?.period?.from
     ? Number(dashboard.period.from.slice(0, 4))
     : new Date().getFullYear()
+
+  if (!companyFlags.producer_portal) {
+    return (
+      <DashboardLayout>
+        <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
+          <ProducerPortalDisabledNotice />
+        </div>
+      </DashboardLayout>
+    )
+  }
 
   return (
     <DashboardLayout>

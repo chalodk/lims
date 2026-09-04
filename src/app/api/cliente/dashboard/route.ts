@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth/api-auth'
 import { ANALYSIS_TYPE_REGISTRY, getAnalysisTypeFromTestArea } from '@/config/analysisTypes'
+import { PRODUCER_PORTAL_DISABLED_MESSAGE } from '@/config/featureFlags'
+import { getFeaturesForUser } from '@/lib/services/companyFeatureFlags'
 
 type LinkedClientRow = { client_id: string }
 type SampleRow = { id: string; code: string | null; received_date: string | null; received_at: string | null }
@@ -48,7 +50,7 @@ export const GET = withAuth(async (request, { user, supabase }) => {
 
     const { data: userRow, error: userError } = await supabase
       .from('users')
-      .select('id, role_id, roles(name)')
+      .select('id, company_id, role_id, roles(name)')
       .eq('id', user.id)
       .single()
 
@@ -60,6 +62,15 @@ export const GET = withAuth(async (request, { user, supabase }) => {
     const roleName = Array.isArray(roleData) ? roleData[0]?.name : roleData?.name
     if (roleName !== 'consumidor') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const { flags: companyFeatures } = await getFeaturesForUser(
+      supabase,
+      user.id,
+      userRow.company_id
+    )
+    if (!companyFeatures.producer_portal) {
+      return NextResponse.json({ error: PRODUCER_PORTAL_DISABLED_MESSAGE }, { status: 403 })
     }
 
     const { data: links, error: linksError } = await supabase

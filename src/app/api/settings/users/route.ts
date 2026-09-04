@@ -3,6 +3,8 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { checkEmailExistsInAuth, checkEmailExistsInPublicUsers } from '@/lib/services/userCreationService'
 import { sendUserCredentialsToWebhook } from '@/lib/services/userCredentialsWebhook'
+import { PRODUCER_PORTAL_DISABLED_MESSAGE } from '@/config/featureFlags'
+import { getCompanyFeatures } from '@/lib/services/companyFeatureFlags'
 
 export async function GET(request: NextRequest) {
   try {
@@ -399,6 +401,16 @@ export async function POST(request: NextRequest) {
       
       if (!roleError && selectedRole) {
         selectedRoleName = selectedRole.name
+      }
+    }
+
+    if (selectedRoleName === 'consumidor') {
+      if (!currentUser.company_id) {
+        return NextResponse.json({ error: 'El usuario actual no tiene company_id asignado' }, { status: 400 })
+      }
+      const companyFeatures = await getCompanyFeatures(supabase, currentUser.company_id)
+      if (!companyFeatures.producer_portal) {
+        return NextResponse.json({ error: PRODUCER_PORTAL_DISABLED_MESSAGE }, { status: 403 })
       }
     }
 

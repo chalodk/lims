@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
+import { useCompanyFeatures } from '@/hooks/useCompanyFeatures'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
 import {
   Dialog,
@@ -52,6 +53,8 @@ interface CreateUserModalProps {
 
 export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUserModalProps) {
   const { user } = useAuth()
+  const { flags: companyFlags, isLoading: featuresLoading } = useCompanyFeatures(isOpen)
+  const producerPortalEnabled = companyFlags.producer_portal
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -180,6 +183,12 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
       fetchCompanyName()
     }
   }, [isOpen, fetchRoles, fetchCompanyName])
+
+  useEffect(() => {
+    if (isOpen && !producerPortalEnabled) {
+      setActiveTab('manual')
+    }
+  }, [isOpen, producerPortalEnabled])
 
   useEffect(() => {
     if (isOpen && activeTab === 'orphan_emails') {
@@ -338,6 +347,10 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
     selectedRole?.name === 'validador' ||
     selectedRole?.name === 'comun' ||
     selectedRole?.name === 'admin'
+  const visibleRoles = producerPortalEnabled
+    ? roles
+    : roles.filter((role) => role.name !== 'consumidor')
+  const showOrphanEmailsTab = producerPortalEnabled && !featuresLoading
 
   const busy = isSubmitting || isCreatingPotentialUsers
 
@@ -373,15 +386,17 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
             onValueChange={(value) => setActiveTab(value as ModalTabId)}
             className="gap-4"
           >
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className={showOrphanEmailsTab ? 'grid w-full grid-cols-2' : 'grid w-full grid-cols-1'}>
               <TabsTrigger value="manual" disabled={busy} className="gap-1.5">
                 <UserPlus className="h-4 w-4 text-green-700" />
                 Manual
               </TabsTrigger>
-              <TabsTrigger value="orphan_emails" disabled={busy} className="gap-1.5">
-                <Sparkles className="h-4 w-4 text-green-700" />
-                Pendientes
-              </TabsTrigger>
+              {showOrphanEmailsTab ? (
+                <TabsTrigger value="orphan_emails" disabled={busy} className="gap-1.5">
+                  <Sparkles className="h-4 w-4 text-green-700" />
+                  Pendientes
+                </TabsTrigger>
+              ) : null}
             </TabsList>
 
             <TabsContent value="manual">
@@ -498,7 +513,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
                         disabled={isSubmitting}
                       >
                         <option value="">Seleccione un rol</option>
-                        {roles.map((role) => (
+                        {visibleRoles.map((role) => (
                           <option key={role.id} value={role.id}>
                             {role.name} {role.description && `- ${role.description}`}
                           </option>

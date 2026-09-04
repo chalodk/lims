@@ -7,6 +7,7 @@ import {
   checkEmailExistsInPublicUsers,
   type CreateUserOptions
 } from '@/lib/services/userCreationService'
+import { getCompanyFeatures } from '@/lib/services/companyFeatureFlags'
 
 /**
  * PUT /api/clients/[id]
@@ -74,6 +75,14 @@ export const PUT = withAuth(async (request, { user, supabase }) => {
 
     // Si no hay email nuevo o no cambió, retornar sin crear usuario
     if (!newEmail || newEmail === previousEmail) {
+      return NextResponse.json({
+        message: 'Cliente actualizado exitosamente',
+        client: updatedClient
+      })
+    }
+
+    const companyFeatures = await getCompanyFeatures(supabase, currentUser.company_id)
+    if (!companyFeatures.producer_portal) {
       return NextResponse.json({
         message: 'Cliente actualizado exitosamente',
         client: updatedClient

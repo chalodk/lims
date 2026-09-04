@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { PRODUCER_PORTAL_DISABLED_MESSAGE } from '@/config/featureFlags'
+import { getCompanyFeatures } from '@/lib/services/companyFeatureFlags'
 
 export async function PATCH(
   request: NextRequest,
@@ -21,7 +23,7 @@ export async function PATCH(
     // Verificar que el usuario es admin
     const { data: currentUser, error: userError } = await supabase
       .from('users')
-      .select('role_id, roles(name)')
+      .select('role_id, company_id, roles(name)')
       .eq('id', user.id)
       .single()
 
@@ -43,6 +45,24 @@ export async function PATCH(
     // Obtener datos del body (solo name y role_id, el email no se puede editar)
     const body = await request.json()
     const { name, role_id } = body
+
+    if (role_id) {
+      const { data: selectedRole } = await supabase
+        .from('roles')
+        .select('name')
+        .eq('id', role_id)
+        .single()
+
+      if (selectedRole?.name === 'consumidor') {
+        if (!currentUser.company_id) {
+          return NextResponse.json({ error: 'El usuario actual no tiene company_id asignado' }, { status: 400 })
+        }
+        const companyFeatures = await getCompanyFeatures(supabase, currentUser.company_id)
+        if (!companyFeatures.producer_portal) {
+          return NextResponse.json({ error: PRODUCER_PORTAL_DISABLED_MESSAGE }, { status: 403 })
+        }
+      }
+    }
 
     // Verificar que el usuario a editar no sea admin (protección)
     const { data: targetUser, error: targetError } = await supabase

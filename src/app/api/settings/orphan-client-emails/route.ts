@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createUserAtomically } from '@/lib/services/userCreationService'
+import { PRODUCER_PORTAL_DISABLED_MESSAGE } from '@/config/featureFlags'
+import { getCompanyFeatures } from '@/lib/services/companyFeatureFlags'
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
@@ -150,6 +152,11 @@ export async function POST(request: NextRequest) {
     const companyId = currentUser.company_id
     if (!companyId) {
       return NextResponse.json({ error: 'Usuario sin compañía asignada' }, { status: 400 })
+    }
+
+    const companyFeatures = await getCompanyFeatures(supabase, companyId)
+    if (!companyFeatures.producer_portal) {
+      return NextResponse.json({ error: PRODUCER_PORTAL_DISABLED_MESSAGE }, { status: 403 })
     }
 
     let requestedEmailKeys: Set<string> | null = null

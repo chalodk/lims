@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { useCompanyFeatures } from '@/hooks/useCompanyFeatures'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
 import DashboardLayout from '@/components/layout/DashboardLayout'
+import ProducerPortalDisabledNotice from '@/components/cliente/ProducerPortalDisabledNotice'
 import {
   BulkRowSelectionCheckbox,
   BulkSelectAllHeaderCheckbox,
@@ -74,6 +76,7 @@ const filterSelectClassName =
 
 export default function ReportsPage() {
   const { userRole, isLoading: authLoading, user, isAuthenticated, linkedClientIds } = useAuth()
+  const { flags: companyFlags, isLoading: featuresLoading } = useCompanyFeatures(isAuthenticated)
   const [reports, setReports] = useState<Report[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -97,23 +100,25 @@ export default function ReportsPage() {
 
   // Cargar nombres de clientes para las pestañas
   useEffect(() => {
-    if (linkedClientIds.length > 0) {
-      supabase
-        .from('clients')
-        .select('id, name')
-        .in('id', linkedClientIds)
-        .then(({ data }) => {
-          if (data) {
-            setClientTabs(data)
-            if (!selectedClientId || !linkedClientIds.includes(selectedClientId)) {
-              setSelectedClientId(data[0]?.id || null)
-            }
-          }
-        })
-    } else {
+    if (linkedClientIds.length === 0) {
       setClientTabs([])
       setSelectedClientId(null)
+      return
     }
+
+    if (!selectedClientId || !linkedClientIds.includes(selectedClientId)) {
+      setSelectedClientId(linkedClientIds[0])
+    }
+
+    supabase
+      .from('clients')
+      .select('id, name')
+      .in('id', linkedClientIds)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setClientTabs(data)
+        }
+      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkedClientIds.join(',')])
 
@@ -123,7 +128,7 @@ export default function ReportsPage() {
         .from('reports')
         .select(`
           *,
-          clients!inner (
+          clients (
             id,
             name,
             rut
@@ -184,6 +189,15 @@ export default function ReportsPage() {
       return
     }
 
+    if (userRole === 'consumidor' && !featuresLoading && !companyFlags.producer_portal) {
+      setIsLoading(false)
+      return
+    }
+
+    if (userRole === 'consumidor' && featuresLoading) {
+      return
+    }
+
     // Para consumidores con clientes vinculados: esperar a que selectedClientId este listo
     // Evita que se ejecute una query sin filtro por la race condition con el useEffect de clientes
     if (userRole === 'consumidor' && linkedClientIds.length > 0 && !selectedClientId) {
@@ -206,7 +220,7 @@ export default function ReportsPage() {
 
     return () => clearTimeout(timeoutId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user, isAuthenticated, statusFilter, userRole, selectedClientId, linkedClientIds])
+  }, [authLoading, user, isAuthenticated, statusFilter, userRole, selectedClientId, linkedClientIds, featuresLoading, companyFlags.producer_portal])
 
   const handleEditPayment = (reportId: string, currentPayment?: boolean, currentInvoice?: string) => {
     setEditingPayment(reportId)
@@ -667,7 +681,27 @@ export default function ReportsPage() {
     )
   }
 
-  if (authLoading || isLoading) {
+  if (authLoading || featuresLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex h-64 items-center justify-center p-6">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (userRole === 'consumidor' && !companyFlags.producer_portal) {
+    return (
+      <DashboardLayout>
+        <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
+          <ProducerPortalDisabledNotice />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (isLoading) {
     return (
       <DashboardLayout>
         <div className="flex h-64 items-center justify-center p-6">

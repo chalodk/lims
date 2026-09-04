@@ -303,6 +303,7 @@ export interface Database {
           plan_updated_by: string | null
           trial_started_at: string | null
           trial_ends_at: string | null
+          feature_flags: Record<string, boolean>
         }
         Insert: {
           id?: string
@@ -314,6 +315,7 @@ export interface Database {
           plan_updated_by?: string | null
           trial_started_at?: string | null
           trial_ends_at?: string | null
+          feature_flags?: Record<string, boolean>
         }
         Update: Partial<Database['public']['Tables']['companies']['Insert']>
       }
@@ -1040,7 +1042,23 @@ export interface Database {
     }
 
     Functions: {
-      [_ in never]: never
+      csx_company_usage_stats: {
+        Args: {
+          p_company_id: string
+          p_this_start: string
+          p_this_end: string
+          p_month_count?: number
+        }
+        Returns: Json
+      }
+      csx_billing_companies_usage: {
+        Args: {
+          p_this_start: string
+          p_this_end: string
+          p_company_id?: string | null
+        }
+        Returns: Json
+      }
     }
 
     Enums: {
