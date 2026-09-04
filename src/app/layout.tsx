@@ -4,7 +4,7 @@ import { headers } from 'next/headers'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { AppBrandingProvider } from '@/contexts/AppBrandingContext'
-import { resolveAppBrandingFromRequestHeaders } from '@/lib/branding/hostBranding'
+import { LIMS_FAVICON_URL, resolveAppBrandingFromRequestHeaders } from '@/lib/branding/hostBranding'
 import AuthDebug from '@/components/auth/AuthDebug'
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,11 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'LIMS - Sistema de Gestión de Laboratorio',
   description: 'Sistema integral de gestión para laboratorios de análisis fitopatológico',
+  icons: {
+    icon: [{ url: LIMS_FAVICON_URL, type: 'image/svg+xml' }],
+    shortcut: LIMS_FAVICON_URL,
+    apple: '/branding/lims-isotype.png',
+  },
 }
 
 export const viewport: Viewport = {

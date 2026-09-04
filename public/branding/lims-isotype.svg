@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="limsIsotypeTitle">
+  <title id="limsIsotypeTitle">LIMS</title>
+  <defs>
+    <radialGradient id="limsIsotypeGradient" cx="64" cy="64" r="80" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#14532D"/>
+      <stop offset="35%" stop-color="#14532D"/>
+      <stop offset="100%" stop-color="#C6F25C"/>
+    </radialGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#limsIsotypeGradient)"/>
+  <path
+    fill="#F4F1EA"
+    fill-rule="evenodd"
+    d="M64 22Q80 48 106 64Q80 80 64 106Q48 80 22 64Q48 48 64 22Zm0 16c-6.4 12.4-6.4 39.6 0 52 6.4-12.4 6.4-39.6 0-52Z"
+  />
+</svg>

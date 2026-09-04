@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
+import { useCompanyFeatures } from '@/hooks/useCompanyFeatures'
 import {
   Home,
   TestTube,
@@ -19,6 +20,8 @@ import {
   CreditCard,
   ChevronsLeft,
   ChevronsRight,
+  SlidersHorizontal,
+  Activity,
 } from 'lucide-react'
 import AppBrandingLogo from '@/components/branding/AppBrandingLogo'
 import UserProfileDropdown from '@/components/UserProfileDropdown'
@@ -44,6 +47,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/clients': 'Clientes',
   '/reports': 'Informes',
   '/estadisticas': 'Estadísticas',
+  '/admin/uso': 'Uso',
   '/settings': 'Configuración',
 }
 
@@ -51,6 +55,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [desktopCollapsed, setDesktopCollapsed] = useState(false)
   const { authUser, isAuthenticated, isLoading, userRole } = useAuth()
+  const { flags, isLoading: featuresLoading } = useCompanyFeatures(isAuthenticated)
   const pathname = usePathname()
 
   useEffect(() => {
@@ -76,13 +81,23 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       { name: 'Metodologias', href: '/admin/methodology-options', icon: FlaskConical, roles: ['csx'] },
       { name: 'Analitos', href: '/admin/analytes', icon: TestTube, roles: ['csx'] },
       { name: 'Billing', href: '/admin/billing', icon: CreditCard, roles: ['csx'] },
+      { name: 'Uso', href: '/admin/uso', icon: Activity, roles: ['csx'] },
+      { name: 'Features', href: '/admin/features', icon: SlidersHorizontal, roles: ['csx'] },
     ],
     []
   )
 
-  const filteredNavigation = navigation.filter((item) =>
-    item.roles.includes(userRole || 'consumidor')
-  )
+  const filteredNavigation = navigation.filter((item) => {
+    if (!item.roles.includes(userRole || 'consumidor')) return false
+    if (
+      userRole === 'consumidor' &&
+      item.href === '/reports' &&
+      (!flags.producer_portal || featuresLoading)
+    ) {
+      return false
+    }
+    return true
+  })
 
   const pageTitle =
     PAGE_TITLES[pathname] ||
@@ -148,11 +163,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       >
         <div
           className={cn(
-            'flex h-16 shrink-0 items-center border-b border-sidebar-border px-3',
-            desktopCollapsed ? 'justify-center' : 'justify-between gap-2'
+            'flex shrink-0 items-center border-b border-sidebar-border px-3',
+            desktopCollapsed
+              ? 'h-auto min-h-16 flex-col justify-center gap-1 py-3'
+              : 'h-16 justify-between gap-2'
           )}
         >
-          {!desktopCollapsed && (
+          {desktopCollapsed ? (
+            <AppBrandingLogo variant="mark" />
+          ) : (
             <div className="min-w-0">
               <AppBrandingLogo variant="sidebar" />
             </div>

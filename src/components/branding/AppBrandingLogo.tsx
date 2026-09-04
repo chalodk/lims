@@ -1,30 +1,79 @@
 'use client'
 
 import Image from 'next/image'
-import { FlaskConical } from 'lucide-react'
 import { useAppBranding } from '@/contexts/AppBrandingContext'
-import { NEMACHILE_LOGO_URL } from '@/lib/branding/hostBranding'
+import { LIMS_LOGO_URL, NEMACHILE_LOGO_URL } from '@/lib/branding/hostBranding'
+import { cn } from '@/lib/utils'
 
-type AppBrandingLogoVariant = 'login' | 'sidebar'
+type AppBrandingLogoVariant = 'login' | 'sidebar' | 'mark'
+
+function GenericLimsLogo({
+  className,
+  sizes,
+  priority = false,
+}: {
+  className?: string
+  sizes: string
+  priority?: boolean
+}) {
+  return (
+    <Image
+      src={LIMS_LOGO_URL}
+      alt="LIMS"
+      width={2000}
+      height={2000}
+      className={cn('rounded-xl object-cover', className)}
+      sizes={sizes}
+      priority={priority}
+    />
+  )
+}
 
 export default function AppBrandingLogo({ variant }: { variant: AppBrandingLogoVariant }) {
   const brandingId = useAppBranding()
 
   if (brandingId === 'generic') {
-    const iconClass = variant === 'login' ? 'h-12 w-12' : 'h-9 w-9'
-    const titleClass =
-      variant === 'login' ? 'text-2xl font-bold tracking-tight' : 'text-lg font-bold tracking-tight'
+    if (variant === 'mark') {
+      return (
+        <GenericLimsLogo
+          className="h-9 w-9 shrink-0"
+          sizes="36px"
+        />
+      )
+    }
+
+    const isLogin = variant === 'login'
     return (
-      <div className="flex items-center justify-center gap-2 text-emerald-800" aria-label="LIMS Agroanalytics">
-        <FlaskConical className={`${iconClass} shrink-0`} strokeWidth={2} />
-        <div className="flex flex-col items-start leading-tight">
-          <span className={titleClass}>LIMS</span>
-          {variant === 'login' && (
-            <span className="text-sm font-medium text-emerald-700/90">Agroanalytics</span>
+      <div
+        className={cn('flex items-center', isLogin ? 'flex-col gap-4' : 'gap-2.5')}
+        aria-label="LIMS Agroanalytics"
+      >
+        <GenericLimsLogo
+          className={cn('shrink-0', isLogin ? 'h-36 w-36 shadow-sm' : 'h-10 w-10')}
+          sizes={isLogin ? '144px' : '40px'}
+          priority
+        />
+        <div className={cn('flex flex-col leading-tight', isLogin ? 'items-center' : 'items-start')}>
+          <span
+            className={cn(
+              'font-semibold tracking-tight text-emerald-950',
+              isLogin ? 'text-2xl' : 'text-base'
+            )}
+          >
+            LIMS
+          </span>
+          {isLogin && (
+            <span className="text-xs font-medium tracking-[0.18em] text-emerald-800/70 uppercase">
+              Agroanalytics
+            </span>
           )}
         </div>
       </div>
     )
+  }
+
+  if (variant === 'mark') {
+    return null
   }
 
   if (variant === 'login') {
