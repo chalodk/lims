@@ -46,7 +46,7 @@ export interface CompanyUsageSnapshot {
   }
 }
 
-function currentMonthBounds(referenceDate: Date = new Date()): {
+export function currentMonthBounds(referenceDate: Date = new Date()): {
   year: number
   month: number
   startIso: string
@@ -195,4 +195,72 @@ export async function getCompanyUsage(
     samplesThisMonth,
     clientCount,
   })
+}
+
+export type BillingUsageRpcRow = {
+  id?: string
+  name?: string
+  plan_tier?: string | null
+  billing_notes?: string | null
+  trial_started_at?: string | null
+  trial_ends_at?: string | null
+  samples_this_month?: number
+  client_count?: number
+}
+
+const MISSING_BILLING_RPC_MESSAGE =
+  'Falta aplicar migrations/024_csx_billing_companies_usage.sql en Supabase (función csx_billing_companies_usage).'
+
+function isMissingBillingRpcError(error: { code?: string; message?: string }): boolean {
+  const message = error.message || ''
+  return (
+    error.code === 'PGRST202' ||
+    error.code === '42883' ||
+    message.includes('csx_billing_companies_usage') ||
+    message.toLowerCase().includes('could not find the function')
+  )
+}
+
+export function snapshotFromBillingRpcRow(
+  row: BillingUsageRpcRow,
+  referenceDate: Date = new Date()
+): CompanyUsageSnapshot {
+  if (!row.id || !row.name) {
+    throw new Error('Fila de billing incompleta')
+  }
+
+  return buildUsageSnapshot({
+    companyId: row.id,
+    companyName: row.name,
+    planTier: row.plan_tier,
+    billingNotes: row.billing_notes,
+    trialStartedAt: row.trial_started_at,
+    trialEndsAt: row.trial_ends_at,
+    samplesThisMonth: Number(row.samples_this_month) || 0,
+    clientCount: Number(row.client_count) || 0,
+    referenceDate,
+  })
+}
+
+export async function listCsxBillingCompanySnapshots(
+  supabase: SupabaseClient,
+  options: { companyId?: string; referenceDate?: Date } = {}
+): Promise<CompanyUsageSnapshot[]> {
+  const referenceDate = options.referenceDate ?? new Date()
+  const period = currentMonthBounds(referenceDate)
+  const { data, error } = await supabase.rpc('csx_billing_companies_usage', {
+    p_this_start: period.startIso,
+    p_this_end: period.endIso,
+    p_company_id: options.companyId ?? null,
+  })
+
+  if (error) {
+    if (isMissingBillingRpcError(error)) {
+      throw new Error(MISSING_BILLING_RPC_MESSAGE)
+    }
+    throw new Error(error.message)
+  }
+
+  const rows = Array.isArray(data) ? (data as BillingUsageRpcRow[]) : []
+  return rows.map((row) => snapshotFromBillingRpcRow(row, referenceDate))
 }

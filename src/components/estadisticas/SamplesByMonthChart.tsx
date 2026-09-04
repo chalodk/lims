@@ -18,15 +18,23 @@ export type SamplesByMonthRow = {
 
 type SamplesByMonthChartProps = {
   data: SamplesByMonthRow[]
+  valueLabel?: string
+  emptyMessage?: string
+  barColor?: string
 }
 
-export function SamplesByMonthChart({ data }: SamplesByMonthChartProps) {
+export function SamplesByMonthChart({
+  data,
+  valueLabel = 'Muestras',
+  emptyMessage = 'No hay muestras registradas en los últimos doce meses.',
+  barColor = '#16a34a',
+}: SamplesByMonthChartProps) {
   const hasData = data.some((row) => row.count > 0)
 
   if (!hasData) {
     return (
       <div className="flex h-64 items-center justify-center text-sm text-gray-500">
-        No hay muestras registradas en los últimos doce meses.
+        {emptyMessage}
       </div>
     )
   }
@@ -46,7 +54,7 @@ export function SamplesByMonthChart({ data }: SamplesByMonthChartProps) {
           />
           <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#6b7280' }} width={36} />
           <Tooltip
-            formatter={(value) => [Number(value) || 0, 'Muestras']}
+            formatter={(value) => [Number(value) || 0, valueLabel]}
             labelFormatter={(label) => String(label)}
             contentStyle={{
               borderRadius: '8px',
@@ -54,7 +62,7 @@ export function SamplesByMonthChart({ data }: SamplesByMonthChartProps) {
               fontSize: '13px'
             }}
           />
-          <Bar dataKey="count" fill="#16a34a" radius={[4, 4, 0, 0]} name="Muestras" />
+          <Bar dataKey="count" fill={barColor} radius={[4, 4, 0, 0]} name={valueLabel} />
         </BarChart>
       </ResponsiveContainer>
     </div>

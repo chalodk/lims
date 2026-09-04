@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { withAuth } from '@/lib/auth/api-auth'
 import {
   computeTrialEndDate,
@@ -7,24 +6,7 @@ import {
   isPlanTier,
   TRIAL_DURATION_DAYS,
 } from '@/config/billingTiers'
-import {
-  buildUsageSnapshot,
-  countClientsForCompany,
-  countSamplesThisMonth,
-} from '@/lib/services/companyUsageService'
-
-function createServiceClient() {
-  return createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  )
-}
+import { listCsxBillingCompanySnapshots } from '@/lib/services/companyUsageService'
 
 /**
  * PATCH /api/admin/billing/companies/[id]
@@ -95,12 +77,11 @@ export const PATCH = withAuth(async (request: NextRequest, { user, supabase, par
       )
     }
 
-    const adminClient = createServiceClient()
-    const { data: updatedCompany, error: updateError } = await adminClient
+    const { data: updatedCompany, error: updateError } = await supabase
       .from('companies')
       .update(updatePayload)
       .eq('id', companyId)
-      .select('id, name, plan_tier, billing_notes, plan_updated_at, trial_started_at, trial_ends_at')
+      .select('id')
       .single()
 
     if (updateError || !updatedCompany) {
@@ -111,21 +92,11 @@ export const PATCH = withAuth(async (request: NextRequest, { user, supabase, par
       )
     }
 
-    const [samplesThisMonth, clientCount] = await Promise.all([
-      countSamplesThisMonth(adminClient, updatedCompany.id),
-      countClientsForCompany(adminClient, updatedCompany.id),
-    ])
-
-    const usage = buildUsageSnapshot({
-      companyId: updatedCompany.id,
-      companyName: updatedCompany.name,
-      planTier: updatedCompany.plan_tier,
-      billingNotes: updatedCompany.billing_notes,
-      trialStartedAt: updatedCompany.trial_started_at,
-      trialEndsAt: updatedCompany.trial_ends_at,
-      samplesThisMonth,
-      clientCount,
-    })
+    const snapshots = await listCsxBillingCompanySnapshots(supabase, { companyId })
+    const usage = snapshots[0]
+    if (!usage) {
+      return NextResponse.json({ error: 'Compañía no encontrada' }, { status: 404 })
+    }
 
     return NextResponse.json({ company: usage })
   } catch (error) {

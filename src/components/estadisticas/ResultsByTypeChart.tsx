@@ -28,15 +28,19 @@ function sliceColor(typeKey: string, index: number): string {
 
 type ResultsByTypeChartProps = {
   data: ResultsByTypeRow[]
+  emptyMessage?: string
 }
 
-export function ResultsByTypeChart({ data }: ResultsByTypeChartProps) {
+export function ResultsByTypeChart({
+  data,
+  emptyMessage = 'No hay resultados agrupados por tipo de análisis.',
+}: ResultsByTypeChartProps) {
   const total = data.reduce((sum, row) => sum + row.count, 0)
 
   if (total === 0) {
     return (
       <div className="flex h-64 items-center justify-center text-sm text-gray-500">
-        No hay resultados agrupados por tipo de análisis.
+        {emptyMessage}
       </div>
     )
   }
