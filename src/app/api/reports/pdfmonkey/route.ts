@@ -8,7 +8,7 @@ import {
   getLabelFromAnalysisType,
 } from '@/config/analysisTypes'
 import { resolveTemplateId } from '@/lib/pdfmonkey/templates'
-import { resolvePdfColumnLabels } from '@/lib/results/columnLabels'
+import { resolvePdfColumnLabels, resolveResultColumnLabels } from '@/lib/results/columnLabels'
 
 interface ReportData {
   id: string
@@ -749,7 +749,12 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
       
       // Extract nematodes from findings - combine from all resultados
       let nematodes: Array<{ generoEspecie: string; cantidad: string }> = []
-      const resultadosPayload: Array<{numeroMuestra: string, identificacionCliente: string, nematodos: Array<{ generoEspecie: string; cantidad: string }>}> = []
+      const resultadosPayload: Array<{
+        numeroMuestra: string
+        identificacionCliente: string
+        nematodos: Array<{ generoEspecie: string; cantidad: string }>
+        columnLabels: Record<string, string>
+      }> = []
       
       // Process findings from all resultados
       resultados.forEach((resultado) => {
@@ -793,7 +798,8 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         resultadosPayload.push({
           numeroMuestra: resultado?.samples?.code || String(resultadosPayload.length + 1),
           identificacionCliente: identificacion,
-          nematodos: sampleNematodes
+          nematodos: sampleNematodes,
+          columnLabels: resolveResultColumnLabels(findings, 'nematology'),
         })
       })
       
@@ -806,7 +812,8 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
           resultadosPayload.push({
             numeroMuestra: "1",
             identificacionCliente: 'Muestra ---',
-            nematodos: nematodes
+            nematodos: nematodes,
+            columnLabels: resolveResultColumnLabels(undefined, 'nematology'),
           })
         }
       }

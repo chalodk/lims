@@ -5,6 +5,7 @@ import {
   getDefaultColumnLabels,
   mergeColumnLabels,
   resolvePdfColumnLabels,
+  resolveResultColumnLabels,
 } from './columnLabels'
 
 describe('getDefaultColumnLabels', () => {
@@ -63,11 +64,33 @@ describe('resolvePdfColumnLabels', () => {
     assert.equal(labels.name, 'Género y/o especie identificada')
   })
 
-  it('skips empty columnLabels objects and uses defaults', () => {
+  it('uses defaults when the first result has empty columnLabels', () => {
     const labels = resolvePdfColumnLabels(
       [{ findings: { columnLabels: {} } }],
       'nematology'
     )
     assert.equal(labels.quantity, 'N° nematodos/250 cm³ de suelo')
+  })
+
+  it('does not borrow a sibling result custom quantity', () => {
+    const labels = resolvePdfColumnLabels(
+      [
+        { findings: { type: 'nematologia_negative', nematodes: [] } },
+        { findings: { columnLabels: { quantity: 'N° nematodos/10 gramos de raices ' } } },
+      ],
+      'nematology'
+    )
+    assert.equal(labels.quantity, 'N° nematodos/250 cm³ de suelo')
+  })
+})
+
+describe('resolveResultColumnLabels', () => {
+  it('returns this result saved labels merged with defaults', () => {
+    const labels = resolveResultColumnLabels(
+      { columnLabels: { quantity: 'N° nematodos/10 gramos de raices ' } },
+      'nematology'
+    )
+    assert.equal(labels.quantity, 'N° nematodos/10 gramos de raices ')
+    assert.equal(labels.name, 'Género y/o especie identificada')
   })
 })

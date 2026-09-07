@@ -74,15 +74,18 @@ export function getColumnLabel(
   return DEFAULT_COLUMN_LABELS[areaKey]?.[labelKey] || fallback || labelKey
 }
 
+export function resolveResultColumnLabels(
+  findings: unknown,
+  areaKey: string
+): Record<string, string> {
+  return mergeColumnLabels(areaKey, readColumnLabelsFromFindings(findings))
+}
+
 export function resolvePdfColumnLabels(
   resultados: Array<{ findings?: unknown }>,
   areaKey: string
 ): Record<string, string> {
-  for (const resultado of resultados) {
-    const labels = readColumnLabelsFromFindings(resultado?.findings)
-    if (labels && Object.keys(labels).length > 0) {
-      return mergeColumnLabels(areaKey, labels)
-    }
-  }
-  return getDefaultColumnLabels(areaKey)
+  const firstResult = resultados[0]
+  if (!firstResult) return getDefaultColumnLabels(areaKey)
+  return resolveResultColumnLabels(firstResult.findings, areaKey)
 }
