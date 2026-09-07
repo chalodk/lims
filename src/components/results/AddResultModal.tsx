@@ -24,6 +24,11 @@ import { Button } from '@/components/ui/button'
 import { FormSection, Field } from '@/components/ui/form-section'
 import { fieldClassName } from '@/components/ui/form-field-styles'
 import { cn } from '@/lib/utils'
+import {
+  DEFAULT_COLUMN_LABELS,
+  getDefaultColumnLabels,
+  mergeColumnLabels,
+} from '@/lib/results/columnLabels'
 
 interface AddResultModalProps {
   isOpen: boolean
@@ -31,46 +36,6 @@ interface AddResultModalProps {
   onSuccess: () => void
   preselectedSampleId?: string
   resultId?: string | null // Para modo edición
-}
-
-const DEFAULT_COLUMN_LABELS: Record<string, Record<string, string>> = {
-  nematology: {
-    name: 'Género y/o especie identificada',
-    quantity: 'N° nematodos/250 cm³ de suelo'
-  },
-  virology: {
-    identification: 'Identificación',
-    method: 'Técnica utilizada',
-    virus: 'Virus',
-    result: 'Resultado'
-  },
-  bacteriology: {
-    identification: 'Identificación',
-    method: 'Técnica utilizada',
-    microorganism: 'Bacteria',
-    result: 'Resultado'
-  },
-  phytopathology: {
-    sampleNumber: 'N° de muestra',
-    identification: 'Identificación de la muestra',
-    microorganism: 'Microorganismo Identificado',
-    colonyCount: 'Recuento de microorganismos (N° de colonias/dilución)',
-    dilution: 'Dilución utilizada',
-    dilution10_1: '10⁻¹',
-    dilution10_2: '10⁻²',
-    dilution10_3: '10⁻³'
-  },
-  early_detection: {
-    sampleCode: 'Código Muestra',
-    identification: 'Identificación',
-    variety: 'Variedad',
-    unitsEvaluated: 'Unidades Evaluadas',
-    severityScale: 'Escala de Severidad',
-    severity0: '0',
-    severity1: '1',
-    severity2: '2',
-    severity3: '3'
-  }
 }
 
 // Helper function to map analysis IDs to names for different analysis types
@@ -386,9 +351,24 @@ export default function AddResultModal({
         setSelectedAnalysisArea(result.test_area)
       }
 
-      // Load saved column labels from findings if present
-      if (result.findings && typeof result.findings === 'object' && 'columnLabels' in result.findings) {
-        setColumnLabels((result.findings as Record<string, unknown>).columnLabels as Record<string, string>)
+      // Load saved column labels from findings if present; nematology always gets defaults
+      const findingsRecord =
+        result.findings && typeof result.findings === 'object'
+          ? (result.findings as Record<string, unknown>)
+          : null
+      const savedColumnLabels =
+        findingsRecord && 'columnLabels' in findingsRecord
+          ? (findingsRecord.columnLabels as Record<string, string>)
+          : undefined
+      const isNematologyResult =
+        (typeof result.test_area === 'string' && result.test_area.toLowerCase().includes('nematolog')) ||
+        (typeof findingsRecord?.type === 'string' && findingsRecord.type.startsWith('nematologia'))
+      if (savedColumnLabels && Object.keys(savedColumnLabels).length > 0) {
+        setColumnLabels(
+          isNematologyResult ? mergeColumnLabels('nematology', savedColumnLabels) : savedColumnLabels
+        )
+      } else if (isNematologyResult) {
+        setColumnLabels(getDefaultColumnLabels('nematology'))
       }
 
       // Parse findings JSON and populate specific data structures
@@ -1933,40 +1913,65 @@ export default function AddResultModal({
 
           {/* Nematology-specific fields */}
           {formData.result_type === 'negative' && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Patógeno Identificado
-                </label>
-                <select
-                  value={formData.pathogen_identified}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    setFormData(prev => ({ ...prev, pathogen_identified: value }))
-                    if (value === 'Sin presencia de nemátodos') {
-                      setNematologyData(prev => ({ ...prev, negativeQuantity: '0' }))
-                    }
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                >
-                  <option value="Nematodos no fitoparásitos (benéficos)">Nematodos no fitoparásitos (benéficos)</option>
-                  <option value="Sin presencia de nemátodos">Sin presencia de nemátodos</option>
-                </select>
+            <div className="sm:col-span-2">
+              <div className="bg-white border rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-green-50">
+                      <tr>
+                        <EditableTh
+                          label={DEFAULT_COLUMN_LABELS.nematology.name}
+                          labelKey="name"
+                          columnLabels={columnLabels}
+                          setColumnLabels={setColumnLabels}
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          disabled={isValidated}
+                        />
+                        <EditableTh
+                          label={DEFAULT_COLUMN_LABELS.nematology.quantity}
+                          labelKey="quantity"
+                          columnLabels={columnLabels}
+                          setColumnLabels={setColumnLabels}
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          disabled={isValidated}
+                        />
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      <tr>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <select
+                            value={formData.pathogen_identified}
+                            onChange={(e) => {
+                              const value = e.target.value
+                              setFormData(prev => ({ ...prev, pathogen_identified: value }))
+                              if (value === 'Sin presencia de nemátodos') {
+                                setNematologyData(prev => ({ ...prev, negativeQuantity: '0' }))
+                              }
+                            }}
+                            className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                            disabled={isValidated}
+                          >
+                            <option value="Nematodos no fitoparásitos (benéficos)">Nematodos no fitoparásitos (benéficos)</option>
+                            <option value="Sin presencia de nemátodos">Sin presencia de nemátodos</option>
+                          </select>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <input
+                            type="text"
+                            value={nematologyData.negativeQuantity}
+                            onChange={(e) => setNematologyData(prev => ({ ...prev, negativeQuantity: e.target.value }))}
+                            disabled={isValidated || formData.pathogen_identified === 'Sin presencia de nemátodos'}
+                            className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 disabled:text-gray-500"
+                            placeholder="Cantidad de nematodos no fitoparásitos"
+                          />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Cantidad
-                </label>
-                <input
-                  type="text"
-                  value={nematologyData.negativeQuantity}
-                  onChange={(e) => setNematologyData(prev => ({ ...prev, negativeQuantity: e.target.value }))}
-                  disabled={formData.pathogen_identified === 'Sin presencia de nemátodos'}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 disabled:text-gray-500"
-                  placeholder="Cantidad de nematodos no fitoparásitos"
-                />
-              </div>
-            </>
+            </div>
           )}
 
           {formData.result_type === 'positive' && (
@@ -1990,8 +1995,8 @@ export default function AddResultModal({
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-green-50">
                       <tr>
-                        <EditableTh label="Género y/o especie identificada" labelKey="name" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
-                        <EditableTh label="N° nematodos/250 cm³ de suelo" labelKey="quantity" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                        <EditableTh label={DEFAULT_COLUMN_LABELS.nematology.name} labelKey="name" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                        <EditableTh label={DEFAULT_COLUMN_LABELS.nematology.quantity} labelKey="quantity" columnLabels={columnLabels} setColumnLabels={setColumnLabels} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" title="Tolerancia cero SAG">
                           Tol. cero SAG
                         </th>
@@ -2481,9 +2486,13 @@ export default function AddResultModal({
           ? { ...findings, methodologies: formData.methodologies, identification_techniques: formData.identification_techniques }
           : findings
 
-      // Embed column labels into findings
-      if (findingsToSend && typeof findingsToSend === 'object' && Object.keys(columnLabels).length > 0) {
-        (findingsToSend as Record<string, unknown>).columnLabels = columnLabels
+      // Embed column labels into findings. Nematology always persists defaults so the PDF receives them.
+      if (findingsToSend && typeof findingsToSend === 'object') {
+        if (isNematology) {
+          (findingsToSend as Record<string, unknown>).columnLabels = mergeColumnLabels('nematology', columnLabels)
+        } else if (Object.keys(columnLabels).length > 0) {
+          (findingsToSend as Record<string, unknown>).columnLabels = columnLabels
+        }
       }
 
       const requestBody: Record<string, unknown> = {

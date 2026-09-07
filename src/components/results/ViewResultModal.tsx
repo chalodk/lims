@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ResultWithRelations } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
+import { getColumnLabel } from '@/lib/results/columnLabels'
 
 interface NematodeEntry {
   name: string
@@ -107,30 +108,6 @@ function isEarlyDetectionFindings(f: unknown): f is EarlyDetectionFindings {
     (f as Record<string, unknown>).type === 'deteccion_precoz' &&
     Array.isArray((f as Record<string, unknown>).tests)
   )
-}
-
-const DEFAULT_COLUMN_LABELS: Record<string, Record<string, string>> = {
-  nematology: { name: 'Nemátodo', quantity: 'Cantidad nematodos/250 cm³ de suelo' },
-  virology: { identification: 'Identificación', method: 'Técnica utilizada', virus: 'Virus', result: 'Resultado' },
-  bacteriology: { identification: 'Identificación', method: 'Técnica utilizada', microorganism: 'Bacteria', result: 'Resultado' },
-  phytopathology: {
-    sampleNumber: 'N° de muestra', identification: 'Identificación de la muestra',
-    microorganism: 'Microorganismo Identificado', colonyCount: 'Recuento de microorganismos (N° de colonias/dilución)',
-    dilution: 'Dilución utilizada', dilution10_1: '10⁻¹', dilution10_2: '10⁻²', dilution10_3: '10⁻³'
-  },
-  early_detection: {
-    sampleCode: 'Código Muestra', identification: 'Identificación', variety: 'Variedad',
-    unitsEvaluated: 'Unidades Evaluadas', severityScale: 'Escala de Severidad',
-    severity0: '0', severity1: '1', severity2: '2', severity3: '3'
-  }
-}
-
-function getColumnLabel(findings: unknown, areaKey: string, labelKey: string, fallback: string): string {
-  if (findings && typeof findings === 'object' && 'columnLabels' in findings) {
-    const labels = (findings as Record<string, unknown>).columnLabels as Record<string, string> | undefined
-    if (labels?.[labelKey]) return labels[labelKey]
-  }
-  return DEFAULT_COLUMN_LABELS[areaKey]?.[labelKey] || fallback
 }
 
 import {
@@ -345,10 +322,10 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {getColumnLabel(findings, 'nematology', 'name', 'Nemátodo')}
+                  {getColumnLabel(findings, 'nematology', 'name')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {getColumnLabel(findings, 'nematology', 'quantity', 'Cantidad nematodos/250 cm³ de suelo')}
+                  {getColumnLabel(findings, 'nematology', 'quantity')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Tol. cero SAG

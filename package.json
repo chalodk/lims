@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test src/config/featureFlags.test.ts src/lib/stats/platformUsage.test.ts src/lib/services/companyPlatformStats.test.ts src/lib/services/companyUsageService.test.ts"
+    "test": "tsx --test src/config/featureFlags.test.ts src/lib/stats/platformUsage.test.ts src/lib/services/companyPlatformStats.test.ts src/lib/services/companyUsageService.test.ts src/lib/results/columnLabels.test.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.7",

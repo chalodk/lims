@@ -8,6 +8,7 @@ import {
   getLabelFromAnalysisType,
 } from '@/config/analysisTypes'
 import { resolveTemplateId } from '@/lib/pdfmonkey/templates'
+import { resolvePdfColumnLabels } from '@/lib/results/columnLabels'
 
 interface ReportData {
   id: string
@@ -852,7 +853,7 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
             return wrapHtmlPreservingWhitespaceForPdf(richHtml)
           })()
         },
-        columnLabels: extractColumnLabels(resultados),
+        columnLabels: resolvePdfColumnLabels(resultados, 'nematology'),
         analista: {
           nombre: 'DRA. LUCIA RIVERA C.',
           titulo: 'Ing. Agrónomo MSc.',
