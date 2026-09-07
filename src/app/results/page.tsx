@@ -44,10 +44,12 @@ export default function ResultsPage() {
   const { userRole } = useAuth()
   const [results, setResults] = useState<ResultWithRelations[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [testAreaFilter, setTestAreaFilter] = useState<string>('all')
   const [pageSize, setPageSize] = useState<20 | 50 | 100>(20)
+  const [totalResults, setTotalResults] = useState(0)
   const [selectedResultId, setSelectedResultId] = useState<string | null>(null)
   const [showViewModal, setShowViewModal] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -63,6 +65,9 @@ export default function ResultsPage() {
     try {
       setIsLoading(true)
       const params = new URLSearchParams({ limit: String(pageSize) })
+      if (appliedSearch) params.set('search', appliedSearch)
+      if (statusFilter !== 'all') params.set('status', statusFilter)
+      if (testAreaFilter !== 'all') params.set('test_area', testAreaFilter)
       const response = await fetch(`/api/results?${params}`)
       if (!response.ok) throw new Error('Failed to fetch results')
       
@@ -70,29 +75,26 @@ export default function ResultsPage() {
       // Handle both formats: {data: [...]} or direct array
       const resultsArray = Array.isArray(data) ? data : (data.data || [])
       setResults(resultsArray)
+      setTotalResults(typeof data.pagination?.total === 'number' ? data.pagination.total : resultsArray.length)
     } catch (error) {
       console.error('Error fetching results:', error)
       setResults([])
+      setTotalResults(0)
     } finally {
       setIsLoading(false)
     }
-  }, [pageSize])
+  }, [appliedSearch, pageSize, statusFilter, testAreaFilter])
 
   useEffect(() => {
     fetchResults()
   }, [fetchResults])
 
-  const filteredResults = results.filter(result => {
-    const matchesSearch = 
-      result.samples?.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      result.pathogen_identified?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      result.diagnosis?.toLowerCase().includes(searchTerm.toLowerCase())
-
-    const matchesStatus = statusFilter === 'all' || result.status === statusFilter
-    const matchesTestArea = testAreaFilter === 'all' || result.test_area === testAreaFilter
-
-    return matchesSearch && matchesStatus && matchesTestArea
-  })
+  const applySearchFilter = () => {
+    const nextSearch = searchInput.trim()
+    if (nextSearch === appliedSearch) return
+    setAppliedSearch(nextSearch)
+    setSelectedResults(new Set())
+  }
 
   // Badge functions moved to shared utilities
 
@@ -114,10 +116,10 @@ export default function ResultsPage() {
   }
 
   const handleSelectAllFilteredResults = () => {
-    if (selectedResults.size === filteredResults.length) {
+    if (selectedResults.size === results.length) {
       setSelectedResults(new Set())
     } else {
-      setSelectedResults(new Set(filteredResults.map((resultRow) => resultRow.id)))
+      setSelectedResults(new Set(results.map((resultRow) => resultRow.id)))
     }
   }
 
@@ -284,15 +286,24 @@ export default function ResultsPage() {
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Buscar por muestra, patógeno o diagnóstico..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar por muestra, patógeno o diagnóstico (Enter)"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    applySearchFilter()
+                  }
+                }}
                 className="pl-9"
               />
             </div>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value)
+                setSelectedResults(new Set())
+              }}
               className={filterSelectClassName}
             >
               <option value="all">Todos los estados</option>
@@ -302,7 +313,10 @@ export default function ResultsPage() {
             </select>
             <select
               value={testAreaFilter}
-              onChange={(e) => setTestAreaFilter(e.target.value)}
+              onChange={(e) => {
+                setTestAreaFilter(e.target.value)
+                setSelectedResults(new Set())
+              }}
               className={filterSelectClassName}
             >
               <option value="all">Todas las áreas</option>
@@ -329,7 +343,8 @@ export default function ResultsPage() {
             </div>
             <div className="flex items-center text-sm text-muted-foreground">
               <Filter className="mr-2 h-4 w-4" />
-              {filteredResults.length} resultado{filteredResults.length !== 1 ? 's' : ''}
+              {totalResults} resultado{totalResults !== 1 ? 's' : ''}
+              {totalResults > results.length ? ` (mostrando ${results.length})` : ''}
             </div>
           </CardContent>
         </Card>
@@ -341,24 +356,24 @@ export default function ResultsPage() {
           </div>
         ) : (
           <Card className="overflow-hidden">
-            {filteredResults.length > 0 && (
+            {results.length > 0 && (
               <CardHeader className="border-b border-gray-100 py-3">
                 <CardDescription>
                   Gestión y validación de resultados de análisis
                 </CardDescription>
               </CardHeader>
             )}
-            {filteredResults.length === 0 ? (
+            {results.length === 0 ? (
               <CardContent className="flex flex-col items-center py-12 text-center">
                 <FlaskConical className="mb-4 h-10 w-10 text-muted-foreground" />
                 <CardTitle className="mb-2 text-lg">Sin resultados</CardTitle>
                 <CardDescription>
-                  {searchTerm || statusFilter !== 'all' || testAreaFilter !== 'all'
+                  {appliedSearch || statusFilter !== 'all' || testAreaFilter !== 'all'
                     ? 'No se encontraron resultados que coincidan con los filtros.'
                     : 'Aún no hay resultados registrados.'}
                 </CardDescription>
                 {canCreateResults &&
-                  !searchTerm &&
+                  !appliedSearch &&
                   statusFilter === 'all' &&
                   testAreaFilter === 'all' && (
                     <Button
@@ -378,7 +393,7 @@ export default function ResultsPage() {
                     <BulkSelectionToolbarRow
                       columnSpan={8}
                       selectedCount={selectedResults.size}
-                      filteredRowCount={filteredResults.length}
+                      filteredRowCount={results.length}
                       selectionSummaryText={`${selectedResults.size} resultado(s) seleccionado(s)`}
                       onSelectAll={handleSelectAllFilteredResults}
                       onClearSelection={clearResultSelection}
@@ -406,8 +421,8 @@ export default function ResultsPage() {
                         {canUseResultBulkActions && (
                           <BulkSelectAllHeaderCheckbox
                             checked={
-                              selectedResults.size === filteredResults.length &&
-                              filteredResults.length > 0
+                              selectedResults.size === results.length &&
+                              results.length > 0
                             }
                             onChange={handleSelectAllFilteredResults}
                           />
@@ -427,7 +442,7 @@ export default function ResultsPage() {
                     ) : null}
                   </TableHeader>
                   <TableBody>
-                    {filteredResults.map((result) => (
+                    {results.map((result) => (
                       <TableRow key={result.id} className="group">
                         {canUseResultBulkActions && (
                           <BulkRowSelectionCheckbox

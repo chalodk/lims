@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth/api-auth'
 import { syncFindingsNormalized } from '@/lib/services/findingsNormalizedService'
+import { buildResultsSearchOrFilter, sanitizeResultsSearchTerm } from '@/lib/results/searchFilter'
 
 // Minimal types to avoid any in findings normalization
 type MethodRow = { id: string; name: string }
@@ -23,6 +24,7 @@ export const GET = withAuth(async (request, { user, supabase }) => {
     const status = searchParams.get('status')
     const test_area = searchParams.get('test_area')
     const sample_id = searchParams.get('sample_id')
+    const searchTerm = sanitizeResultsSearchTerm(searchParams.get('search') || '')
     const page = parseInt(searchParams.get('page') || '1')
     const requestedLimit = parseInt(searchParams.get('limit') || '20')
     const allowedLimits = [20, 50, 100]
@@ -67,6 +69,26 @@ export const GET = withAuth(async (request, { user, supabase }) => {
 
     // Filter by company using !inner join (avoids .in() anti-pattern with large arrays)
     if (userData?.company_id) {
+      let matchingSampleIds: string[] = []
+      if (searchTerm) {
+        const { data: matchingSamples, error: matchingSamplesError } = await supabase
+          .from('samples')
+          .select('id')
+          .eq('company_id', userData.company_id)
+          .ilike('code', `%${searchTerm}%`)
+
+        if (matchingSamplesError) {
+          console.error('Database error:', matchingSamplesError)
+          return NextResponse.json({ error: matchingSamplesError.message }, { status: 500 })
+        }
+
+        matchingSampleIds = (matchingSamples ?? [])
+          .map((sample) => sample.id)
+          .filter((id): id is string => Boolean(id))
+      }
+
+      const searchOrFilter = buildResultsSearchOrFilter(searchTerm, matchingSampleIds)
+
       // Rebuild query with inner join on samples to filter by company_id
       // PostgREST: INNER JOIN samples ON results.sample_id = samples.id WHERE samples.company_id = $1
       query = supabase
@@ -93,6 +115,7 @@ export const GET = withAuth(async (request, { user, supabase }) => {
       if (status) query = query.eq('status', status)
       if (test_area) query = query.eq('test_area', test_area)
       if (sample_id) query = query.eq('sample_id', sample_id)
+      if (searchOrFilter) query = query.or(searchOrFilter)
     } else {
       // User has no company assigned, return empty
       return NextResponse.json({
