@@ -11,6 +11,11 @@ const nextConfig: NextConfig = {
         hostname: 'mknzstzwhbfoyxzfudfw.supabase.co',
         pathname: '/storage/v1/object/public/images/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'nemachile.cl',
+        pathname: '/**',
+      },
     ],
   },
 };
