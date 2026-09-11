@@ -6,7 +6,7 @@
 export type AppBrandingId = 'nemachile' | 'generic'
 
 export const NEMACHILE_LOGO_URL =
-  'https://mknzstzwhbfoyxzfudfw.supabase.co/storage/v1/object/public/images/ORG_logo_NEMACHILE_(R)_01.08.23.ai.png'
+  'https://nemachile.cl/logo-header.png'
 
 export const LIMS_LOGO_URL = '/branding/lims-logo.png'
 export const LIMS_FAVICON_URL = '/branding/2.svg'
