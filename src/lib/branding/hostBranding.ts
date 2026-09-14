@@ -11,6 +11,43 @@ export const NEMACHILE_LOGO_URL =
 export const LIMS_LOGO_URL = '/branding/lims-logo.png'
 export const LIMS_FAVICON_URL = '/branding/2.svg'
 
+export type SocialPreviewImage = {
+  url: string
+  alt: string
+  width?: number
+  height?: number
+}
+
+export function getSocialPreviewImage(brandingId: AppBrandingId): SocialPreviewImage {
+  if (brandingId === 'nemachile') {
+    return {
+      url: NEMACHILE_LOGO_URL,
+      alt: 'Nemachile',
+    }
+  }
+
+  return {
+    url: LIMS_LOGO_URL,
+    alt: 'LIMS Agroanalytics',
+    width: 2000,
+    height: 2000,
+  }
+}
+
+export function getRequestOrigin(
+  hostHeader: string | null,
+  forwardedHostHeader: string | null,
+  forwardedProtoHeader: string | null
+): string {
+  const host =
+    forwardedHostHeader?.split(',')[0]?.trim() ||
+    hostHeader?.trim() ||
+    'lims.agroanalytics.cl'
+  const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1')
+  const protocol = isLocal ? forwardedProtoHeader || 'http' : 'https'
+  return `${protocol}://${host}`
+}
+
 function parseHostList(envValue: string | undefined, fallback: string): string[] {
   return (envValue ?? fallback)
     .split(',')
