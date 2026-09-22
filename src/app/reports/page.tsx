@@ -15,7 +15,7 @@ import CreateReportModal from '@/components/reports/CreateReportModal'
 import ViewReportModal from '@/components/reports/ViewReportModal'
 import FeedbackModal from '@/components/reports/FeedbackModal'
 import SamplesDisplay from '@/components/reports/SamplesDisplay'
-import { getAnalysisTypeIndicator } from '@/config/analysisTypes'
+import AnalysisTypeBadge from '@/components/reports/AnalysisTypeBadge'
 import {
   FileText,
   Download,
@@ -56,6 +56,7 @@ interface Report {
   payment?: boolean | null
   invoice_number?: string | null
   test_areas?: string[] | null
+  analysis_type?: string | null
   clients: {
     id: string
     name: string
@@ -862,7 +863,7 @@ export default function ReportsPage() {
                     />
                     {selectedReports.size === 0 ? (
                       <TableRow>
-                        <TableHead className="w-14">Tipo</TableHead>
+                        <TableHead className="w-20 pl-4">Tipo</TableHead>
                         {userRole !== 'consumidor' && (
                           <TableHead className="min-w-[120px]">Cliente</TableHead>
                         )}
@@ -897,21 +898,17 @@ export default function ReportsPage() {
                     ) : null}
                   </TableHeader>
                   <TableBody>
-                    {filteredReports.map((report) => {
-                      const analysisIndicator = getAnalysisTypeIndicator(report.test_areas)
-                      return (
+                    {filteredReports.map((report) => (
                         <TableRow
                           key={report.id}
                           className="group cursor-pointer border-l-2 border-transparent hover:border-primary/40 hover:bg-accent/40"
                           onClick={() => setViewReportId(report.id)}
                         >
-                          <TableCell>
-                            <div
-                              className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold shadow-sm ${analysisIndicator.bgColor} ${analysisIndicator.textColor}`}
-                              title={analysisIndicator.label}
-                            >
-                              {analysisIndicator.initial}
-                            </div>
+                          <TableCell className="pl-4">
+                            <AnalysisTypeBadge
+                              testAreas={report.test_areas}
+                              analysisType={report.analysis_type}
+                            />
                           </TableCell>
                           {userRole !== 'consumidor' && (
                             <TableCell>
@@ -1147,8 +1144,7 @@ export default function ReportsPage() {
                             />
                           )}
                         </TableRow>
-                      )
-                    })}
+                    ))}
                   </TableBody>
                 </Table>
               </div>

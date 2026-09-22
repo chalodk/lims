@@ -7,6 +7,17 @@ module.exports = {
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/config/**/*.{js,ts,jsx,tsx}',
+  ],
+  safelist: [
+    'bg-sky-700',
+    'bg-green-600',
+    'bg-blue-600',
+    'bg-purple-600',
+    'bg-yellow-600',
+    'bg-gray-500',
+    'bg-indigo-600',
+    'text-white',
   ],
   theme: {
     extend: {

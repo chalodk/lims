@@ -149,15 +149,51 @@ export const ANALYSIS_TYPE_REGISTRY: Record<AnalysisType, AnalysisTypeEntry> = {
 
 /** Resultado de getAnalysisTypeIndicator */
 export interface AnalysisTypeIndicator {
+  key: AnalysisType | string;
   initial: string;
   label: string;
   bgColor: string;
   textColor: string;
 }
 
+function indicatorFromEntry(entry: AnalysisTypeEntry): AnalysisTypeIndicator {
+  return {
+    key: entry.key,
+    initial: entry.initial,
+    label: entry.label,
+    bgColor: entry.bgColor,
+    textColor: entry.textColor,
+  };
+}
+
+const UNKNOWN_INDICATOR: AnalysisTypeIndicator = {
+  key: 'default',
+  initial: '?',
+  label: 'Desconocido',
+  bgColor: 'bg-gray-500',
+  textColor: 'text-white',
+};
+
+/**
+ * Resuelve un AnalysisType desde la clave canónica (virology, phytopatology, …).
+ */
+export function getAnalysisTypeFromKey(
+  analysisType: string | null | undefined
+): AnalysisType {
+  if (!analysisType) return 'default';
+
+  const input = analysisType.toLowerCase().trim();
+  if ((ANALYSIS_TYPE_KEYS as readonly string[]).includes(input)) {
+    return input as AnalysisType;
+  }
+
+  return 'default';
+}
+
 /**
  * Resuelve el tipo de análisis a partir de un string de test_area.
  * Usa lookup explícito contra dbAreas de cada entrada del registro.
+ * También acepta la clave canónica (virology, nematology, …).
  */
 export function getAnalysisTypeFromTestArea(
   testArea: string | null | undefined
@@ -165,6 +201,9 @@ export function getAnalysisTypeFromTestArea(
   if (!testArea) return 'default';
 
   const input = testArea.toLowerCase().trim();
+
+  const fromKey = getAnalysisTypeFromKey(input);
+  if (fromKey !== 'default') return fromKey;
 
   for (const entry of Object.values(ANALYSIS_TYPE_REGISTRY)) {
     if (entry.dbAreas.some((area) => input === area)) {
@@ -193,6 +232,9 @@ export function getAllAnalysisTypesFromTestArea(
   if (!testArea) return ['default'];
 
   const input = testArea.toLowerCase().trim();
+  const fromKey = getAnalysisTypeFromKey(input);
+  if (fromKey !== 'default') return [fromKey];
+
   const matches: AnalysisType[] = [];
 
   for (const entry of Object.values(ANALYSIS_TYPE_REGISTRY)) {
@@ -238,41 +280,30 @@ export function getLabelFromAnalysisType(type: AnalysisType): string {
 }
 
 /**
- * Retorna el indicador visual (color, inicial, etiqueta) para un array de test_areas.
- * Reemplaza getAnalysisTypeIndicator en reports/page.tsx.
+ * Retorna el indicador visual (color, inicial, etiqueta) para un informe.
+ * Prioriza analysis_type (clave canónica) y cae a test_areas.
  */
 export function getAnalysisTypeIndicator(
-  testAreas: string[] | null | undefined
+  testAreas: string[] | null | undefined,
+  analysisType?: string | null
 ): AnalysisTypeIndicator {
-  if (!testAreas || testAreas.length === 0) {
-    return {
-      initial: '?',
-      label: 'Desconocido',
-      bgColor: 'bg-gray-500',
-      textColor: 'text-white',
-    };
+  const fromKey = getAnalysisTypeFromKey(analysisType);
+  if (fromKey !== 'default') {
+    return indicatorFromEntry(ANALYSIS_TYPE_REGISTRY[fromKey]);
   }
 
-  // Buscar el primer área que coincida con algún tipo
+  if (!testAreas || testAreas.length === 0) {
+    return { ...UNKNOWN_INDICATOR };
+  }
+
   for (const area of testAreas) {
     const type = getAnalysisTypeFromTestArea(area);
     if (type !== 'default') {
-      const entry = ANALYSIS_TYPE_REGISTRY[type];
-      return {
-        initial: entry.initial,
-        label: entry.label,
-        bgColor: entry.bgColor,
-        textColor: entry.textColor,
-      };
+      return indicatorFromEntry(ANALYSIS_TYPE_REGISTRY[type]);
     }
   }
 
-  return {
-    initial: '?',
-    label: 'Otro',
-    bgColor: 'bg-gray-500',
-    textColor: 'text-white',
-  };
+  return { ...UNKNOWN_INDICATOR, label: 'Otro' };
 }
 
 /**
