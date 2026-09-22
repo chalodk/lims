@@ -1,6 +1,37 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+-- ══════════════════════════════════════════════════════════════════════════════
+-- MULTI-VERTICAL SUPPORT TABLES
+-- ══════════════════════════════════════════════════════════════════════════════
+
+-- Define las verticales disponibles en la plataforma (plagas_patogenos, suelo, tejidos, etc.)
+CREATE TABLE public.verticals (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  key text NOT NULL UNIQUE,
+  label text NOT NULL,
+  description text,
+  icon text,
+  default_config jsonb DEFAULT '{}',
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Relaciona empresas con las verticales que tienen habilitadas
+CREATE TABLE public.company_verticals (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+  vertical_id uuid NOT NULL REFERENCES public.verticals(id) ON DELETE CASCADE,
+  active boolean NOT NULL DEFAULT true,
+  is_primary boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  created_by uuid REFERENCES public.users(id),
+  CONSTRAINT company_verticals_unique UNIQUE (company_id, vertical_id)
+);
+
+-- ══════════════════════════════════════════════════════════════════════════════
+
 CREATE TABLE public.action_logs (
   id bigint NOT NULL,
   user_id uuid,
@@ -29,7 +60,8 @@ CREATE TABLE public.analysis_types (
   metodologia_descripcion text NOT NULL DEFAULT '',
   active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  vertical_id uuid REFERENCES public.verticals(id)
 );
 
 CREATE TABLE public.methodology_options (
@@ -45,6 +77,7 @@ CREATE TABLE public.analytes (
   code text UNIQUE,
   scientific_name text NOT NULL,
   type text NOT NULL CHECK (type = ANY (ARRAY['virus'::text, 'hongo'::text, 'nematodo'::text, 'bacteria'::text, 'abiotico'::text])),
+  vertical_id uuid REFERENCES public.verticals(id),
   CONSTRAINT analytes_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.applied_interpretations (

@@ -56,6 +56,9 @@ export type ClientType =
   | 'government_agency'
   | 'consultant'
 
+// Vertical keys for multi-vertical support
+export type VerticalKey = 'plagas_patogenos' | 'suelo' | 'tejidos'
+
 // ---------- Esquema Database ----------
 export interface Database {
   public: {
@@ -101,6 +104,7 @@ export interface Database {
           active: boolean
           created_at: string
           updated_at: string
+          vertical_id: string | null
         }
         Insert: {
           id?: string
@@ -118,6 +122,7 @@ export interface Database {
           active?: boolean
           created_at?: string
           updated_at?: string
+          vertical_id?: string | null
         }
         Update: {
           id?: string
@@ -135,6 +140,7 @@ export interface Database {
           active?: boolean
           created_at?: string
           updated_at?: string
+          vertical_id?: string | null
         }
       }
 
@@ -168,12 +174,14 @@ export interface Database {
           code: string | null
           scientific_name: string
           type: AnalyteKind
+          vertical_id: string | null
         }
         Insert: {
           id?: number
           code?: string | null
           scientific_name: string
           type: AnalyteKind
+          vertical_id?: string | null
         }
         Update: Partial<Database['public']['Tables']['analytes']['Insert']>
       }
@@ -353,6 +361,7 @@ export interface Database {
           severity: RuleSeverity
           active: boolean
           created_at: string | null
+          vertical_id: string | null
         }
         Insert: {
           id?: string
@@ -366,6 +375,7 @@ export interface Database {
           severity: RuleSeverity
           active?: boolean
           created_at?: string | null
+          vertical_id?: string | null
         }
         Update: Partial<Database['public']['Tables']['interpretation_rules']['Insert']>
       }
@@ -407,6 +417,7 @@ export interface Database {
           sop_url: string | null
           matrix: MatrixType
           units_profile_id: number | null
+          vertical_id: string | null
         }
         Insert: {
           id?: number
@@ -416,6 +427,7 @@ export interface Database {
           sop_url?: string | null
           matrix: MatrixType
           units_profile_id?: number | null
+          vertical_id?: string | null
         }
         Update: Partial<Database['public']['Tables']['methods']['Insert']>
       }
@@ -550,6 +562,7 @@ export interface Database {
           payment: boolean | null
           invoice_number: string | null
           payload: Record<string, unknown> | null // jsonb
+          vertical_id: string | null
         }
         Insert: {
           id?: string
@@ -578,6 +591,7 @@ export interface Database {
           payment?: boolean | null
           invoice_number?: string | null
           payload?: Record<string, unknown> | null // jsonb
+          vertical_id?: string | null
         }
         Update: Partial<Database['public']['Tables']['reports']['Insert']>
       }
@@ -795,6 +809,7 @@ export interface Database {
           project_id: string | null
           rootstock: string | null
           organo_analizado: string | null
+          vertical_id: string | null
         }
         Insert: {
           id?: string
@@ -828,6 +843,7 @@ export interface Database {
           project_id?: string | null
           rootstock?: string | null
           organo_analizado?: string | null
+          vertical_id?: string | null
         }
         Update: Partial<Database['public']['Tables']['samples']['Insert']>
       }
@@ -838,12 +854,14 @@ export interface Database {
           name: string
           business_days: number
           area: AreaType | null
+          vertical_id: string | null
         }
         Insert: {
           id?: number
           name: string
           business_days: number
           area?: AreaType | null
+          vertical_id?: string | null
         }
         Update: Partial<Database['public']['Tables']['sla_policies']['Insert']>
       }
@@ -868,6 +886,7 @@ export interface Database {
           area: AreaType
           default_method_id: number | null
           active: boolean
+          vertical_id: string | null
         }
         Insert: {
           id?: number
@@ -876,6 +895,7 @@ export interface Database {
           area: AreaType
           default_method_id?: number | null
           active?: boolean
+          vertical_id?: string | null
         }
         Update: Partial<Database['public']['Tables']['test_catalog']['Insert']>
       }
@@ -1035,6 +1055,54 @@ export interface Database {
         }
         Update: Partial<Database['public']['Tables']['views']['Insert']>
       }
+
+      verticals: {
+        Row: {
+          id: string
+          key: VerticalKey
+          label: string
+          description: string | null
+          icon: string | null
+          default_config: Json
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          key: VerticalKey
+          label: string
+          description?: string | null
+          icon?: string | null
+          default_config?: Json
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['verticals']['Insert']>
+      }
+
+      company_verticals: {
+        Row: {
+          id: string
+          company_id: string
+          vertical_id: string
+          active: boolean
+          is_primary: boolean
+          created_at: string
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          vertical_id: string
+          active?: boolean
+          is_primary?: boolean
+          created_at?: string
+          created_by?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['company_verticals']['Insert']>
+      }
     }
 
     Views: {
@@ -1158,3 +1226,26 @@ export type ReportTemplateRow = Database['public']['Tables']['report_templates']
 
 // Analysis type table
 export type AnalysisTypeRow = Database['public']['Tables']['analysis_types']['Row']
+
+// Vertical types for multi-vertical support
+export type Vertical = Database['public']['Tables']['verticals']['Row']
+export type CompanyVertical = Database['public']['Tables']['company_verticals']['Row']
+
+// Extended types with vertical relations
+export type VerticalWithCompanies = Vertical & {
+  company_verticals?: CompanyVertical[]
+}
+
+export type CompanyWithVerticals = Company & {
+  company_verticals?: (CompanyVertical & {
+    verticals?: Vertical | null
+  })[]
+}
+
+export type SampleWithVertical = Sample & {
+  verticals?: Vertical | null
+}
+
+export type AnalysisTypeWithVertical = AnalysisTypeRow & {
+  verticals?: Vertical | null
+}

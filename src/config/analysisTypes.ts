@@ -5,11 +5,20 @@
  * metadatos de UI (colores, iniciales), mapeo a áreas de BD,
  * templates PDFMonkey y valores por defecto.
  *
+ * ARQUITECTURA MULTI-VERTICAL:
+ * - El registro estático (ANALYSIS_TYPE_REGISTRY) se mantiene como fallback
+ * - Para obtener tipos de análisis dinámicamente por vertical, usar:
+ *   - getAnalysisTypesForVertical() en el servidor
+ *   - El VerticalContext en el cliente
+ *
  * Para agregar un nuevo tipo de análisis:
  * 1. Agregar la clave a ANALYSIS_TYPE_KEYS
  * 2. Agregar la entrada en ANALYSIS_TYPE_REGISTRY
  * 3. Si requiere payload personalizado, agregar el builder en pdfmonkey/route.ts
+ * 4. Crear la entrada correspondiente en la tabla analysis_types de la BD
  */
+
+import type { VerticalKey, AnalysisTypeRow } from '@/types/database';
 
 // ── Claves canónicas (inglés, usadas en código) ──
 export const ANALYSIS_TYPE_KEYS = [
@@ -58,6 +67,10 @@ export interface AnalysisTypeEntry {
   tipoAnalisisDescripcion: string;
   /** Descripción por defecto de la metodología */
   metodologiaDescripcion: string;
+  /** ID de la vertical a la que pertenece (null = todas las verticales) */
+  verticalId?: string | null;
+  /** Key de la vertical a la que pertenece */
+  verticalKey?: VerticalKey | null;
 }
 
 // ── El registro canónico ──
@@ -354,3 +367,163 @@ export function getAllAreaFilterOptions(): { value: DbArea; label: string }[] {
     .filter((e) => e.key !== 'default')
     .flatMap((e) => e.dbAreas.map((area) => ({ value: area, label: e.label })));
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FUNCIONES PARA SOPORTE MULTI-VERTICAL
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Convierte un registro de la BD (AnalysisTypeRow) a AnalysisTypeEntry.
+ * Usado para normalizar datos de BD al formato del registro estático.
+ */
+export function dbRowToAnalysisTypeEntry(row: AnalysisTypeRow): AnalysisTypeEntry {
+  return {
+    key: row.key as AnalysisType,
+    label: row.label,
+    initial: row.initial,
+    bgColor: row.bg_color,
+    textColor: row.text_color,
+    dbAreas: (row.db_areas ?? []) as DbArea[],
+    templateEnvVar: row.template_env_var ?? '',
+    fallbackTemplateId: row.pdfmonkey_template_id ?? '',
+    tituloInforme: row.titulo_informe,
+    tipoAnalisisDescripcion: row.tipo_analisis_descripcion,
+    metodologiaDescripcion: row.metodologia_descripcion,
+    verticalId: row.vertical_id,
+  };
+}
+
+/**
+ * Filtra el registro estático por vertical.
+ * Usado como fallback cuando no se puede acceder a la BD.
+ * Por defecto, todos los tipos del registro estático pertenecen a plagas_patogenos.
+ */
+export function getStaticAnalysisTypesForVertical(
+  verticalKey: VerticalKey
+): AnalysisTypeEntry[] {
+  if (verticalKey === 'plagas_patogenos') {
+    return Object.values(ANALYSIS_TYPE_REGISTRY).filter((e) => e.key !== 'default');
+  }
+  return [];
+}
+
+/**
+ * Crea un registro (Record) a partir de un array de AnalysisTypeEntry.
+ * Útil para mantener compatibilidad con código que usa ANALYSIS_TYPE_REGISTRY.
+ */
+export function createRegistryFromEntries(
+  entries: AnalysisTypeEntry[]
+): Record<string, AnalysisTypeEntry> {
+  const registry: Record<string, AnalysisTypeEntry> = {};
+  for (const entry of entries) {
+    registry[entry.key] = entry;
+  }
+  registry['default'] = ANALYSIS_TYPE_REGISTRY.default;
+  return registry;
+}
+
+/**
+ * Obtiene el tipo de análisis desde un test_area, usando un registro específico.
+ * Permite usar registros dinámicos filtrados por vertical.
+ */
+export function getAnalysisTypeFromTestAreaWithRegistry(
+  testArea: string | null | undefined,
+  registry: Record<string, AnalysisTypeEntry>
+): AnalysisType {
+  if (!testArea) return 'default';
+
+  const input = testArea.toLowerCase().trim();
+
+  for (const entry of Object.values(registry)) {
+    if (entry.dbAreas.some((area) => input === area)) {
+      return entry.key;
+    }
+  }
+
+  for (const entry of Object.values(registry)) {
+    if (entry.dbAreas.some((area) => input.includes(area))) {
+      return entry.key;
+    }
+  }
+
+  return 'default';
+}
+
+/**
+ * Obtiene el indicador visual usando un registro específico.
+ * Permite usar registros dinámicos filtrados por vertical.
+ */
+export function getAnalysisTypeIndicatorWithRegistry(
+  testAreas: string[] | null | undefined,
+  registry: Record<string, AnalysisTypeEntry>
+): AnalysisTypeIndicator {
+  if (!testAreas || testAreas.length === 0) {
+    return {
+      initial: '?',
+      label: 'Desconocido',
+      bgColor: 'bg-gray-500',
+      textColor: 'text-white',
+    };
+  }
+
+  for (const area of testAreas) {
+    const type = getAnalysisTypeFromTestAreaWithRegistry(area, registry);
+    if (type !== 'default') {
+      const entry = registry[type];
+      if (entry) {
+        return {
+          initial: entry.initial,
+          label: entry.label,
+          bgColor: entry.bgColor,
+          textColor: entry.textColor,
+        };
+      }
+    }
+  }
+
+  return {
+    initial: '?',
+    label: 'Otro',
+    bgColor: 'bg-gray-500',
+    textColor: 'text-white',
+  };
+}
+
+/**
+ * Obtiene todas las etiquetas de un registro específico.
+ */
+export function getAllLabelsFromRegistry(
+  registry: Record<string, AnalysisTypeEntry>
+): string[] {
+  return Object.values(registry)
+    .filter((e) => e.key !== 'default')
+    .map((e) => e.label);
+}
+
+/**
+ * Obtiene opciones de filtro de un registro específico.
+ */
+export function getAllAreaFilterOptionsFromRegistry(
+  registry: Record<string, AnalysisTypeEntry>
+): { value: DbArea; label: string }[] {
+  return Object.values(registry)
+    .filter((e) => e.key !== 'default')
+    .flatMap((e) => e.dbAreas.map((area) => ({ value: area, label: e.label })));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CONSTANTES PARA VERTICALES
+// ══════════════════════════════════════════════════════════════════════════════
+
+/** Vertical por defecto (plagas y patógenos - Nemachile) */
+export const DEFAULT_VERTICAL_KEY: VerticalKey = 'plagas_patogenos';
+
+/** Todas las verticales disponibles */
+export const VERTICAL_KEYS: VerticalKey[] = ['plagas_patogenos', 'suelo', 'tejidos'];
+
+/** Etiquetas de verticales para UI */
+export const VERTICAL_LABELS: Record<VerticalKey, string> = {
+  plagas_patogenos: 'Plagas y Patógenos',
+  suelo: 'Análisis de Suelo',
+  tejidos: 'Análisis de Tejidos',
+};

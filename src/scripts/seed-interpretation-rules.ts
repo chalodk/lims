@@ -231,7 +231,8 @@ async function seedInterpretationRules() {
           threshold_json: Object.fromEntries(
             Object.entries(rule.threshold_json).filter(([, value]) => value !== undefined)
           ),
-          active: true
+          active: true,
+          vertical_id: null
         }
         
         const result = await interpretationService.createRule(completeRule)

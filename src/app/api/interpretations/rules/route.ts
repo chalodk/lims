@@ -70,7 +70,8 @@ export async function POST(request: NextRequest) {
       threshold_json,
       message,
       severity,
-      active
+      active,
+      vertical_id: null
     })
 
     if (!rule) {
