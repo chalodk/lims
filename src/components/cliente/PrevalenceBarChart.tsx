@@ -18,13 +18,21 @@ export type PrevalenceRow = {
 
 type PrevalenceBarChartProps = {
   data: PrevalenceRow[]
+  height?: number
+  yAxisWidth?: number
+  emptyMessage?: string
 }
 
-export function PrevalenceBarChart({ data }: PrevalenceBarChartProps) {
+export function PrevalenceBarChart({
+  data,
+  height = 288,
+  yAxisWidth = 140,
+  emptyMessage = 'Sin detecciones normalizadas en el período.',
+}: PrevalenceBarChartProps) {
   if (data.length === 0) {
     return (
       <div className="flex h-64 items-center justify-center text-sm text-gray-500">
-        Sin detecciones normalizadas en el período.
+        {emptyMessage}
       </div>
     )
   }
@@ -32,7 +40,7 @@ export function PrevalenceBarChart({ data }: PrevalenceBarChartProps) {
   const chartData = [...data].reverse()
 
   return (
-    <div className="h-72 w-full">
+    <div className="w-full" style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
           <CartesianGrid strokeDasharray="3 3" horizontal={false} />
@@ -40,7 +48,7 @@ export function PrevalenceBarChart({ data }: PrevalenceBarChartProps) {
           <YAxis
             type="category"
             dataKey="pathogenName"
-            width={140}
+            width={yAxisWidth}
             tick={{ fontSize: 11 }}
           />
           <Tooltip

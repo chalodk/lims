@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import {
@@ -20,6 +21,13 @@ import {
   ResultsByTypeChart,
   type ResultsByTypeRow
 } from '@/components/estadisticas/ResultsByTypeChart'
+import { DisciplineDetail } from '@/components/estadisticas/DisciplineDetail'
+import {
+  buildDisciplineDonutRows,
+  resolveDiscipline,
+  type DisciplineDashboard,
+  type DisciplineMonths,
+} from '@/lib/stats/disciplineDashboard'
 import PlanUsageCard from '@/components/billing/PlanUsageCard'
 import { useCompanyBillingUsage } from '@/hooks/useCompanyBillingUsage'
 import { Button } from '@/components/ui/button'
@@ -31,7 +39,11 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 
-export default function EstadisticasPage() {
+function EstadisticasPageInner() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const selectedDiscipline = resolveDiscipline(searchParams.get('disciplina'))
+  const selectedArea = selectedDiscipline?.area ?? null
   const { role } = useAuth()
   const { usage: billingUsage, isLoading: billingLoading, error: billingError } =
     useCompanyBillingUsage()
@@ -46,12 +58,25 @@ export default function EstadisticasPage() {
   })
   const [samplesByMonth, setSamplesByMonth] = useState<SamplesByMonthRow[]>([])
   const [resultsByType, setResultsByType] = useState<ResultsByTypeRow[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(!selectedArea)
   const [solicitarStatus, setSolicitarStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [solicitarError, setSolicitarError] = useState('')
+  const [months, setMonths] = useState<DisciplineMonths>(6)
+  const [disciplineDashboard, setDisciplineDashboard] = useState<DisciplineDashboard | null>(null)
+  const [disciplineError, setDisciplineError] = useState<string | null>(null)
 
   useEffect(() => {
+    const rawDiscipline = searchParams.get('disciplina')
+    if (rawDiscipline && !resolveDiscipline(rawDiscipline)) {
+      router.replace('/estadisticas')
+    }
+  }, [router, searchParams])
+
+  useEffect(() => {
+    if (selectedArea) return
+
     const fetchStats = async () => {
+      setIsLoading(true)
       try {
         const now = new Date()
         const completedDayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
@@ -119,7 +144,50 @@ export default function EstadisticasPage() {
     }
 
     fetchStats()
-  }, [])
+  }, [selectedArea])
+
+  useEffect(() => {
+    if (!selectedArea) {
+      setDisciplineDashboard(null)
+      setDisciplineError(null)
+      return
+    }
+
+    let cancelled = false
+    const controller = new AbortController()
+    setDisciplineError(null)
+
+    const loadDiscipline = async () => {
+      try {
+        const response = await fetch(
+          `/api/estadisticas/disciplina?area=${encodeURIComponent(selectedArea)}&months=${months}`,
+          { signal: controller.signal }
+        )
+        const payload = await response.json().catch(() => ({}))
+        if (!response.ok) {
+          throw new Error(payload.error || 'No se pudo cargar la disciplina')
+        }
+        if (!Array.isArray(payload.prevalence) || !Array.isArray(payload.monthly)) {
+          throw new Error('Respuesta inválida')
+        }
+        if (!cancelled) {
+          setDisciplineDashboard(payload as DisciplineDashboard)
+        }
+      } catch (error) {
+        if (cancelled || (error instanceof DOMException && error.name === 'AbortError')) return
+        if (!cancelled) {
+          setDisciplineDashboard(null)
+          setDisciplineError(error instanceof Error ? error.message : 'No se pudo cargar la disciplina')
+        }
+      }
+    }
+
+    loadDiscipline()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [selectedArea, months])
 
   const handleSolicitarDatos = async () => {
     setSolicitarStatus('loading')
@@ -139,7 +207,7 @@ export default function EstadisticasPage() {
     }
   }
 
-  if (isLoading) {
+  if (!selectedDiscipline && isLoading) {
     return (
       <DashboardLayout>
         <div className="min-h-screen flex items-center justify-center">
@@ -148,6 +216,29 @@ export default function EstadisticasPage() {
       </DashboardLayout>
     )
   }
+
+  if (selectedDiscipline) {
+    const dashboardMatchesSelection =
+      disciplineDashboard?.area.typeKey === selectedDiscipline.area &&
+      disciplineDashboard.monthly.length === months
+
+    return (
+      <DashboardLayout>
+        <DisciplineDetail
+          disciplineLabel={selectedDiscipline.label}
+          disciplineColor={selectedDiscipline.color}
+          months={months}
+          onMonthsChange={setMonths}
+          onBack={() => router.push('/estadisticas')}
+          dashboard={dashboardMatchesSelection ? disciplineDashboard : null}
+          isLoading={!disciplineError && !dashboardMatchesSelection}
+          error={disciplineError}
+        />
+      </DashboardLayout>
+    )
+  }
+
+  const disciplineRows = buildDisciplineDonutRows(resultsByType)
 
   return (
     <DashboardLayout>
@@ -314,11 +405,32 @@ export default function EstadisticasPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ResultsByTypeChart data={resultsByType} />
+              <ResultsByTypeChart
+                data={disciplineRows}
+                onSelect={(typeKey) => router.push(`/estadisticas?disciplina=${encodeURIComponent(typeKey)}`)}
+              />
             </CardContent>
           </Card>
         </div>
       </div>
     </DashboardLayout>
+  )
+}
+
+function EstadisticasPageFallback() {
+  return (
+    <DashboardLayout>
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-green-600" />
+      </div>
+    </DashboardLayout>
+  )
+}
+
+export default function EstadisticasPage() {
+  return (
+    <Suspense fallback={<EstadisticasPageFallback />}>
+      <EstadisticasPageInner />
+    </Suspense>
   )
 }
