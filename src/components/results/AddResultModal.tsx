@@ -207,7 +207,8 @@ export default function AddResultModal({
         `)
         .eq('company_id', user.company_id)
         .in('status', ['received', 'processing', 'microscopy', 'isolation', 'identification', 'molecular_analysis'])
-        .order('code', { ascending: true })
+        .order('received_date', { ascending: false })
+        .order('created_at', { ascending: false })
 
       if (error) throw error
       setSamples(data || [])
