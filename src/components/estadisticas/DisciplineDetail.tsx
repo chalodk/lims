@@ -6,12 +6,15 @@ import { SamplesAndPositivesChart } from '@/components/estadisticas/SamplesAndPo
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import type { DisciplineDashboard, DisciplineMonths } from '@/lib/stats/disciplineDashboard'
+import { SPECIES_FAMILIES } from '@/lib/stats/speciesFamilies'
 
 type DisciplineDetailProps = {
   disciplineLabel: string
   disciplineColor: string
   months: DisciplineMonths
   onMonthsChange: (months: DisciplineMonths) => void
+  familyKey: string
+  onFamilyChange: (familyKey: string) => void
   onBack: () => void
   dashboard: DisciplineDashboard | null
   isLoading: boolean
@@ -23,6 +26,8 @@ export function DisciplineDetail({
   disciplineColor,
   months,
   onMonthsChange,
+  familyKey,
+  onFamilyChange,
   onBack,
   dashboard,
   isLoading,
@@ -46,6 +51,24 @@ export function DisciplineDetail({
           <h1 className="text-3xl font-bold text-gray-900">{disciplineLabel}</h1>
         </div>
         <p className="mt-2 text-gray-600">Prevalencia y dinámica de muestras de la disciplina</p>
+        <div className="mt-4 max-w-sm">
+          <label htmlFor="species-family-filter" className="mb-1 block text-sm font-medium text-gray-700">
+            Familia
+          </label>
+          <select
+            id="species-family-filter"
+            value={familyKey}
+            onChange={(event) => onFamilyChange(event.target.value)}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            <option value="">Todas las especies</option>
+            {SPECIES_FAMILIES.map((family) => (
+              <option key={family.key} value={family.key}>
+                {family.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {error ? (

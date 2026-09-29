@@ -37,7 +37,12 @@ export function PrevalenceBarChart({
     )
   }
 
-  const chartData = [...data].reverse()
+  const chartData = [...data].sort(
+    (left, right) =>
+      right.pct - left.pct ||
+      right.count - left.count ||
+      left.pathogenName.localeCompare(right.pathogenName, 'es')
+  )
 
   return (
     <div className="w-full" style={{ height }}>

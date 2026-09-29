@@ -7,11 +7,13 @@ import {
   type DisciplineResultInput,
   type DisciplineSampleInput,
 } from '@/lib/stats/disciplineDashboard'
+import { parseSpeciesFamilyQuery, sampleMatchesSpeciesFamily } from '@/lib/stats/speciesFamilies'
 
 type SampleSlice = {
   id?: string
   received_at: string | null
   received_date: string | null
+  species: string | null
 }
 
 type ResultQueryRow = {
@@ -71,6 +73,10 @@ export const GET = withAuth(async (request, { user, supabase }) => {
     if (!parsed.ok) {
       return NextResponse.json({ error: parsed.error }, { status: parsed.status })
     }
+    const parsedFamily = parseSpeciesFamilyQuery(searchParams.get('familia'))
+    if (!parsedFamily.ok) {
+      return NextResponse.json({ error: parsedFamily.error }, { status: parsedFamily.status })
+    }
 
     const { data: userData, error: userError } = await supabase
       .from('users')
@@ -96,7 +102,7 @@ export const GET = withAuth(async (request, { user, supabase }) => {
       fetchAllPages<ResultQueryRow>(async (fromInclusive, toInclusive) => {
         return supabase
           .from('results')
-          .select('id, sample_id, test_area, samples!inner(id, received_at, received_date, company_id)')
+          .select('id, sample_id, test_area, samples!inner(id, received_at, received_date, species, company_id)')
           .eq('samples.company_id', companyId)
           .range(fromInclusive, toInclusive)
       }),
@@ -112,32 +118,36 @@ export const GET = withAuth(async (request, { user, supabase }) => {
     ])
 
     const samples: DisciplineSampleInput[] = []
-    const seenSampleIds = new Set<string>()
-    const results: DisciplineResultInput[] = resultRows.map((row) => {
+    const matchingSampleIds = new Set<string>()
+    const results: DisciplineResultInput[] = []
+    for (const row of resultRows) {
       const sample = unwrapSample(row.samples)
-      if (sample && !seenSampleIds.has(row.sample_id)) {
-        seenSampleIds.add(row.sample_id)
+      if (!sample || !sampleMatchesSpeciesFamily(sample.species, parsedFamily.family)) continue
+      if (!matchingSampleIds.has(row.sample_id)) {
+        matchingSampleIds.add(row.sample_id)
         samples.push({
           id: row.sample_id,
           receivedAt: sample.received_at,
           receivedDate: sample.received_date,
         })
       }
-      return {
+      results.push({
         id: row.id,
         sampleId: row.sample_id,
         testArea: row.test_area,
-      }
-    })
+      })
+    }
 
-    const findings: DisciplineFindingInput[] = findingRows.map((row) => ({
-      resultId: row.result_id,
-      sampleId: row.sample_id,
-      testArea: row.test_area,
-      findingsType: row.findings_type,
-      pathogenName: row.pathogen_name ?? '',
-      detectionResult: row.detection_result,
-    }))
+    const findings: DisciplineFindingInput[] = findingRows
+      .filter((row) => matchingSampleIds.has(row.sample_id))
+      .map((row) => ({
+        resultId: row.result_id,
+        sampleId: row.sample_id,
+        testArea: row.test_area,
+        findingsType: row.findings_type,
+        pathogenName: row.pathogen_name ?? '',
+        detectionResult: row.detection_result,
+      }))
 
     const dashboard = buildDisciplineDashboard({
       discipline: parsed.discipline,
@@ -147,7 +157,10 @@ export const GET = withAuth(async (request, { user, supabase }) => {
       findings,
     })
 
-    return NextResponse.json(dashboard)
+    return NextResponse.json({
+      ...dashboard,
+      speciesFamily: parsedFamily.family?.key ?? null,
+    })
   } catch (error) {
     console.error('Error fetching discipline statistics:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -165,18 +165,27 @@ export function foldPathogenName(pathogenName: string): string {
   return pathogenName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 }
 
-/** Ausencia y nematodos benéficos entran en la prevalencia y no en la barra de positivos. */
-export function isExcludedFromPositivity(pathogenName: string): boolean {
-  const folded = foldPathogenName(pathogenName)
-  return folded.includes('sin presencia') || folded.includes('no fitoparasit') || folded.includes('benefic')
+export const NON_PHYTOPARASITE_LABEL = 'No fitoparásitos'
+
+/** Las dos formas de registrar nematodos no fitoparásitos se muestran como una sola barra. */
+export function prevalencePathogenName(pathogenName: string): string {
+  const trimmed = pathogenName.trim()
+  if (foldPathogenName(trimmed).includes('no fitoparasit')) return NON_PHYTOPARASITE_LABEL
+  return trimmed
 }
 
-export function countsAsPhytoparasiteDetection(
+/** Solo la ausencia queda fuera de la barra de positivos. La presencia de no fitoparásitos sí cuenta. */
+export function isExcludedFromPositivity(pathogenName: string): boolean {
+  return foldPathogenName(pathogenName).includes('sin presencia')
+}
+
+export function countsAsPositiveDetection(
   finding: Pick<DisciplineFindingInput, 'findingsType' | 'pathogenName' | 'detectionResult'>,
   discipline: DisciplineDefinition
 ): boolean {
   if (discipline.area === 'nematologia') {
-    return finding.findingsType === 'nematologia_positive' && !isExcludedFromPositivity(finding.pathogenName)
+    if (!finding.pathogenName.trim() || isExcludedFromPositivity(finding.pathogenName)) return false
+    return finding.findingsType === 'nematologia_positive' || finding.findingsType === 'nematologia_negative'
   }
   return finding.detectionResult?.trim().toLowerCase() === 'positive'
 }
@@ -286,12 +295,12 @@ export function buildDisciplineDashboard(params: {
     const monthKey = sampleMonth.get(finding.sampleId)
     if (!monthKey) continue
 
-    const pathogenName = finding.pathogenName.trim()
+    const pathogenName = prevalencePathogenName(finding.pathogenName)
     if (pathogenName) {
       pathogenCounts.set(pathogenName, (pathogenCounts.get(pathogenName) ?? 0) + 1)
     }
 
-    if (countsAsPhytoparasiteDetection(finding, params.discipline)) {
+    if (countsAsPositiveDetection(finding, params.discipline)) {
       positivesByMonth.get(monthKey)?.add(finding.sampleId)
     }
   }

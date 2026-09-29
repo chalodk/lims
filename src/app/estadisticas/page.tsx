@@ -28,6 +28,7 @@ import {
   type DisciplineDashboard,
   type DisciplineMonths,
 } from '@/lib/stats/disciplineDashboard'
+import { resolveSpeciesFamily } from '@/lib/stats/speciesFamilies'
 import PlanUsageCard from '@/components/billing/PlanUsageCard'
 import { useCompanyBillingUsage } from '@/hooks/useCompanyBillingUsage'
 import { Button } from '@/components/ui/button'
@@ -44,6 +45,8 @@ function EstadisticasPageInner() {
   const searchParams = useSearchParams()
   const selectedDiscipline = resolveDiscipline(searchParams.get('disciplina'))
   const selectedArea = selectedDiscipline?.area ?? null
+  const selectedFamily = resolveSpeciesFamily(searchParams.get('familia'))
+  const selectedFamilyKey = selectedFamily?.key ?? null
   const { role } = useAuth()
   const { usage: billingUsage, isLoading: billingLoading, error: billingError } =
     useCompanyBillingUsage()
@@ -62,14 +65,25 @@ function EstadisticasPageInner() {
   const [solicitarStatus, setSolicitarStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [solicitarError, setSolicitarError] = useState('')
   const [months, setMonths] = useState<DisciplineMonths>(6)
-  const [disciplineDashboard, setDisciplineDashboard] = useState<DisciplineDashboard | null>(null)
+  const [disciplineDashboard, setDisciplineDashboard] = useState<
+    (DisciplineDashboard & { speciesFamily: string | null }) | null
+  >(null)
   const [disciplineError, setDisciplineError] = useState<string | null>(null)
 
   useEffect(() => {
     const rawDiscipline = searchParams.get('disciplina')
-    if (rawDiscipline && !resolveDiscipline(rawDiscipline)) {
+    const rawFamily = searchParams.get('familia')
+    const disciplineInvalid = Boolean(rawDiscipline && !resolveDiscipline(rawDiscipline))
+    const familyInvalid = Boolean(rawFamily && !resolveSpeciesFamily(rawFamily))
+    if (!disciplineInvalid && !familyInvalid) return
+    if (disciplineInvalid) {
       router.replace('/estadisticas')
+      return
     }
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('familia')
+    const query = params.toString()
+    router.replace(query ? `/estadisticas?${query}` : '/estadisticas')
   }, [router, searchParams])
 
   useEffect(() => {
@@ -159,19 +173,27 @@ function EstadisticasPageInner() {
 
     const loadDiscipline = async () => {
       try {
+        const familyQuery = selectedFamilyKey ? `&familia=${encodeURIComponent(selectedFamilyKey)}` : ''
         const response = await fetch(
-          `/api/estadisticas/disciplina?area=${encodeURIComponent(selectedArea)}&months=${months}`,
+          `/api/estadisticas/disciplina?area=${encodeURIComponent(selectedArea)}&months=${months}${familyQuery}`,
           { signal: controller.signal }
         )
         const payload = await response.json().catch(() => ({}))
         if (!response.ok) {
           throw new Error(payload.error || 'No se pudo cargar la disciplina')
         }
-        if (!Array.isArray(payload.prevalence) || !Array.isArray(payload.monthly)) {
+        if (
+          !Array.isArray(payload.prevalence) ||
+          !Array.isArray(payload.monthly) ||
+          (payload.speciesFamily !== null && typeof payload.speciesFamily !== 'string')
+        ) {
           throw new Error('Respuesta inválida')
         }
         if (!cancelled) {
-          setDisciplineDashboard(payload as DisciplineDashboard)
+          setDisciplineDashboard({
+            ...(payload as DisciplineDashboard),
+            speciesFamily: payload.speciesFamily ?? null,
+          })
         }
       } catch (error) {
         if (cancelled || (error instanceof DOMException && error.name === 'AbortError')) return
@@ -187,7 +209,7 @@ function EstadisticasPageInner() {
       cancelled = true
       controller.abort()
     }
-  }, [selectedArea, months])
+  }, [selectedArea, months, selectedFamilyKey])
 
   const handleSolicitarDatos = async () => {
     setSolicitarStatus('loading')
@@ -220,7 +242,16 @@ function EstadisticasPageInner() {
   if (selectedDiscipline) {
     const dashboardMatchesSelection =
       disciplineDashboard?.area.typeKey === selectedDiscipline.area &&
-      disciplineDashboard.monthly.length === months
+      disciplineDashboard.monthly.length === months &&
+      disciplineDashboard.speciesFamily === selectedFamilyKey
+
+    const handleFamilyChange = (familyKey: string) => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (familyKey) params.set('familia', familyKey)
+      else params.delete('familia')
+      const query = params.toString()
+      router.replace(query ? `/estadisticas?${query}` : '/estadisticas')
+    }
 
     return (
       <DashboardLayout>
@@ -229,6 +260,8 @@ function EstadisticasPageInner() {
           disciplineColor={selectedDiscipline.color}
           months={months}
           onMonthsChange={setMonths}
+          familyKey={selectedFamilyKey ?? ''}
+          onFamilyChange={handleFamilyChange}
           onBack={() => router.push('/estadisticas')}
           dashboard={dashboardMatchesSelection ? disciplineDashboard : null}
           isLoading={!disciplineError && !dashboardMatchesSelection}

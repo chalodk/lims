@@ -3,11 +3,12 @@ import assert from 'node:assert/strict'
 import {
   buildDisciplineDashboard,
   buildDisciplineDonutRows,
-  countsAsPhytoparasiteDetection,
+  countsAsPositiveDetection,
   isExcludedFromPositivity,
   monthKeyFromSample,
   parseDisciplineQuery,
   positivityPercent,
+  prevalencePathogenName,
   resolveDiscipline,
   rollingSantiagoMonths,
   type DisciplineFindingInput,
@@ -76,13 +77,14 @@ describe('positivity rules', () => {
   const nematology = resolveDiscipline('nematologia')
   const virology = resolveDiscipline('virologia')
 
-  it('excludes absence and beneficial nematodes from positivity', () => {
+  it('excludes only absence from positivity', () => {
     assert.equal(isExcludedFromPositivity('Sin presencia de nemátodos'), true)
-    assert.equal(isExcludedFromPositivity('Nematodos no fitoparásitos (benéficos)'), true)
+    assert.equal(isExcludedFromPositivity('Nematodos no fitoparásitos (benéficos)'), false)
+    assert.equal(isExcludedFromPositivity('No fitoparásitos'), false)
     assert.equal(isExcludedFromPositivity('Ditylenchus dipsaci'), false)
   })
 
-  it('counts a nematology row only when the result is positive and the name is a phytoparasite', () => {
+  it('counts nematology presence, including non-phytoparasites, and skips absence', () => {
     assert.ok(nematology)
     const parasitic: DisciplineFindingInput = {
       resultId: 'r',
@@ -92,21 +94,30 @@ describe('positivity rules', () => {
       pathogenName: 'Ditylenchus dipsaci',
       detectionResult: null,
     }
-    const beneficial = { ...parasitic, pathogenName: 'Nematodos no fitoparásitos (benéficos)' }
+    const beneficial = {
+      ...parasitic,
+      findingsType: 'nematologia_negative',
+      pathogenName: 'Nematodos no fitoparásitos (benéficos)',
+    }
+    const nonPhytoparasite = {
+      ...parasitic,
+      pathogenName: 'No fitoparásitos',
+    }
     const absent = {
       ...parasitic,
       findingsType: 'nematologia_negative',
       pathogenName: 'Sin presencia de nemátodos',
     }
-    assert.equal(countsAsPhytoparasiteDetection(parasitic, nematology!), true)
-    assert.equal(countsAsPhytoparasiteDetection(beneficial, nematology!), false)
-    assert.equal(countsAsPhytoparasiteDetection(absent, nematology!), false)
+    assert.equal(countsAsPositiveDetection(parasitic, nematology!), true)
+    assert.equal(countsAsPositiveDetection(beneficial, nematology!), true)
+    assert.equal(countsAsPositiveDetection(nonPhytoparasite, nematology!), true)
+    assert.equal(countsAsPositiveDetection(absent, nematology!), false)
   })
 
   it('counts other disciplines from detection_result', () => {
     assert.ok(virology)
     assert.equal(
-      countsAsPhytoparasiteDetection(
+      countsAsPositiveDetection(
         {
           findingsType: 'virologia',
           pathogenName: 'Apple stem grooving virus',
@@ -117,7 +128,7 @@ describe('positivity rules', () => {
       true
     )
     assert.equal(
-      countsAsPhytoparasiteDetection(
+      countsAsPositiveDetection(
         {
           findingsType: 'virologia',
           pathogenName: 'Apple stem grooving virus',
@@ -198,7 +209,7 @@ describe('buildDisciplineDashboard', () => {
           resultId: 'r3',
           sampleId: 's3',
           testArea: 'nematologia',
-          findingsType: 'nematologia_positive',
+          findingsType: 'nematologia_negative',
           pathogenName: 'Nematodos no fitoparásitos (benéficos)',
           detectionResult: null,
         },
@@ -242,7 +253,7 @@ describe('buildDisciplineDashboard', () => {
       [
         ['Ditylenchus dipsaci', 2],
         ['Globodera pallida', 1],
-        ['Nematodos no fitoparásitos (benéficos)', 1],
+        ['No fitoparásitos', 1],
         ['Sin presencia de nemátodos', 1],
       ]
     )
@@ -256,13 +267,57 @@ describe('buildDisciplineDashboard', () => {
     assert.equal(april?.positiveSamples, 1)
     assert.equal(april?.positivityPct, 50)
     assert.equal(may?.totalSamples, 1)
-    assert.equal(may?.positiveSamples, 0)
-    assert.equal(may?.positivityPct, 0)
+    assert.equal(may?.positiveSamples, 1)
+    assert.equal(may?.positivityPct, 100)
     assert.equal(june?.totalSamples, 0)
     assert.equal(june?.positiveSamples, 0)
     assert.equal(september?.totalSamples, 1)
     assert.equal(september?.positiveSamples, 1)
     assert.equal(september?.positivityPct, 100)
+  })
+
+  it('sums non-phytoparasite aliases into a single No fitoparásitos bar', () => {
+    const discipline = resolveDiscipline('nematologia')
+    assert.ok(discipline)
+    const dashboard = buildDisciplineDashboard({
+      discipline: discipline!,
+      months: 6,
+      referenceDate: SEPTEMBER_2026,
+      samples: [
+        { id: 's1', receivedAt: '2026-09-02T15:00:00.000Z', receivedDate: null },
+        { id: 's2', receivedAt: '2026-09-03T15:00:00.000Z', receivedDate: null },
+      ],
+      results: [
+        { id: 'r1', sampleId: 's1', testArea: 'nematologia' },
+        { id: 'r2', sampleId: 's2', testArea: 'nematologia' },
+      ],
+      findings: [
+        {
+          resultId: 'r1',
+          sampleId: 's1',
+          testArea: 'nematologia',
+          findingsType: 'nematologia_negative',
+          pathogenName: 'Nematodos no fitoparásitos (benéficos)',
+          detectionResult: null,
+        },
+        {
+          resultId: 'r2',
+          sampleId: 's2',
+          testArea: 'nematologia',
+          findingsType: 'nematologia_negative',
+          pathogenName: 'No fitoparásitos',
+          detectionResult: null,
+        },
+      ],
+    })
+
+    assert.equal(prevalencePathogenName('Nematodos no fitoparásitos (benéficos)'), 'No fitoparásitos')
+    assert.equal(prevalencePathogenName('No fitoparásitos'), 'No fitoparásitos')
+    assert.deepEqual(
+      dashboard.prevalence.map((row) => [row.pathogenName, row.count, row.pct]),
+      [['No fitoparásitos', 2, 100]]
+    )
+    assert.equal(dashboard.monthly.find((month) => month.monthKey === '2026-09')?.positiveSamples, 2)
   })
 
   it('returns an empty ranking and zeroed months when the discipline has no results', () => {
