@@ -731,7 +731,10 @@ export default function AddResultModal({
   // Handle fitopatología pathogen type and data fetching
   useEffect(() => {
     if (selectedAnalysisArea.toLowerCase().includes('fitopatolog')) {
-      // Fetch methods and microorganisms for fitopatología
+      setFormData(prev => ({
+        ...prev,
+        pathogen_type: 'fungus'
+      }))
       fetchMethodsAndAnalytes()
     }
   }, [selectedAnalysisArea, fetchMethodsAndAnalytes])
@@ -740,34 +743,19 @@ export default function AddResultModal({
   useEffect(() => {
     if (selectedAnalysisArea.toLowerCase().includes('deteccion') || selectedAnalysisArea.toLowerCase().includes('precoz')) {
       const selectedSample = samples.find(s => s.id === formData.sample_id)
-      
-      // Map suspected pathogen to pathogen type
-      let pathogenType = 'fungus' // Default to fungus for early detection
-      if (selectedSample?.suspected_pathogen) {
-        // Map common pathogen types
-        const pathogen = selectedSample.suspected_pathogen.toLowerCase()
-        if (pathogen.includes('botrytis') || pathogen.includes('fungus') || pathogen.includes('hongo')) {
-          pathogenType = 'fungus'
-        } else if (pathogen.includes('bacteria') || pathogen.includes('bacteri')) {
-          pathogenType = 'bacteria'
-        } else if (pathogen.includes('virus')) {
-          pathogenType = 'virus'
-        } else if (pathogen.includes('nematod')) {
-          pathogenType = 'nematode'
-        } else if (pathogen.includes('insect') || pathogen.includes('insecto')) {
-          pathogenType = 'insect'
-        } else if (pathogen.includes('abiotic') || pathogen.includes('abiótico')) {
-          pathogenType = 'abiotic'
-        } else {
-          pathogenType = 'fungus' // Default to fungus for early detection
+      const suspectedPathogen = selectedSample?.suspected_pathogen?.toLowerCase() || ''
+      const suggestedPathogenType = suspectedPathogen.includes('bacteria') || suspectedPathogen.includes('bacteri')
+        ? 'bacteria'
+        : 'fungus'
+
+      setFormData(prev => {
+        const alreadyChosen = prev.pathogen_type === 'fungus' || prev.pathogen_type === 'bacteria'
+        return {
+          ...prev,
+          pathogen_type: alreadyChosen ? prev.pathogen_type : suggestedPathogenType,
+          pathogen_identified: selectedSample?.suspected_pathogen || prev.pathogen_identified
         }
-      }
-      
-      setFormData(prev => ({
-        ...prev,
-        pathogen_type: pathogenType,
-        pathogen_identified: selectedSample?.suspected_pathogen || ''
-      }))
+      })
     }
   }, [selectedAnalysisArea, formData.sample_id, samples])
 
@@ -1409,17 +1397,12 @@ export default function AddResultModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Tipo de Patógeno
             </label>
-            <select
-              value={formData.pathogen_type}
-              onChange={(e) => setFormData(prev => ({ ...prev, pathogen_type: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
-              disabled={isValidated}
-            >
-              <option value="">Seleccionar tipo</option>
-              <option value="fungus">Hongo</option>
-              <option value="bacteria">Bacteria</option>
-              <option value="mixed">Mixto</option>
-            </select>
+            <input
+              type="text"
+              value="Hongo"
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+            />
           </div>
 
           <div>
@@ -2513,16 +2496,15 @@ export default function AddResultModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Tipo de Patógeno
             </label>
-            <input
-              type="text"
-              value={formData.pathogen_type === 'fungus' ? 'Hongo' : 
-                     formData.pathogen_type === 'bacteria' ? 'Bacteria' :
-                     formData.pathogen_type === 'virus' ? 'Virus' :
-                     formData.pathogen_type === 'nematode' ? 'Nematodo' :
-                     'Detección Precoz'}
-              readOnly
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
-            />
+            <select
+              value={formData.pathogen_type === 'bacteria' ? 'bacteria' : 'fungus'}
+              onChange={(e) => setFormData(prev => ({ ...prev, pathogen_type: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+              disabled={isValidated}
+            >
+              <option value="fungus">Hongo</option>
+              <option value="bacteria">Bacteria</option>
+            </select>
           </div>
 
           <div>
@@ -2825,7 +2807,13 @@ export default function AddResultModal({
         conclusion: formData.conclusion || null,
         diagnosis: formData.diagnosis || null,
         pathogen_identified: formData.pathogen_identified || null,
-        pathogen_type: isNematology ? 'nematode' : (isVirology ? 'virus' : (formData.pathogen_type || null)),
+        pathogen_type: isNematology
+          ? 'nematode'
+          : isVirology
+            ? 'virus'
+            : isPhytopathology
+              ? 'fungus'
+              : (formData.pathogen_type || null),
         severity: formData.severity || null,
         confidence: formData.confidence || null,
         result_type: formData.result_type || null,
