@@ -15,6 +15,7 @@
 export const ANALYSIS_TYPE_KEYS = [
   'virology',
   'phytopatology', // conocido typo: debería ser 'phytopathology', se mantiene por compatibilidad
+  'phytopathology_isolation',
   'bacteriology',
   'nematology',
   'early_detection',
@@ -88,6 +89,20 @@ export const ANALYSIS_TYPE_REGISTRY: Record<AnalysisType, AnalysisTypeEntry> = {
     tipoAnalisisDescripcion: 'Determinación de patógenos vegetales.',
     metodologiaDescripcion:
       'Se efectuaron tres diluciones (10⁻¹, 10⁻² y 10⁻³) de cada muestra de suelo previamente tamizadas. Posteriormente se extrajo 1 ml de cada dilución, sembrándolas en placas de Petri con medios de cultivos específicos para el desarrollo de hongos. Después del período de incubación, se hizo el recuento del número de colonias presentes en las placas correspondientes a las tres diluciones de cada muestra de suelo. Los resultados se expresan en número de colonias de hongos por muestra analizada.',
+  },
+  phytopathology_isolation: {
+    key: 'phytopathology_isolation',
+    label: 'Fitopatológico (aislamiento)',
+    initial: 'FA',
+    bgColor: 'bg-green-700',
+    textColor: 'text-white',
+    dbAreas: [],
+    templateEnvVar: 'PDFMONKEY_TEMPLATE_PHYTOPATOLOGY_ISOLATION',
+    fallbackTemplateId: '0CA8ED92-4D05-4444-A973-10AFD682501B',
+    tituloInforme: 'INFORME FITOPATOLÓGICO',
+    tipoAnalisisDescripcion: 'Aislamiento e identificación de microorganismos en tejido vegetal.',
+    metodologiaDescripcion:
+      'Aislamiento e identificación de microorganismos a partir del tejido vegetal analizado.',
   },
   bacteriology: {
     key: 'bacteriology',
@@ -373,7 +388,7 @@ export function getDefaultsForType(type: AnalysisType): {
  */
 export function getAllLabels(): string[] {
   return Object.values(ANALYSIS_TYPE_REGISTRY)
-    .filter((e) => e.key !== 'default')
+    .filter((e) => e.key !== 'default' && e.dbAreas.length > 0)
     .map((e) => e.label);
 }
 

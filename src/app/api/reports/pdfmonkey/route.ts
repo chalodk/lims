@@ -9,6 +9,16 @@ import {
 } from '@/config/analysisTypes'
 import { resolveTemplateId } from '@/lib/pdfmonkey/templates'
 import { resolvePdfColumnLabels, resolveResultColumnLabels } from '@/lib/results/columnLabels'
+import {
+  MIXED_PHYTOPATHOLOGY_FORMAT_MESSAGE,
+  resolvePhytopathologyReportVariant,
+  TISSUE_ISOLATION_TABLE_FORMAT,
+} from '@/lib/results/phytopathologyFindings'
+import {
+  buildIsolationReportPayload,
+  joinSintomatologia,
+  mapIsolationResultados,
+} from '@/lib/reports/phytopathologyIsolation'
 
 interface ReportData {
   id: string
@@ -729,6 +739,71 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
       }
     }
   },
+
+  phytopathology_isolation: {
+    payloadBuilder: (_report, client, resultados) => {
+      const defaults = getDefaultsForType('phytopathology_isolation')
+      const currentDate = new Date()
+      const reportNumber = `${currentDate.getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`
+
+      const formatDate = (dateString: string) => {
+        const date = new Date(dateString)
+        const day = String(date.getDate()).padStart(2, '0')
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const year = date.getFullYear()
+        return `${day}/${month}/${year}`
+      }
+
+      const diagnosisJoined = resultados
+        .map((resultado) => resultado?.diagnosis)
+        .filter((diagnosis): diagnosis is string => Boolean(diagnosis && diagnosis.trim() !== ''))
+        .join('\n')
+      const conclusionJoined = resultados
+        .map((resultado) => resultado?.conclusion)
+        .filter((conclusion): conclusion is string => Boolean(conclusion && conclusion.trim() !== ''))
+        .join('\n')
+
+      return buildIsolationReportPayload({
+        numeroInforme: reportNumber,
+        tituloInforme: defaults.tituloInforme,
+        informacionSolicitante: {
+          nombreRazonSocial: client?.name || 'Cliente no especificado',
+          productor: client?.name || 'Cliente no especificado',
+          rut: client?.rut || '--------',
+          contacto: client?.contact_email || 'No especificado',
+          telefono: client?.phone || 'No especificado',
+          localidad: client?.address || 'No especificada',
+          fechaRecepcion: resultados[0]?.samples?.received_date
+            ? formatDate(resultados[0].samples.received_date)
+            : (resultados[0]?.performed_at
+              ? formatDate(resultados[0].performed_at)
+              : formatDate(currentDate.toISOString())),
+          fechaEntrega: resultados[0]?.validation_date
+            ? formatDate(resultados[0].validation_date)
+            : formatDate(currentDate.toISOString()),
+          fechaInforme: resultados[0]?.validation_date
+            ? formatDate(resultados[0].validation_date)
+            : formatDate(currentDate.toISOString()),
+          numeroMuestras: resultados.length.toString(),
+        },
+        tipoMuestraDescripcion:
+          wrapHtmlPreservingWhitespaceForPdf(resultados[0]?.conclusion) ||
+          'Muestra de tejido vegetal para aislamiento de microorganismos.',
+        metodologiaDescripcion: resolveMetodologiaDescripcion(resultados, defaults.metodologiaDescripcion),
+        diagnosticoDescripcion: diagnosisJoined || conclusionJoined,
+        sintomatologiaDescripcion: joinSintomatologia(resultados),
+        notaResultados: 'Los resultados solamente son válidos sólo para las muestras analizadas las que fueron proporcionadas por el cliente.',
+        columnLabels: resolvePdfColumnLabels(resultados, 'phytopathology_isolation'),
+        analista: {
+          nombre: 'DRA. LUCIA RIVERA C.',
+          titulo: 'Ing. Agrónomo MSc.',
+          departamento: 'Nematóloga',
+          email: '',
+        },
+        resultados: mapIsolationResultados(resultados),
+      })
+    }
+  },
   
   nematology: {
     payloadBuilder: (report, client, resultados, analystName) => {
@@ -947,6 +1022,19 @@ async function resolveTemplateAndPayload(
         templateType = resolved
         break
       }
+    }
+  }
+
+  if (payloadBuilderType === 'phytopatology') {
+    const tableVariant = resolvePhytopathologyReportVariant(resultados)
+    if (tableVariant === 'mixed') {
+      throw new Error(MIXED_PHYTOPATHOLOGY_FORMAT_MESSAGE)
+    }
+    if (tableVariant === TISSUE_ISOLATION_TABLE_FORMAT) {
+      payloadBuilderType = 'phytopathology_isolation'
+      templateType = 'phytopathology_isolation'
+    } else if (templateType === 'phytopathology_isolation') {
+      templateType = 'phytopatology'
     }
   }
 
@@ -1211,6 +1299,10 @@ export const POST = withAuth(async (request, { user, supabase }) => {
         }
       }
     })
+
+    if (resolvePhytopathologyReportVariant(resultados) === 'mixed') {
+      return NextResponse.json({ error: MIXED_PHYTOPATHOLOGY_FORMAT_MESSAGE }, { status: 400 })
+    }
 
     // ✅ NEW: Group resultados by analysis type
     const gruposPorTipo = groupResultsByAnalysisType(resultados)

@@ -10,6 +10,12 @@ import {
   ANALYSIS_TYPE_REGISTRY,
 } from '@/config/analysisTypes'
 import {
+  MIXED_PHYTOPATHOLOGY_FORMAT_MESSAGE,
+  PHYTOPATHOLOGY_ISOLATION_ANALYSIS_TYPE,
+  resolvePhytopathologyReportVariant,
+  TISSUE_ISOLATION_TABLE_FORMAT,
+} from '@/lib/results/phytopathologyFindings'
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -40,6 +46,7 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
     test_area: string | null
     pathogen_identified: string | null
     severity: string | null
+    findings?: unknown
     samples: {
       id: string
       code: string
@@ -261,6 +268,20 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
           return
         }
 
+        const groupedResults = resultIds
+          .map((resultId) => results.find((result) => result.id === resultId))
+          .filter((result): result is NonNullable<typeof result> => Boolean(result))
+        const tableVariant = resolvePhytopathologyReportVariant(groupedResults)
+        if (tableVariant === 'mixed') {
+          alert(MIXED_PHYTOPATHOLOGY_FORMAT_MESSAGE)
+          setIsCreating(false)
+          return
+        }
+        const analysisType =
+          tableVariant === TISSUE_ISOLATION_TABLE_FORMAT
+            ? PHYTOPATHOLOGY_ISOLATION_ANALYSIS_TYPE
+            : selectedType
+
         const { data: reportData, error: reportError } = await supabase
           .from('reports')
           .insert({
@@ -273,7 +294,7 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
             include_recommendations: true,
             include_images: true,
             test_areas: [testArea],
-            analysis_type: selectedType
+            analysis_type: analysisType
           })
           .select()
           .single()

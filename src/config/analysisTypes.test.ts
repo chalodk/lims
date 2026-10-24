@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  getAllLabels,
   getAnalysisTypeFromKey,
   getAnalysisTypeFromTestArea,
   getAnalysisTypeIndicator,
@@ -17,6 +18,12 @@ describe('getAnalysisTypeFromKey', () => {
     assert.equal(getAnalysisTypeFromKey(null), 'default')
     assert.equal(getAnalysisTypeFromKey(''), 'default')
     assert.equal(getAnalysisTypeFromKey('unknown_type'), 'default')
+  })
+
+  it('resolves the isolation template key without remapping fitopatologia', () => {
+    assert.equal(getAnalysisTypeFromKey('phytopathology_isolation'), 'phytopathology_isolation')
+    assert.equal(getAnalysisTypeFromTestArea('fitopatologia'), 'phytopatology')
+    assert.equal(getAllLabels().includes('Fitopatológico (aislamiento)'), false)
   })
 })
 

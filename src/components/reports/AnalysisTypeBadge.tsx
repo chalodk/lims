@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 const ANALYSIS_TYPE_BADGE_CLASS: Record<AnalysisType, string> = {
   virology: 'bg-sky-700 text-white',
   phytopatology: 'bg-green-600 text-white',
+  phytopathology_isolation: 'bg-green-700 text-white',
   bacteriology: 'bg-blue-600 text-white',
   nematology: 'bg-purple-600 text-white',
   early_detection: 'bg-yellow-600 text-white',

@@ -304,6 +304,7 @@ export interface Database {
           trial_started_at: string | null
           trial_ends_at: string | null
           feature_flags: Record<string, boolean>
+          logo_url: string | null
         }
         Insert: {
           id?: string
@@ -316,6 +317,7 @@ export interface Database {
           trial_started_at?: string | null
           trial_ends_at?: string | null
           feature_flags?: Record<string, boolean>
+          logo_url?: string | null
         }
         Update: Partial<Database['public']['Tables']['companies']['Insert']>
       }

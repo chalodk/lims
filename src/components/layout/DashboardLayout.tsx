@@ -22,8 +22,11 @@ import {
   ChevronsRight,
   SlidersHorizontal,
   Activity,
+  ImageIcon,
 } from 'lucide-react'
-import AppBrandingLogo from '@/components/branding/AppBrandingLogo'
+import SidebarBrand from '@/components/branding/SidebarBrand'
+import { useAppBranding } from '@/contexts/AppBrandingContext'
+import { useCompanySidebarLogo } from '@/hooks/useCompanySidebarLogo'
 import UserProfileDropdown from '@/components/UserProfileDropdown'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -48,6 +51,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/reports': 'Informes',
   '/estadisticas': 'Estadísticas',
   '/admin/uso': 'Uso',
+  '/admin/branding': 'Logos',
   '/settings': 'Configuración',
 }
 
@@ -55,6 +59,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [desktopCollapsed, setDesktopCollapsed] = useState(false)
   const { authUser, isAuthenticated, isLoading, userRole } = useAuth()
+  const brandingId = useAppBranding()
+  const companyLogo = useCompanySidebarLogo(isAuthenticated, brandingId, isLoading)
   const { flags, isLoading: featuresLoading } = useCompanyFeatures(isAuthenticated)
   const pathname = usePathname()
 
@@ -83,6 +89,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       { name: 'Billing', href: '/admin/billing', icon: CreditCard, roles: ['csx'] },
       { name: 'Uso', href: '/admin/uso', icon: Activity, roles: ['csx'] },
       { name: 'Features', href: '/admin/features', icon: SlidersHorizontal, roles: ['csx'] },
+      { name: 'Logos', href: '/admin/branding', icon: ImageIcon, roles: ['csx'] },
     ],
     []
   )
@@ -170,10 +177,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           )}
         >
           {desktopCollapsed ? (
-            <AppBrandingLogo variant="mark" />
+            <SidebarBrand collapsed {...companyLogo} />
           ) : (
             <div className="min-w-0">
-              <AppBrandingLogo variant="sidebar" />
+              <SidebarBrand {...companyLogo} />
             </div>
           )}
           <Button
@@ -206,7 +213,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <SheetContent side="left" className="w-72 p-0">
           <SheetHeader className="border-b border-border px-4 py-4 text-left">
             <SheetTitle className="sr-only">Navegación</SheetTitle>
-            <AppBrandingLogo variant="sidebar" />
+            <SidebarBrand {...companyLogo} />
           </SheetHeader>
           <NavLinks onNavigate={() => setMobileNavOpen(false)} />
         </SheetContent>

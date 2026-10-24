@@ -29,6 +29,18 @@ import {
   getDefaultColumnLabels,
   mergeColumnLabels,
 } from '@/lib/results/columnLabels'
+import {
+  buildIsolationFindings,
+  COLONY_COUNT_TABLE_FORMAT,
+  emptyIsolationMicroorganism,
+  emptyIsolationTest,
+  parseIsolationTests,
+  readPhytopathologyTableFormat,
+  readSintomatologia,
+  TISSUE_ISOLATION_TABLE_FORMAT,
+  type IsolationTestRow,
+  type PhytopathologyTableFormat,
+} from '@/lib/results/phytopathologyFindings'
 
 interface AddResultModalProps {
   isOpen: boolean
@@ -177,6 +189,12 @@ export default function AddResultModal({
       is_sag_zero_tolerance: false
     }]
   })
+  const [phytopathologyTableFormat, setPhytopathologyTableFormat] = useState<PhytopathologyTableFormat>(COLONY_COUNT_TABLE_FORMAT)
+  const [isolationData, setIsolationData] = useState<{ sintomatologia: string; tests: IsolationTestRow[] }>({
+    sintomatologia: '',
+    tests: [emptyIsolationTest()],
+  })
+  const [isolationColumnLabels, setIsolationColumnLabels] = useState<Record<string, string>>({})
 
   const [columnLabels, setColumnLabels] = useState<Record<string, string>>({})
 
@@ -364,7 +382,11 @@ export default function AddResultModal({
       const isNematologyResult =
         (typeof result.test_area === 'string' && result.test_area.toLowerCase().includes('nematolog')) ||
         (typeof findingsRecord?.type === 'string' && findingsRecord.type.startsWith('nematologia'))
-      if (savedColumnLabels && Object.keys(savedColumnLabels).length > 0) {
+      const isIsolationResult = readPhytopathologyTableFormat(findingsRecord) === TISSUE_ISOLATION_TABLE_FORMAT
+      if (isIsolationResult) {
+        setIsolationColumnLabels(mergeColumnLabels('phytopathology_isolation', savedColumnLabels))
+        setColumnLabels(getDefaultColumnLabels('phytopathology'))
+      } else if (savedColumnLabels && Object.keys(savedColumnLabels).length > 0) {
         setColumnLabels(
           isNematologyResult ? mergeColumnLabels('nematology', savedColumnLabels) : savedColumnLabels
         )
@@ -414,21 +436,30 @@ export default function AddResultModal({
               : [{ identification: '', method: '', virus: '', result: '', is_sag_zero_tolerance: false }]
           })
         } else if (findings.type === 'fitopatologia' && findings.tests) {
-          setPhytopathologyData({
-            tests: findings.tests.length > 0
-              ? findings.tests.map((t: { identification?: string, microorganism?: string, dilutions?: Record<string, string>, is_sag_zero_tolerance?: boolean }) => ({
-                  identification: t.identification || '',
-                  microorganism: t.microorganism || '',
-                  dilutions: t.dilutions || { '10-1': '', '10-2': '', '10-3': '' },
-                  is_sag_zero_tolerance: t.is_sag_zero_tolerance === true
-                }))
-              : [{ 
-                  identification: '', 
-                  microorganism: '', 
-                  dilutions: { '10-1': '', '10-2': '', '10-3': '' },
-                  is_sag_zero_tolerance: false
-                }]
-          })
+          if (readPhytopathologyTableFormat(findings) === TISSUE_ISOLATION_TABLE_FORMAT) {
+            setPhytopathologyTableFormat(TISSUE_ISOLATION_TABLE_FORMAT)
+            setIsolationData({
+              sintomatologia: readSintomatologia(findings),
+              tests: parseIsolationTests(findings),
+            })
+          } else {
+            setPhytopathologyTableFormat(COLONY_COUNT_TABLE_FORMAT)
+            setPhytopathologyData({
+              tests: findings.tests.length > 0
+                ? findings.tests.map((t: { identification?: string, microorganism?: string, dilutions?: Record<string, string>, is_sag_zero_tolerance?: boolean }) => ({
+                    identification: t.identification || '',
+                    microorganism: t.microorganism || '',
+                    dilutions: t.dilutions || { '10-1': '', '10-2': '', '10-3': '' },
+                    is_sag_zero_tolerance: t.is_sag_zero_tolerance === true
+                  }))
+                : [{ 
+                    identification: '', 
+                    microorganism: '', 
+                    dilutions: { '10-1': '', '10-2': '', '10-3': '' },
+                    is_sag_zero_tolerance: false
+                  }]
+            })
+          }
         } else if (findings.type === 'bacteriologia' && findings.tests) {
           setBacteriologyData({
             tests: findings.tests.length > 0
@@ -592,7 +623,10 @@ export default function AddResultModal({
     if (area.includes('nematolog')) areaKey = 'nematology'
     else if (area.includes('virolog')) areaKey = 'virology'
     else if (area.includes('bacteriolog')) areaKey = 'bacteriology'
-    else if (area.includes('fitopatolog')) areaKey = 'phytopathology'
+    else if (area.includes('fitopatolog')) {
+      areaKey = 'phytopathology'
+      setIsolationColumnLabels(getDefaultColumnLabels('phytopathology_isolation'))
+    }
     else if (area.includes('deteccion') || area.includes('precoz')) areaKey = 'early_detection'
     if (areaKey && DEFAULT_COLUMN_LABELS[areaKey]) {
       setColumnLabels({ ...DEFAULT_COLUMN_LABELS[areaKey] })
@@ -793,6 +827,22 @@ export default function AddResultModal({
     }
   }, [selectedAnalysisArea, formData.sample_id, samples])
 
+  useEffect(() => {
+    if (selectedAnalysisArea.toLowerCase().includes('fitopatolog') && formData.sample_id) {
+      const selectedSample = samples.find(s => s.id === formData.sample_id)
+      if (selectedSample?.code) {
+        const sampleCode = selectedSample.code
+        setIsolationData(prev => ({
+          ...prev,
+          tests: prev.tests.map((test) => ({
+            ...test,
+            sampleNumber: test.sampleNumber || sampleCode,
+          })),
+        }))
+      }
+    }
+  }, [selectedAnalysisArea, formData.sample_id, samples])
+
   // Generate sample code and identification for detección precoz
   useEffect(() => {
     if ((selectedAnalysisArea.toLowerCase().includes('deteccion') || selectedAnalysisArea.toLowerCase().includes('precoz')) && formData.sample_id) {
@@ -938,6 +988,18 @@ export default function AddResultModal({
   // Auto-populate findings JSON for phytopathology
   useEffect(() => {
     if (selectedAnalysisArea.toLowerCase().includes('fitopatolog')) {
+      if (phytopathologyTableFormat === TISSUE_ISOLATION_TABLE_FORMAT) {
+        const isolationFindings = buildIsolationFindings({
+          tests: isolationData.tests,
+          sintomatologia: isolationData.sintomatologia,
+        })
+        setFormData(prev => ({
+          ...prev,
+          findings: isolationFindings ? JSON.stringify(isolationFindings, null, 2) : '',
+        }))
+        return
+      }
+
       const validTests = phytopathologyData.tests.filter(test => 
         test.microorganism && (test.dilutions['10-1'] || test.dilutions['10-2'] || test.dilutions['10-3'])
       )
@@ -946,6 +1008,7 @@ export default function AddResultModal({
         const testsWithNames = mapAnalysisIdsToNames(validTests, 'phytopathology', availableMethods, availableAnalytes, availableMicroorganisms)
         const phytopathologyFindings = {
           type: 'fitopatologia',
+          tableFormat: COLONY_COUNT_TABLE_FORMAT,
           tests: testsWithNames
         }
 
@@ -960,7 +1023,7 @@ export default function AddResultModal({
         }))
       }
     }
-  }, [selectedAnalysisArea, phytopathologyData, availableMethods, availableAnalytes, availableMicroorganisms])
+  }, [selectedAnalysisArea, phytopathologyData, phytopathologyTableFormat, isolationData, availableMethods, availableAnalytes, availableMicroorganisms])
 
   const addNematodeEntry = () => {
     setNematologyData(prev => ({
@@ -1174,6 +1237,82 @@ export default function AddResultModal({
     }))
   }
 
+  const addIsolationTest = () => {
+    const selectedSample = samples.find(s => s.id === formData.sample_id)
+    setIsolationData(prev => ({
+      ...prev,
+      tests: [...prev.tests, emptyIsolationTest(selectedSample?.code || '')],
+    }))
+  }
+
+  const removeIsolationTest = (index: number) => {
+    setIsolationData(prev => ({
+      ...prev,
+      tests: prev.tests.filter((_, testIndex) => testIndex !== index),
+    }))
+  }
+
+  const updateIsolationTest = (
+    index: number,
+    field: 'sampleNumber' | 'identification' | 'tissue',
+    value: string
+  ) => {
+    setIsolationData(prev => ({
+      ...prev,
+      tests: prev.tests.map((test, testIndex) =>
+        testIndex === index ? { ...test, [field]: value } : test
+      ),
+    }))
+  }
+
+  const updateIsolationMicroorganism = (
+    testIndex: number,
+    microorganismIndex: number,
+    field: 'name' | 'is_sag_zero_tolerance',
+    value: string | boolean
+  ) => {
+    setIsolationData(prev => ({
+      ...prev,
+      tests: prev.tests.map((test, index) => {
+        if (index !== testIndex) return test
+        return {
+          ...test,
+          microorganisms: test.microorganisms.map((microorganism, currentIndex) => {
+            if (currentIndex !== microorganismIndex) return microorganism
+            if (field === 'is_sag_zero_tolerance') {
+              return { ...microorganism, is_sag_zero_tolerance: value === true }
+            }
+            return { ...microorganism, name: String(value) }
+          }),
+        }
+      }),
+    }))
+  }
+
+  const addIsolationMicroorganism = (testIndex: number) => {
+    setIsolationData(prev => ({
+      ...prev,
+      tests: prev.tests.map((test, index) =>
+        index === testIndex
+          ? { ...test, microorganisms: [...test.microorganisms, emptyIsolationMicroorganism()] }
+          : test
+      ),
+    }))
+  }
+
+  const removeIsolationMicroorganism = (testIndex: number, microorganismIndex: number) => {
+    setIsolationData(prev => ({
+      ...prev,
+      tests: prev.tests.map((test, index) => {
+        if (index !== testIndex) return test
+        return {
+          ...test,
+          microorganisms: test.microorganisms.filter((_, currentIndex) => currentIndex !== microorganismIndex),
+        }
+      }),
+    }))
+  }
+
   const updatePhytopathologyTest = (
     index: number,
     field: 'identification' | 'microorganism' | 'is_sag_zero_tolerance' | string,
@@ -1305,6 +1444,38 @@ export default function AddResultModal({
 
           {/* Phytopathology Tests Table */}
           <div className="sm:col-span-2">
+            <div className="mb-3 flex flex-wrap gap-2" role="tablist" aria-label="Formato de tabla de fitopatología">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={phytopathologyTableFormat === COLONY_COUNT_TABLE_FORMAT}
+                onClick={() => setPhytopathologyTableFormat(COLONY_COUNT_TABLE_FORMAT)}
+                disabled={isValidated}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 ${
+                  phytopathologyTableFormat === COLONY_COUNT_TABLE_FORMAT
+                    ? 'bg-green-700 text-white'
+                    : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Recuento por dilución
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={phytopathologyTableFormat === TISSUE_ISOLATION_TABLE_FORMAT}
+                onClick={() => setPhytopathologyTableFormat(TISSUE_ISOLATION_TABLE_FORMAT)}
+                disabled={isValidated}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 ${
+                  phytopathologyTableFormat === TISSUE_ISOLATION_TABLE_FORMAT
+                    ? 'bg-green-700 text-white'
+                    : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Aislamiento por tejido
+              </button>
+            </div>
+            {phytopathologyTableFormat === COLONY_COUNT_TABLE_FORMAT ? (
+            <>
             <div className="flex items-center justify-between mb-2">
               <label className="block text-sm font-medium text-gray-700">
                 Recuento de Microorganismos
@@ -1441,6 +1612,144 @@ export default function AddResultModal({
                 </div>
               )}
             </div>
+            </>
+            ) : (
+            <>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Aislamiento por tejido
+              </label>
+              <button
+                type="button"
+                onClick={addIsolationTest}
+                disabled={isValidated}
+                className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Agregar
+              </button>
+            </div>
+            <div className="bg-white border rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-green-50">
+                    <tr>
+                      <EditableTh label="N° de muestra" labelKey="sampleNumber" columnLabels={isolationColumnLabels} setColumnLabels={setIsolationColumnLabels} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <EditableTh label="Identificación de la muestra" labelKey="identification" columnLabels={isolationColumnLabels} setColumnLabels={setIsolationColumnLabels} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <EditableTh label="Tejido analizado" labelKey="tissue" columnLabels={isolationColumnLabels} setColumnLabels={setIsolationColumnLabels} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <EditableTh label="Microorganismos aislados" labelKey="microorganisms" columnLabels={isolationColumnLabels} setColumnLabels={setIsolationColumnLabels} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" disabled={isValidated} />
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Acciones
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {isolationData.tests.map((test, index) => (
+                      <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="px-4 py-4 align-top">
+                          <input
+                            type="text"
+                            value={test.sampleNumber}
+                            onChange={(e) => updateIsolationTest(index, 'sampleNumber', e.target.value)}
+                            className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500 font-mono disabled:bg-gray-100"
+                            disabled={isValidated}
+                          />
+                        </td>
+                        <td className="px-4 py-4 align-top">
+                          <textarea
+                            value={test.identification}
+                            onChange={(e) => updateIsolationTest(index, 'identification', e.target.value)}
+                            rows={3}
+                            className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+                            disabled={isValidated}
+                          />
+                        </td>
+                        <td className="px-4 py-4 align-top">
+                          <textarea
+                            value={test.tissue}
+                            onChange={(e) => updateIsolationTest(index, 'tissue', e.target.value)}
+                            rows={3}
+                            placeholder={'Corona\nInjerto'}
+                            className="w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+                            disabled={isValidated}
+                          />
+                        </td>
+                        <td className="px-4 py-4 align-top">
+                          <div className="space-y-2">
+                            {test.microorganisms.map((microorganism, microorganismIndex) => (
+                              <div key={microorganismIndex} className="flex items-center gap-2">
+                                <select
+                                  value={microorganism.name}
+                                  onChange={(e) => updateIsolationMicroorganism(index, microorganismIndex, 'name', e.target.value)}
+                                  className="min-w-0 flex-1 text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                  disabled={loadingMethodsAndAnalytes || isValidated}
+                                  aria-label={`Microorganismo ${microorganismIndex + 1}`}
+                                >
+                                  <option value="">Seleccionar microorganismo</option>
+                                  {availableMicroorganisms.map(option => (
+                                    <option key={option.id} value={option.scientific_name}>
+                                      {option.scientific_name}
+                                    </option>
+                                  ))}
+                                </select>
+                                <input
+                                  type="checkbox"
+                                  checked={microorganism.is_sag_zero_tolerance === true}
+                                  onChange={(e) => updateIsolationMicroorganism(index, microorganismIndex, 'is_sag_zero_tolerance', e.target.checked)}
+                                  disabled={isValidated}
+                                  className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded disabled:opacity-50"
+                                  title="Marcar si el patógeno tiene tolerancia cero SAG"
+                                  aria-label="Tolerancia cero SAG"
+                                />
+                                {test.microorganisms.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeIsolationMicroorganism(index, microorganismIndex)}
+                                    disabled={isValidated}
+                                    className="text-red-600 hover:text-red-900 text-sm disabled:opacity-50"
+                                    aria-label="Quitar microorganismo"
+                                  >
+                                    <Minus className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => addIsolationMicroorganism(index)}
+                              disabled={isValidated}
+                              className="text-xs font-medium text-green-700 hover:text-green-900 disabled:opacity-50"
+                            >
+                              Agregar microorganismo
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 align-top">
+                          {isolationData.tests.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeIsolationTest(index)}
+                              disabled={isValidated}
+                              className="text-red-600 hover:text-red-900 text-sm disabled:opacity-50"
+                              aria-label="Quitar fila"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {loadingMethodsAndAnalytes && (
+                <div className="px-4 py-2 text-sm text-gray-500 text-center">
+                  Cargando microorganismos...
+                </div>
+              )}
+            </div>
+            </>
+            )}
           </div>
         </>
       )
@@ -2432,14 +2741,21 @@ export default function AddResultModal({
           }
         }
     } else if (isPhytopathology) {
-        // Structure phytopathology data into JSON
-        const validTests = phytopathologyData.tests.filter(test => 
-          test.microorganism && (test.dilutions['10-1'] || test.dilutions['10-2'] || test.dilutions['10-3'])
-        )
-        if (validTests.length > 0) {
-          findings = {
-            type: 'fitopatologia',
-            tests: mapAnalysisIdsToNames(validTests, 'phytopathology', availableMethods, availableAnalytes, availableMicroorganisms)
+        if (phytopathologyTableFormat === TISSUE_ISOLATION_TABLE_FORMAT) {
+          findings = buildIsolationFindings({
+            tests: isolationData.tests,
+            sintomatologia: isolationData.sintomatologia,
+          })
+        } else {
+          const validTests = phytopathologyData.tests.filter(test => 
+            test.microorganism && (test.dilutions['10-1'] || test.dilutions['10-2'] || test.dilutions['10-3'])
+          )
+          if (validTests.length > 0) {
+            findings = {
+              type: 'fitopatologia',
+              tableFormat: COLONY_COUNT_TABLE_FORMAT,
+              tests: mapAnalysisIdsToNames(validTests, 'phytopathology', availableMethods, availableAnalytes, availableMicroorganisms)
+            }
           }
         }
     } else if (selectedAnalysisArea.toLowerCase().includes('bacteriolog')) {
@@ -2491,6 +2807,8 @@ export default function AddResultModal({
       if (findingsToSend && typeof findingsToSend === 'object') {
         if (isNematology) {
           (findingsToSend as Record<string, unknown>).columnLabels = mergeColumnLabels('nematology', columnLabels)
+        } else if (isPhytopathology && phytopathologyTableFormat === TISSUE_ISOLATION_TABLE_FORMAT) {
+          (findingsToSend as Record<string, unknown>).columnLabels = mergeColumnLabels('phytopathology_isolation', isolationColumnLabels)
         } else if (Object.keys(columnLabels).length > 0) {
           (findingsToSend as Record<string, unknown>).columnLabels = columnLabels
         }
@@ -2600,6 +2918,12 @@ export default function AddResultModal({
             is_sag_zero_tolerance: false
           }]
         })
+        setPhytopathologyTableFormat(COLONY_COUNT_TABLE_FORMAT)
+        setIsolationData({
+          sintomatologia: '',
+          tests: [emptyIsolationTest()],
+        })
+        setIsolationColumnLabels(getDefaultColumnLabels('phytopathology_isolation'))
       }
     } catch (error: unknown) {
       console.error(`Error ${resultId ? 'updating' : 'creating'} result:`, error)
@@ -2830,6 +3154,19 @@ export default function AddResultModal({
                 description="Diagnóstico, conclusiones y metadatos del resultado"
               >
                 <div className="space-y-4">
+                  {selectedAnalysisArea.toLowerCase().includes('fitopatolog') &&
+                    phytopathologyTableFormat === TISSUE_ISOLATION_TABLE_FORMAT && (
+                    <Field label="Sintomatología">
+                      <RichTextEditor
+                        value={isolationData.sintomatologia}
+                        onChange={(value) =>
+                          setIsolationData((prev) => ({ ...prev, sintomatologia: value }))
+                        }
+                        placeholder="Sintomatología observada en la muestra..."
+                        disabled={isValidated}
+                      />
+                    </Field>
+                  )}
                   <Field label="Diagnóstico">
                     <RichTextEditor
                       value={formData.diagnosis}

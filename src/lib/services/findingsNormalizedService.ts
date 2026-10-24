@@ -30,6 +30,10 @@ type FindingsJson = {
     result?: string
     quantity?: string | number
     is_sag_zero_tolerance?: boolean
+    microorganisms?: Array<{
+      name?: string
+      is_sag_zero_tolerance?: boolean
+    }>
     [key: string]: unknown
   }>
 }
@@ -120,6 +124,29 @@ export function extractFindingsNormalizedRows(params: {
 
   if (Array.isArray(parsed.tests)) {
     parsed.tests.forEach((test, sourceIndex) => {
+      if (Array.isArray(test.microorganisms) && test.microorganisms.length > 0) {
+        let isolationIndex = rows.length
+        test.microorganisms.forEach((microorganism) => {
+          const pathogenName = (microorganism.name || '').trim()
+          if (!pathogenName) return
+          rows.push({
+            result_id: resultId,
+            sample_id: sampleId,
+            test_area: testArea,
+            findings_type: findingsType,
+            source_kind: 'test',
+            source_index: isolationIndex,
+            pathogen_name: pathogenName,
+            quantity: null,
+            quantity_numeric: null,
+            detection_result: null,
+            is_sag_zero_tolerance: asBooleanFlag(microorganism.is_sag_zero_tolerance),
+          })
+          isolationIndex += 1
+        })
+        return
+      }
+
       const pathogenName = (
         (typeof test.virus === 'string' && test.virus) ||
         (typeof test.microorganism === 'string' && test.microorganism) ||

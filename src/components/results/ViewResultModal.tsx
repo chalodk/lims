@@ -4,6 +4,12 @@ import { useState, useEffect, useCallback } from 'react'
 import { ResultWithRelations } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
 import { getColumnLabel } from '@/lib/results/columnLabels'
+import {
+  parseIsolationTests,
+  readPhytopathologyTableFormat,
+  readSintomatologia,
+  TISSUE_ISOLATION_TABLE_FORMAT,
+} from '@/lib/results/phytopathologyFindings'
 
 interface NematodeEntry {
   name: string
@@ -95,8 +101,13 @@ function isPhytopathologyFindings(f: unknown): f is PhytopathologyFindings {
     'type' in f &&
     'tests' in f &&
     (f as Record<string, unknown>).type === 'fitopatologia' &&
+    readPhytopathologyTableFormat(f) !== TISSUE_ISOLATION_TABLE_FORMAT &&
     Array.isArray((f as Record<string, unknown>).tests)
   )
+}
+
+function isIsolationFindings(f: unknown): boolean {
+  return readPhytopathologyTableFormat(f) === TISSUE_ISOLATION_TABLE_FORMAT
 }
 
 function isEarlyDetectionFindings(f: unknown): f is EarlyDetectionFindings {
@@ -532,6 +543,83 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
     )
   }
 
+  const renderIsolationFindings = (findings: unknown) => {
+    if (!isIsolationFindings(findings)) {
+      return null
+    }
+
+    const tests = parseIsolationTests(findings)
+
+    return (
+      <div className="bg-white rounded border overflow-hidden">
+        <div className="bg-yellow-50 px-4 py-3 border-b">
+          <h5 className="text-sm font-medium text-yellow-900 flex items-center">
+            <Microscope className="h-4 w-4 mr-2" />
+            Aislamiento por tejido
+          </h5>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-yellow-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {getColumnLabel(findings, 'phytopathology_isolation', 'sampleNumber', 'N° de muestra')}
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {getColumnLabel(findings, 'phytopathology_isolation', 'identification', 'Identificación de la muestra')}
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {getColumnLabel(findings, 'phytopathology_isolation', 'tissue', 'Tejido analizado')}
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {getColumnLabel(findings, 'phytopathology_isolation', 'microorganisms', 'Microorganismos aislados')}
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tol. cero SAG
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {tests.map((test, index) => (
+                <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="px-4 py-4 text-sm text-gray-900 font-mono align-top">
+                    {test.sampleNumber || 'No especificado'}
+                  </td>
+                  <td className="px-4 py-4 text-sm text-gray-900 align-top whitespace-pre-wrap">
+                    {test.identification || 'No especificado'}
+                  </td>
+                  <td className="px-4 py-4 text-sm text-gray-900 align-top whitespace-pre-wrap">
+                    {test.tissue || 'No especificado'}
+                  </td>
+                  <td className="px-4 py-4 text-sm text-gray-900 align-top">
+                    {test.microorganisms.filter((microorganism) => microorganism.name).length > 0 ? (
+                      <div className="space-y-1 italic">
+                        {test.microorganisms.filter((microorganism) => microorganism.name).map((microorganism, microorganismIndex) => (
+                          <div key={microorganismIndex}>{microorganism.name}</div>
+                        ))}
+                      </div>
+                    ) : (
+                      'No especificado'
+                    )}
+                  </td>
+                  <td className="px-4 py-4 text-sm align-top">
+                    {test.microorganisms.some((microorganism) => microorganism.is_sag_zero_tolerance) ? (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                        Sí
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
   const renderEarlyDetectionFindings = (findings: unknown) => {
     if (!isEarlyDetectionFindings(findings)) {
       return null
@@ -626,6 +714,7 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
     result?.findings && typeof result.findings === 'object'
       ? (result.findings as Record<string, unknown>).methodologies
       : null
+  const sintomatologiaHtml = readSintomatologia(result?.findings)
 
   const methodologyDisplay =
     findingsMethodologies &&
@@ -804,13 +893,24 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
                 </FormSection>
               ) : null}
 
-              {(result.diagnosis || result.conclusion || result.recommendations) && (
+              {(result.diagnosis || result.conclusion || result.recommendations || sintomatologiaHtml) && (
                 <FormSection
                   step={result.pathogen_identified ? 4 : 3}
                   title="Diagnóstico y notas"
                   description="Información clínica y recomendaciones"
                 >
                   <div className="space-y-4">
+                    {sintomatologiaHtml ? (
+                      <ReadOnlyField
+                        label="Sintomatología"
+                        value={
+                          <div
+                            className={proseHtmlClassName}
+                            dangerouslySetInnerHTML={{ __html: sintomatologiaHtml }}
+                          />
+                        }
+                      />
+                    ) : null}
                     {result.diagnosis ? (
                       <ReadOnlyField
                         label="Diagnóstico"
@@ -857,10 +957,12 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
                   {renderNematologyFindings(result.findings)}
                   {renderVirologyFindings(result.findings)}
                   {renderPhytopathologyFindings(result.findings)}
+                  {renderIsolationFindings(result.findings)}
                   {renderEarlyDetectionFindings(result.findings)}
                   {!renderNematologyFindings(result.findings) &&
                     !renderVirologyFindings(result.findings) &&
                     !renderPhytopathologyFindings(result.findings) &&
+                    !renderIsolationFindings(result.findings) &&
                     !renderEarlyDetectionFindings(result.findings) && (
                       <div className="rounded-lg border border-gray-100 bg-white p-3">
                         <pre className="whitespace-pre-wrap text-sm text-gray-700">

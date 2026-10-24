@@ -25,6 +25,12 @@ export const DEFAULT_COLUMN_LABELS: Record<string, Record<string, string>> = {
     dilution10_2: '10⁻²',
     dilution10_3: '10⁻³',
   },
+  phytopathology_isolation: {
+    sampleNumber: 'N° de muestra',
+    identification: 'Identificación de la muestra',
+    tissue: 'Tejido analizado',
+    microorganisms: 'Microorganismos aislados',
+  },
   early_detection: {
     sampleCode: 'Código Muestra',
     identification: 'Identificación',
