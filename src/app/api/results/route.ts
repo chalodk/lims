@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth/api-auth'
 import { syncFindingsNormalized } from '@/lib/services/findingsNormalizedService'
 import { buildResultsSearchOrFilter, sanitizeResultsSearchTerm } from '@/lib/results/searchFilter'
+import { emptyRichTextToNull } from '@/lib/reports/richTextForPdf'
 
 // Minimal types to avoid any in findings normalization
 type MethodRow = { id: string; name: string }
@@ -308,14 +309,14 @@ export const POST = withAuth(async (request, { user, supabase }) => {
       sample_test_id,
       methodology: methodology || null,
       findings: combinedFindings || null,
-      conclusion: conclusion || null,
-      diagnosis: diagnosis || null,
+      conclusion: emptyRichTextToNull(typeof conclusion === 'string' ? conclusion : null),
+      diagnosis: emptyRichTextToNull(typeof diagnosis === 'string' ? diagnosis : null),
       pathogen_identified: pathogen_identified || null,
       pathogen_type: pathogen_type || null,
       severity: severity || null,
       confidence: confidence || null,
       result_type: result_type || null,
-      recommendations: recommendations || null,
+      recommendations: emptyRichTextToNull(typeof recommendations === 'string' ? recommendations : null),
       performed_by: user.id,
       performed_at: new Date().toISOString(),
       status: 'pending'

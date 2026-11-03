@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth/api-auth'
 import { syncFindingsNormalized } from '@/lib/services/findingsNormalizedService'
+import { emptyRichTextToNull } from '@/lib/reports/richTextForPdf'
 
 export const GET = withAuth(async (request, { user, supabase, params }) => {
   try {
@@ -139,14 +140,14 @@ export const PUT = withAuth(async (request, { user, supabase, params }) => {
     if (test_area !== undefined) updateData.test_area = test_area || null
     if (methodology !== undefined) updateData.methodology = methodology || null
     if (findings !== undefined) updateData.findings = findings
-    if (conclusion !== undefined) updateData.conclusion = conclusion || null
-    if (diagnosis !== undefined) updateData.diagnosis = diagnosis || null
+    if (conclusion !== undefined) updateData.conclusion = emptyRichTextToNull(typeof conclusion === 'string' ? conclusion : null)
+    if (diagnosis !== undefined) updateData.diagnosis = emptyRichTextToNull(typeof diagnosis === 'string' ? diagnosis : null)
     if (pathogen_identified !== undefined) updateData.pathogen_identified = pathogen_identified || null
     if (pathogen_type !== undefined) updateData.pathogen_type = pathogen_type || null
     if (severity !== undefined) updateData.severity = severity || null
     if (confidence !== undefined) updateData.confidence = confidence || null
     if (result_type !== undefined) updateData.result_type = result_type || null
-    if (recommendations !== undefined) updateData.recommendations = recommendations || null
+    if (recommendations !== undefined) updateData.recommendations = emptyRichTextToNull(typeof recommendations === 'string' ? recommendations : null)
     if (performed_by !== undefined) updateData.performed_by = performed_by || null
     if (performed_at !== undefined) updateData.performed_at = performed_at || null
     

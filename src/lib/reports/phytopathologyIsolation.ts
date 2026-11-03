@@ -1,4 +1,5 @@
 import { parseFindingsRecord, readSintomatologia } from '@/lib/results/phytopathologyFindings'
+import { joinVisibleRichHtml } from '@/lib/reports/richTextForPdf'
 
 export interface IsolationResultadoInput {
   findings?: unknown
@@ -83,10 +84,9 @@ export function mapIsolationResultados(
 export function joinSintomatologia(
   resultados: Array<{ findings?: unknown }>
 ): string {
-  return resultados
-    .map((resultado) => readSintomatologia(resultado.findings).trim())
-    .filter((value) => value !== '')
-    .join('\n')
+  return joinVisibleRichHtml(
+    resultados.map((resultado) => readSintomatologia(resultado.findings))
+  )
 }
 
 export function wrapHtmlPreservingWhitespaceForPdf(html: string | null | undefined): string {

@@ -19,6 +19,9 @@ import {
   joinSintomatologia,
   mapIsolationResultados,
 } from '@/lib/reports/phytopathologyIsolation'
+import { joinVisibleRichHtml } from '@/lib/reports/richTextForPdf'
+import { isReportId } from '@/lib/reports/reportImages'
+import { listReportImagePublicUrls } from '@/lib/reports/reportImageStorage'
 
 interface ReportData {
   id: string
@@ -110,6 +113,47 @@ const RESULTS_SELECT_FOR_PDF = `
     test_catalog (name, area, code)
   )
 `
+
+function readPayloadSampleOrder(payload: unknown): string[] {
+  if (!payload || typeof payload !== 'object') return []
+  const rows = (payload as Record<string, unknown>).resultados
+  if (!Array.isArray(rows)) return []
+
+  const sampleOrder: string[] = []
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue
+    const item = row as Record<string, unknown>
+    const sampleLabel = [item.numeroMuestra, item.muestra].find(
+      (value) => typeof value === 'string' && value.trim() !== ''
+    )
+    if (typeof sampleLabel === 'string') {
+      sampleOrder.push(sampleLabel.trim())
+    }
+  }
+  return sampleOrder
+}
+
+/** Keeps the sample order already stored on the report payload when regenerating. */
+function orderResultadosBySavedPayload(
+  resultados: ResultadoData[],
+  payload: unknown
+): ResultadoData[] {
+  const sampleOrder = readPayloadSampleOrder(payload)
+  if (sampleOrder.length === 0) return resultados
+
+  const orderIndex = new Map<string, number>()
+  sampleOrder.forEach((label, index) => {
+    if (!orderIndex.has(label)) orderIndex.set(label, index)
+  })
+
+  return [...resultados].sort((left, right) => {
+    const leftLabel = left.samples?.code?.trim() || ''
+    const rightLabel = right.samples?.code?.trim() || ''
+    const leftIndex = orderIndex.get(leftLabel) ?? Number.MAX_SAFE_INTEGER
+    const rightIndex = orderIndex.get(rightLabel) ?? Number.MAX_SAFE_INTEGER
+    return leftIndex - rightIndex
+  })
+}
 
 function extractColumnLabels(resultados: ResultadoData[]): Record<string, string> | null {
   for (const r of resultados) {
@@ -713,14 +757,8 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         resultados: resultadosData,
         diagnostico: {
           descripcion: (() => {
-            const diagnosisJoined = resultados
-              .map((r) => r?.diagnosis)
-              .filter((d): d is string => Boolean(d && d.trim() !== ''))
-              .join('\n')
-            const conclusionJoined = resultados
-              .map((r) => r?.conclusion)
-              .filter((c): c is string => Boolean(c && c.trim() !== ''))
-              .join('\n')
+            const diagnosisJoined = joinVisibleRichHtml(resultados.map((resultado) => resultado?.diagnosis))
+            const conclusionJoined = joinVisibleRichHtml(resultados.map((resultado) => resultado?.conclusion))
             const richHtml = diagnosisJoined || conclusionJoined
             if (!richHtml) {
               return 'Análisis fitopatológico completado. Los microorganismos identificados corresponden a la flora natural del suelo.'
@@ -754,14 +792,8 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         return `${day}/${month}/${year}`
       }
 
-      const diagnosisJoined = resultados
-        .map((resultado) => resultado?.diagnosis)
-        .filter((diagnosis): diagnosis is string => Boolean(diagnosis && diagnosis.trim() !== ''))
-        .join('\n')
-      const conclusionJoined = resultados
-        .map((resultado) => resultado?.conclusion)
-        .filter((conclusion): conclusion is string => Boolean(conclusion && conclusion.trim() !== ''))
-        .join('\n')
+      const diagnosisJoined = joinVisibleRichHtml(resultados.map((resultado) => resultado?.diagnosis))
+      const conclusionJoined = joinVisibleRichHtml(resultados.map((resultado) => resultado?.conclusion))
 
       return buildIsolationReportPayload({
         numeroInforme: reportNumber,
@@ -920,14 +952,8 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         resultados: resultadosPayload,
         conclusiones: {
           descripcion: (() => {
-            const conclusionJoined = resultados
-              .map((r) => r?.conclusion)
-              .filter((c): c is string => Boolean(c && c.trim() !== ''))
-              .join('\n')
-            const diagnosisJoined = resultados
-              .map((r) => r?.diagnosis)
-              .filter((d): d is string => Boolean(d && d.trim() !== ''))
-              .join('\n')
+            const conclusionJoined = joinVisibleRichHtml(resultados.map((resultado) => resultado?.conclusion))
+            const diagnosisJoined = joinVisibleRichHtml(resultados.map((resultado) => resultado?.diagnosis))
             const richHtml = conclusionJoined || diagnosisJoined
             if (!richHtml) {
               return 'La muestra analizada no presentó nematodos fitoparásitos.'
@@ -1221,10 +1247,10 @@ export const POST = withAuth(async (request, { user, supabase }) => {
         }
       }
     } else {
-      // Legacy behavior: fetch report first, then try to find associated result
+      // Regenerate from the results already linked to this report.
       const { data: reportData, error: reportError } = await supabase
         .from('reports')
-        .select('id, created_at, client_id, test_areas, company_id')
+        .select('id, created_at, client_id, test_areas, company_id, analysis_type, payload')
         .eq('id', report_id)
         .eq('company_id', userCompanyId)
         .single()
@@ -1233,22 +1259,31 @@ export const POST = withAuth(async (request, { user, supabase }) => {
         console.warn('PDFMonkey: report not found or inaccessible', { report_id, reportError })
         return NextResponse.json({ error: 'Report not found' }, { status: 404 })
       }
-      
+
       report = reportData
 
-      // Try to fetch result data from results table using report_id
-      const { data: resultData, error: resultError } = await supabase
+      const { data: linkedResults, error: resultError } = await supabase
         .from('results')
         .select(RESULTS_SELECT_FOR_PDF)
         .eq('report_id', report_id)
         .eq('samples.company_id', userCompanyId)
-        .single()
-      
-      if (resultError) {
-        console.warn('PDFMonkey: result not found, using default payload', { report_id, resultError })
-      } else {
-        resultados = [(resultData as unknown) as ResultadoData]
+        .order('created_at', { ascending: true })
+
+      if (resultError || !linkedResults || linkedResults.length === 0) {
+        console.warn('PDFMonkey: results not found for report', { report_id, resultError })
+        return NextResponse.json({ error: 'El informe no tiene resultados asociados' }, { status: 404 })
       }
+
+      const linkedResultados = linkedResults as unknown as ResultadoData[]
+      resultados = orderResultadosBySavedPayload(linkedResultados, reportData.payload)
+      const associatedSampleCount = new Set(
+        resultados.map((resultado) => resultado.sample_id).filter(Boolean)
+      ).size
+      console.log('PDFMonkey: Regenerating from linked results', {
+        report_id,
+        resultCount: resultados.length,
+        sampleCount: associatedSampleCount,
+      })
     }
 
     // Fetch client separately to avoid inner-join filtering
@@ -1340,11 +1375,29 @@ export const POST = withAuth(async (request, { user, supabase }) => {
       // Dynamically resolve template and payload based on analysis type
       const { templateId, payload: templatePayload } = await resolveTemplateAndPayload(report!, client, grupoResultados, userCompanyId, analystName)
 
+      const reportIdForImages = report_id || report?.id
+      let reportImageUrls: string[] = []
+      if (typeof reportIdForImages === 'string' && isReportId(reportIdForImages)) {
+        try {
+          reportImageUrls = await listReportImagePublicUrls(reportIdForImages)
+        } catch (imageError) {
+          console.error('PDFMonkey: failed to list report images:', imageError)
+          return NextResponse.json(
+            { error: 'No se pudieron leer las imágenes del informe' },
+            { status: 500 }
+          )
+        }
+      }
+      const templatePayloadWithImages = {
+        ...templatePayload,
+        report_images: reportImageUrls,
+      }
+
       const payload: Record<string, unknown> = {
         document: {
           document_template_id: templateId,
           status: 'pending',
-          payload: templatePayload,
+          payload: templatePayloadWithImages,
           meta: {
             target_id: targetId,
             result_id: result_id || null,
@@ -1390,13 +1443,13 @@ export const POST = withAuth(async (request, { user, supabase }) => {
         console.log('PDFMonkey: Updating report with payload:', {
           reportId: reportIdForPayload,
           analysisType,
-          payloadKeys: Object.keys(templatePayload)
+          payloadKeys: Object.keys(templatePayloadWithImages)
         })
         
         const { error: updateError } = await supabase
           .from('reports')
           .update({ 
-            payload: templatePayload,
+            payload: templatePayloadWithImages,
             updated_at: new Date().toISOString()
           })
           .eq('id', reportIdForPayload)
