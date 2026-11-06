@@ -39,3 +39,15 @@ export function joinVisibleRichHtml(
     .filter((fragment): fragment is string => richTextHasVisibleContent(fragment))
     .join('\n')
 }
+
+/**
+ * Text the analyst wrote for a PDF narrative (conclusiones or diagnóstico).
+ * Primary field wins. The secondary field is used only when the primary is blank.
+ * An empty result stays empty: the report must not invent a finding.
+ */
+export function analystNarrativeHtml(
+  primaryFragments: Array<string | null | undefined>,
+  secondaryFragments: Array<string | null | undefined> = []
+): string {
+  return joinVisibleRichHtml(primaryFragments) || joinVisibleRichHtml(secondaryFragments)
+}

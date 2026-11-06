@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { useAuth } from '@/contexts/AuthContext'
-import { Search, CheckSquare, Square, Loader2, FileText, ImagePlus, X } from 'lucide-react'
+import { Search, CheckSquare, Square, Loader2, FileText } from 'lucide-react'
 import { Client } from '@/types/database'
 import {
   getAllAnalysisTypesFromTestArea,
@@ -28,17 +28,6 @@ import { Input } from '@/components/ui/input'
 import { FormSection, Field } from '@/components/ui/form-section'
 import { fieldClassName } from '@/components/ui/form-field-styles'
 import { cn } from '@/lib/utils'
-import { MAX_REPORT_IMAGES } from '@/lib/reports/reportImages'
-
-type SelectedReportImage = {
-  id: string
-  file: File
-  previewUrl: string
-}
-
-function revokeReportImagePreviews(images: SelectedReportImage[]) {
-  images.forEach((image) => URL.revokeObjectURL(image.previewUrl))
-}
 
 interface CreateReportModalProps {
   isOpen: boolean
@@ -73,9 +62,7 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
   const [searchTerm, setSearchTerm] = useState('')
   const [isClientSectionCollapsed, setIsClientSectionCollapsed] = useState(false)
   const [typeSelections, setTypeSelections] = useState<Record<string, string>>({})
-  const [reportImages, setReportImages] = useState<SelectedReportImage[]>([])
   const [dbAnalysisTypes, setDbAnalysisTypes] = useState<Array<{ key: string; label: string; db_areas: string[] }>>([])
-  const reportImagesInputRef = useRef<HTMLInputElement>(null)
 
   const supabase = getSupabaseClient()
 
@@ -171,10 +158,6 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
       setSearchTerm('')
       setIsClientSectionCollapsed(false)
       setTypeSelections({})
-      setReportImages((currentImages) => {
-        revokeReportImagePreviews(currentImages)
-        return []
-      })
     }
   }, [isOpen, fetchClients])
 
@@ -335,35 +318,6 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
           }
         }
 
-        if (groupsByTestArea.size === 1 && reportImages.length > 0) {
-          const imageFormData = new FormData()
-          reportImages.forEach((image) => imageFormData.append('images', image.file))
-
-          const uploadResponse = await fetch(`/api/reports/${reportData.id}/images`, {
-            method: 'POST',
-            body: imageFormData,
-          })
-
-          if (!uploadResponse.ok) {
-            const uploadBody = await uploadResponse.json().catch(() => null)
-            const rollbackResponse = await fetch(`/api/reports/delete/${reportData.id}`, {
-              method: 'DELETE',
-            }).catch((rollbackError) => {
-              console.error('Error rolling back report after image upload failed:', rollbackError)
-              return null
-            })
-
-            if (!rollbackResponse?.ok) {
-              await supabase.from('results').update({ report_id: null }).eq('report_id', reportData.id)
-              await supabase.from('reports').delete().eq('id', reportData.id)
-            }
-
-            throw new Error(
-              uploadBody?.error || 'No se pudieron subir las imágenes del informe'
-            )
-          }
-        }
-
         try {
           await fetch('/api/reports/pdfmonkey', {
             method: 'POST',
@@ -386,9 +340,7 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
       onClose()
     } catch (error) {
       console.error('Error creating report:', error)
-      const uploadMessage =
-        error instanceof Error && error.message.includes('imágenes') ? error.message : null
-      alert(uploadMessage || 'Error al crear el informe. Por favor, intente nuevamente.')
+      alert('Error al crear el informe. Por favor, intente nuevamente.')
     } finally {
       setIsCreating(false)
     }
@@ -409,37 +361,6 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
     setIsClientSectionCollapsed(true)
   }
 
-  const addReportImages = (fileList: FileList | null) => {
-    if (!fileList) return
-
-    const incomingImages = Array.from(fileList).filter((file) => file.type.startsWith('image/'))
-
-    setReportImages((currentImages) => {
-      const remainingSlots = MAX_REPORT_IMAGES - currentImages.length
-      if (remainingSlots <= 0) return currentImages
-
-      const acceptedImages = incomingImages.slice(0, remainingSlots).map((file) => ({
-        id: crypto.randomUUID(),
-        file,
-        previewUrl: URL.createObjectURL(file),
-      }))
-
-      return [...currentImages, ...acceptedImages]
-    })
-
-    if (reportImagesInputRef.current) {
-      reportImagesInputRef.current.value = ''
-    }
-  }
-
-  const removeReportImage = (imageId: string) => {
-    setReportImages((currentImages) => {
-      const removedImage = currentImages.find((image) => image.id === imageId)
-      if (removedImage) URL.revokeObjectURL(removedImage.previewUrl)
-      return currentImages.filter((image) => image.id !== imageId)
-    })
-  }
-
   const handleDialogOpenChange = (open: boolean) => {
     if (!open && !isCreating) {
       onClose()
@@ -457,19 +378,6 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
     const types = getAvailableTypesForArea(area)
     return types.length > 1
   })
-  const hasSingleAnalysisType = selectedTestAreas.length === 1
-  const canAddReportImages = reportImages.length < MAX_REPORT_IMAGES
-
-  useEffect(() => {
-    if (hasSingleAnalysisType) return
-
-    setReportImages((currentImages) => {
-      if (currentImages.length === 0) return currentImages
-      revokeReportImagePreviews(currentImages)
-      return []
-    })
-  }, [hasSingleAnalysisType])
-
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
       <DialogContent
@@ -653,58 +561,6 @@ export default function CreateReportModal({ isOpen, onClose, onSuccess }: Create
                       : 'Tipo de análisis: N/A'}
                 </div>
               </div>
-
-              {hasSingleAnalysisType && (
-                <div className="mt-3 space-y-3">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={isCreating || !canAddReportImages}
-                      onClick={() => reportImagesInputRef.current?.click()}
-                      className="gap-2"
-                    >
-                      <ImagePlus className="h-4 w-4" />
-                      Agregar imágenes
-                    </Button>
-                    <span className="text-xs text-muted-foreground">máximo 3 imágenes</span>
-                  </div>
-                  <input
-                    ref={reportImagesInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    multiple
-                    className="hidden"
-                    onChange={(event) => addReportImages(event.target.files)}
-                  />
-                  {reportImages.length > 0 && (
-                    <ul className="grid grid-cols-3 gap-3">
-                      {reportImages.map((image) => (
-                        <li
-                          key={image.id}
-                          className="relative overflow-hidden rounded-lg border border-gray-200 bg-white"
-                        >
-                          {/* blob preview; next/image does not support object URLs */}
-                          <img
-                            src={image.previewUrl}
-                            alt={image.file.name}
-                            className="h-24 w-full object-cover"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeReportImage(image.id)}
-                            disabled={isCreating}
-                            aria-label={`Quitar ${image.file.name}`}
-                            className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-gray-700 shadow-sm hover:bg-gray-50"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
 
               {ambiguousAreas.length > 0 && (
                 <div className="mt-3 space-y-3">

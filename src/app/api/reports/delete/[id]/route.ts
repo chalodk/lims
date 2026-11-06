@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth/api-auth'
-import { deleteReportImageObjects } from '@/lib/reports/reportImageStorage'
 
 export const DELETE = withAuth(async (request, { user, supabase, params }) => {
   try {
@@ -37,16 +36,6 @@ export const DELETE = withAuth(async (request, { user, supabase, params }) => {
       return NextResponse.json(
         { error: 'No se pueden eliminar reportes enviados' },
         { status: 400 }
-      )
-    }
-
-    try {
-      await deleteReportImageObjects(reportId)
-    } catch (storageError) {
-      console.error('Error deleting report images:', storageError)
-      return NextResponse.json(
-        { error: 'Error al eliminar las imágenes del informe' },
-        { status: 500 }
       )
     }
 

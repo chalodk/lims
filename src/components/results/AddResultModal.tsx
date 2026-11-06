@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { getSupabaseClient } from '@/lib/supabase/singleton'
 import { useAuth } from '@/hooks/useAuth'
 import { SampleWithClient, SampleTest, TestCatalog, Method } from '@/types/database'
@@ -9,7 +9,9 @@ import {
   Loader2,
   TestTube,
   Plus,
-  Minus
+  Minus,
+  ImagePlus,
+  X,
 } from 'lucide-react'
 import RichTextEditor from '@/components/RichTextEditor'
 import {
@@ -41,6 +43,7 @@ import {
   type IsolationTestRow,
   type PhytopathologyTableFormat,
 } from '@/lib/results/phytopathologyFindings'
+import { MAX_REPORT_IMAGES } from '@/lib/reports/reportImages'
 
 interface AddResultModalProps {
   isOpen: boolean
@@ -110,6 +113,15 @@ export default function AddResultModal({
   resultId 
 }: AddResultModalProps) {
   const { user } = useAuth()
+  const [persistedResultId, setPersistedResultId] = useState<string | null>(resultId ?? null)
+  const [existingResultImages, setExistingResultImages] = useState<Array<{ name: string; url: string }>>([])
+  const [removedResultImageNames, setRemovedResultImageNames] = useState<string[]>([])
+  const [pendingResultImages, setPendingResultImages] = useState<Array<{
+    id: string
+    file: File
+    previewUrl: string
+  }>>([])
+  const resultImagesInputRef = useRef<HTMLInputElement>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoadingResult, setIsLoadingResult] = useState(false)
   const [validationError, setValidationError] = useState<string | null>(null)
@@ -525,10 +537,26 @@ export default function AddResultModal({
         fetchSampleTests(preselectedSampleId)
       }
       
+      setPersistedResultId(resultId ?? null)
+      setRemovedResultImageNames([])
+      setPendingResultImages((currentImages) => {
+        currentImages.forEach((image) => URL.revokeObjectURL(image.previewUrl))
+        return []
+      })
+
       if (resultId) {
         // Load result data for editing
         loadResultData()
+        fetch(`/api/results/${resultId}/images`)
+          .then((response) => (response.ok ? response.json() : Promise.reject()))
+          .then((data) => {
+            setExistingResultImages(Array.isArray(data.images) ? data.images : [])
+          })
+          .catch(() => {
+            setExistingResultImages([])
+          })
       } else {
+        setExistingResultImages([])
         // Reset form for new result
         setFormData({
           sample_id: preselectedSampleId || '',
@@ -591,6 +619,12 @@ export default function AddResultModal({
       // Reset when modal closes
       setValidationError(null)
       setIsLoadingResult(false)
+      setExistingResultImages([])
+      setRemovedResultImageNames([])
+      setPendingResultImages((currentImages) => {
+        currentImages.forEach((image) => URL.revokeObjectURL(image.previewUrl))
+        return []
+      })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, preselectedSampleId, resultId])
@@ -2667,11 +2701,35 @@ export default function AddResultModal({
     return baseFields
   }
 
+  const keptResultImages = existingResultImages.filter(
+    (image) => !removedResultImageNames.includes(image.name)
+  )
+  const selectedResultImageCount = keptResultImages.length + pendingResultImages.length
+
+  const addPendingResultImages = (fileList: FileList | null) => {
+    if (!fileList || isValidated) return
+    const incomingImages = Array.from(fileList)
+    setPendingResultImages((currentImages) => {
+      const remainingSlots = MAX_REPORT_IMAGES - keptResultImages.length - currentImages.length
+      if (remainingSlots <= 0) return currentImages
+      const acceptedImages = incomingImages.slice(0, remainingSlots).map((file) => ({
+        id: crypto.randomUUID(),
+        file,
+        previewUrl: URL.createObjectURL(file),
+      }))
+      return [...currentImages, ...acceptedImages]
+    })
+    if (resultImagesInputRef.current) {
+      resultImagesInputRef.current.value = ''
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const activeResultId = persistedResultId
     
     // Prevent editing if result is validated
-    if (resultId && isValidated) {
+    if (activeResultId && isValidated) {
       setValidationError('Este resultado no puede ser editado porque ya está validado.')
       return
     }
@@ -2776,12 +2834,12 @@ export default function AddResultModal({
         }
       }
 
-      const url = resultId ? `/api/results/${resultId}` : '/api/results'
-      const method = resultId ? 'PATCH' : 'POST'
+      const url = activeResultId ? `/api/results/${activeResultId}` : '/api/results'
+      const method = activeResultId ? 'PATCH' : 'POST'
 
       // For PATCH, merge methodologies and identification_techniques into findings so the API stores them (same shape as on create)
       const findingsToSend =
-        resultId && findings && typeof findings === 'object'
+        activeResultId && findings && typeof findings === 'object'
           ? { ...findings, methodologies: formData.methodologies, identification_techniques: formData.identification_techniques }
           : findings
 
@@ -2837,7 +2895,7 @@ export default function AddResultModal({
       }
 
       // Only include test_area for new results (it's set during creation)
-      if (!resultId && selectedAnalysisArea) {
+      if (!activeResultId && selectedAnalysisArea) {
         requestBody.test_area = selectedAnalysisArea
       }
 
@@ -2851,14 +2909,44 @@ export default function AddResultModal({
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || (resultId ? 'Failed to update result' : 'Failed to create result'))
+        throw new Error(errorData.error || (activeResultId ? 'Failed to update result' : 'Failed to create result'))
+      }
+
+      const savedResult = await response.json()
+      const savedResultId = activeResultId || savedResult?.id
+      const imageSelectionChanged =
+        pendingResultImages.length > 0 || removedResultImageNames.length > 0
+
+      if (savedResultId && imageSelectionChanged) {
+        const imageFormData = new FormData()
+        keptResultImages.forEach((image) => imageFormData.append('keep', image.name))
+        pendingResultImages.forEach((image) => imageFormData.append('images', image.file))
+
+        const uploadResponse = await fetch(`/api/results/${savedResultId}/images`, {
+          method: 'POST',
+          body: imageFormData,
+        })
+
+        if (!uploadResponse.ok) {
+          setPersistedResultId(savedResultId)
+          const uploadBody = await uploadResponse.json().catch(() => null)
+          throw new Error(uploadBody?.error || 'No se pudieron subir las imágenes')
+        }
+
+        const uploaded = await uploadResponse.json()
+        setExistingResultImages(Array.isArray(uploaded.images) ? uploaded.images : [])
+        setRemovedResultImageNames([])
+        setPendingResultImages((currentImages) => {
+          currentImages.forEach((image) => URL.revokeObjectURL(image.previewUrl))
+          return []
+        })
       }
 
       onSuccess()
       onClose()
       
       // Reset form only if creating new result
-      if (!resultId) {
+      if (!activeResultId) {
         setFormData({
           sample_id: preselectedSampleId || '',
           sample_test_id: '',
@@ -2914,9 +3002,13 @@ export default function AddResultModal({
         setIsolationColumnLabels(getDefaultColumnLabels('phytopathology_isolation'))
       }
     } catch (error: unknown) {
-      console.error(`Error ${resultId ? 'updating' : 'creating'} result:`, error)
+      console.error(`Error ${persistedResultId ? 'updating' : 'creating'} result:`, error)
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
-      setValidationError(`Error al ${resultId ? 'actualizar' : 'crear'} el resultado: ${errorMessage}`)
+      setValidationError(
+        errorMessage.includes('imágenes')
+          ? errorMessage
+          : `Error al ${persistedResultId ? 'actualizar' : 'crear'} el resultado: ${errorMessage}`
+      )
     } finally {
       setIsSubmitting(false)
     }
@@ -3175,6 +3267,88 @@ export default function AddResultModal({
                       disabled={isValidated}
                     />
                   </Field>
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={isValidated || isSubmitting || selectedResultImageCount >= MAX_REPORT_IMAGES}
+                        onClick={() => resultImagesInputRef.current?.click()}
+                        className="gap-2"
+                      >
+                        <ImagePlus className="h-4 w-4" />
+                        Agregar imágenes
+                      </Button>
+                      <span className="text-xs text-muted-foreground">máximo 3 imágenes</span>
+                    </div>
+                    <input
+                      ref={resultImagesInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      multiple
+                      className="hidden"
+                      disabled={isValidated}
+                      onChange={(event) => addPendingResultImages(event.target.files)}
+                    />
+                    {selectedResultImageCount > 0 && (
+                      <ul className="grid grid-cols-3 gap-3">
+                        {keptResultImages.map((image) => (
+                          <li
+                            key={image.name}
+                            className="relative overflow-hidden rounded-lg border border-gray-200 bg-white"
+                          >
+                            <img
+                              src={image.url}
+                              alt={image.name}
+                              className="h-24 w-full object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setRemovedResultImageNames((currentNames) =>
+                                  currentNames.includes(image.name)
+                                    ? currentNames
+                                    : [...currentNames, image.name]
+                                )
+                              }
+                              disabled={isValidated || isSubmitting}
+                              aria-label={`Quitar ${image.name}`}
+                              className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </li>
+                        ))}
+                        {pendingResultImages.map((image) => (
+                          <li
+                            key={image.id}
+                            className="relative overflow-hidden rounded-lg border border-gray-200 bg-white"
+                          >
+                            <img
+                              src={image.previewUrl}
+                              alt={image.file.name}
+                              className="h-24 w-full object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPendingResultImages((currentImages) => {
+                                  const removedImage = currentImages.find((item) => item.id === image.id)
+                                  if (removedImage) URL.revokeObjectURL(removedImage.previewUrl)
+                                  return currentImages.filter((item) => item.id !== image.id)
+                                })
+                              }
+                              disabled={isValidated || isSubmitting}
+                              aria-label={`Quitar ${image.file.name}`}
+                              className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                   <Field label="Recomendaciones">
                     <RichTextEditor
                       value={formData.recommendations}

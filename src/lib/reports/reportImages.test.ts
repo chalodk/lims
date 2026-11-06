@@ -5,6 +5,7 @@ import {
   REPORT_IMAGE_MAX_BYTES,
   describeReportImageFile,
   isReportId,
+  assignResultImageSlots,
   reportImageFileNames,
   reportImageObjectPath,
   reportImageStoragePath,
@@ -72,6 +73,18 @@ describe('reportImageFileNames', () => {
       ]),
       ['01.jpg', '03.webp']
     )
+  })
+})
+
+describe('assignResultImageSlots', () => {
+  it('fills the lowest free positions and keeps occupied ones', () => {
+    assert.deepEqual(assignResultImageSlots(['02.jpg'], 1), [1])
+    assert.deepEqual(assignResultImageSlots(['01.png', '02.jpg'], 1), [3])
+    assert.deepEqual(assignResultImageSlots([], 2), [1, 2])
+  })
+
+  it('rejects a set larger than three images', () => {
+    assert.throws(() => assignResultImageSlots(['01.png', '02.jpg', '03.webp'], 1))
   })
 })
 

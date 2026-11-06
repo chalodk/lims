@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  analystNarrativeHtml,
   emptyRichTextToNull,
   joinVisibleRichHtml,
   richTextHasVisibleContent,
@@ -60,6 +61,36 @@ describe('joinVisibleRichHtml', () => {
     assert.equal(
       joinVisibleRichHtml([emptyParagraph, emptyParagraphWithBreak, null]),
       ''
+    )
+  })
+})
+
+describe('analystNarrativeHtml', () => {
+  it('stays empty when no result has a written narrative', () => {
+    assert.equal(
+      analystNarrativeHtml(
+        [emptyParagraph, emptyParagraphWithBreak, null],
+        [emptyParagraph, '   ']
+      ),
+      ''
+    )
+  })
+
+  it('keeps the written conclusion and ignores a blank diagnosis', () => {
+    assert.equal(
+      analystNarrativeHtml(
+        [emptyParagraph, visibleConclusion],
+        [emptyParagraphWithBreak]
+      ),
+      visibleConclusion
+    )
+  })
+
+  it('uses the secondary field only when the primary field is blank', () => {
+    const diagnosis = '<p class="mb-1">Diagnóstico escrito.</p>'
+    assert.equal(
+      analystNarrativeHtml([emptyParagraph, null], [diagnosis]),
+      diagnosis
     )
   })
 })

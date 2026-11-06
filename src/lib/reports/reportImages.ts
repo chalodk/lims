@@ -67,6 +67,49 @@ export function describeReportImageFile(
   }
 }
 
+/** Número de posición `01`–`03` de un archivo guardado, si el nombre lo trae. */
+export function resultImageSlot(fileName: string): number | null {
+  const match = /^(\d{2})\.[a-z0-9]+$/i.exec(fileName)
+  if (!match) return null
+  const slot = Number(match[1])
+  if (slot < 1 || slot > MAX_REPORT_IMAGES) return null
+  return slot
+}
+
+/**
+ * Huecos libres para archivos nuevos. Los nombres conservados ocupan su posición
+ * y el total no puede pasar de MAX_REPORT_IMAGES.
+ */
+export function assignResultImageSlots(keptFileNames: string[], newFileCount: number): number[] {
+  if (newFileCount < 0 || keptFileNames.length + newFileCount > MAX_REPORT_IMAGES) {
+    throw new Error('Cantidad de imágenes inválida')
+  }
+
+  const usedSlots = new Set<number>()
+  for (const fileName of keptFileNames) {
+    const slot = resultImageSlot(fileName)
+    if (slot && !usedSlots.has(slot)) {
+      usedSlots.add(slot)
+      continue
+    }
+    for (let candidate = 1; candidate <= MAX_REPORT_IMAGES; candidate += 1) {
+      if (!usedSlots.has(candidate)) {
+        usedSlots.add(candidate)
+        break
+      }
+    }
+  }
+
+  const assignedSlots: number[] = []
+  for (let slot = 1; slot <= MAX_REPORT_IMAGES && assignedSlots.length < newFileCount; slot += 1) {
+    if (!usedSlots.has(slot)) assignedSlots.push(slot)
+  }
+  if (assignedSlots.length < newFileCount) {
+    throw new Error('No hay espacio para más imágenes')
+  }
+  return assignedSlots
+}
+
 export function reportImageStoragePath(
   reportId: string,
   index: number,

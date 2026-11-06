@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth/api-auth'
 import { syncFindingsNormalized } from '@/lib/services/findingsNormalizedService'
 import { emptyRichTextToNull } from '@/lib/reports/richTextForPdf'
+import { deleteResultImageObjects } from '@/lib/reports/reportImageStorage'
 
 export const GET = withAuth(async (request, { user, supabase, params }) => {
   try {
@@ -262,6 +263,16 @@ export const DELETE = withAuth(async (request, { user, supabase, params }) => {
     // Only allow deletion if result is not validated
     if (currentResult.status === 'validated') {
       return NextResponse.json({ error: 'Cannot delete validated results' }, { status: 403 })
+    }
+
+    try {
+      await deleteResultImageObjects(id)
+    } catch (storageError) {
+      console.error('Error deleting result images:', storageError)
+      return NextResponse.json(
+        { error: 'No se pudieron eliminar las imágenes del resultado' },
+        { status: 500 }
+      )
     }
 
     const { error } = await supabase

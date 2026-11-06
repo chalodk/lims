@@ -19,9 +19,8 @@ import {
   joinSintomatologia,
   mapIsolationResultados,
 } from '@/lib/reports/phytopathologyIsolation'
-import { joinVisibleRichHtml } from '@/lib/reports/richTextForPdf'
-import { isReportId } from '@/lib/reports/reportImages'
-import { listReportImagePublicUrls } from '@/lib/reports/reportImageStorage'
+import { analystNarrativeHtml, joinVisibleRichHtml } from '@/lib/reports/richTextForPdf'
+import { listResultImagePublicUrls } from '@/lib/reports/reportImageStorage'
 
 interface ReportData {
   id: string
@@ -511,7 +510,12 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         },
         resultados: resultadosPayload,
         diagnostico: {
-          descripcion: 'Los resultados de los análisis de detección precoz efectuados en las muestras demostraron diferentes niveles de severidad. Se evaluó la presencia del patógeno utilizando la escala de severidad establecida, permitiendo determinar el potencial de inoculo en las muestras analizadas.'
+          descripcion: wrapHtmlPreservingWhitespaceForPdf(
+            analystNarrativeHtml(
+              resultados.map((resultado) => resultado?.diagnosis),
+              resultados.map((resultado) => resultado?.conclusion)
+            )
+          )
         },
         columnLabels: extractColumnLabels(resultados),
         analista: {
@@ -756,15 +760,12 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         },
         resultados: resultadosData,
         diagnostico: {
-          descripcion: (() => {
-            const diagnosisJoined = joinVisibleRichHtml(resultados.map((resultado) => resultado?.diagnosis))
-            const conclusionJoined = joinVisibleRichHtml(resultados.map((resultado) => resultado?.conclusion))
-            const richHtml = diagnosisJoined || conclusionJoined
-            if (!richHtml) {
-              return 'Análisis fitopatológico completado. Los microorganismos identificados corresponden a la flora natural del suelo.'
-            }
-            return wrapHtmlPreservingWhitespaceForPdf(richHtml)
-          })()
+          descripcion: wrapHtmlPreservingWhitespaceForPdf(
+            analystNarrativeHtml(
+              resultados.map((resultado) => resultado?.diagnosis),
+              resultados.map((resultado) => resultado?.conclusion)
+            )
+          )
         },
         notaResultados: 'Los resultados solamente son válidos sólo para las muestras analizadas las que fueron proporcionadas por el cliente.',
         columnLabels: extractColumnLabels(resultados),
@@ -951,15 +952,12 @@ const PDF_TEMPLATES: Record<AnalysisType, TemplateConfig> = {
         },
         resultados: resultadosPayload,
         conclusiones: {
-          descripcion: (() => {
-            const conclusionJoined = joinVisibleRichHtml(resultados.map((resultado) => resultado?.conclusion))
-            const diagnosisJoined = joinVisibleRichHtml(resultados.map((resultado) => resultado?.diagnosis))
-            const richHtml = conclusionJoined || diagnosisJoined
-            if (!richHtml) {
-              return 'La muestra analizada no presentó nematodos fitoparásitos.'
-            }
-            return wrapHtmlPreservingWhitespaceForPdf(richHtml)
-          })()
+          descripcion: wrapHtmlPreservingWhitespaceForPdf(
+            analystNarrativeHtml(
+              resultados.map((resultado) => resultado?.conclusion),
+              resultados.map((resultado) => resultado?.diagnosis)
+            )
+          )
         },
         columnLabels: resolvePdfColumnLabels(resultados, 'nematology'),
         analista: {
@@ -1375,18 +1373,17 @@ export const POST = withAuth(async (request, { user, supabase }) => {
       // Dynamically resolve template and payload based on analysis type
       const { templateId, payload: templatePayload } = await resolveTemplateAndPayload(report!, client, grupoResultados, userCompanyId, analystName)
 
-      const reportIdForImages = report_id || report?.id
       let reportImageUrls: string[] = []
-      if (typeof reportIdForImages === 'string' && isReportId(reportIdForImages)) {
-        try {
-          reportImageUrls = await listReportImagePublicUrls(reportIdForImages)
-        } catch (imageError) {
-          console.error('PDFMonkey: failed to list report images:', imageError)
-          return NextResponse.json(
-            { error: 'No se pudieron leer las imágenes del informe' },
-            { status: 500 }
-          )
-        }
+      try {
+        reportImageUrls = await listResultImagePublicUrls(
+          grupoResultados.map((resultado) => resultado.id)
+        )
+      } catch (imageError) {
+        console.error('PDFMonkey: failed to list report images:', imageError)
+        return NextResponse.json(
+          { error: 'No se pudieron leer las imágenes del informe' },
+          { status: 500 }
+        )
       }
       const templatePayloadWithImages = {
         ...templatePayload,
@@ -1515,12 +1512,18 @@ export const POST = withAuth(async (request, { user, supabase }) => {
         
         // Resolve template and payload for this group
         const { templateId, payload: templatePayload } = await resolveTemplateAndPayload(grupoReport, client, grupoResultados, userCompanyId, analystName)
+        const templatePayloadWithImages = {
+          ...templatePayload,
+          report_images: await listResultImagePublicUrls(
+            grupoResultados.map((resultado) => resultado.id)
+          ),
+        }
         
         const payload: Record<string, unknown> = {
           document: {
             document_template_id: templateId,
             status: 'pending',
-            payload: templatePayload,
+            payload: templatePayloadWithImages,
             meta: {
               target_id: targetId,
               result_id: null, // Multiple results, no single result_id
@@ -1570,13 +1573,13 @@ export const POST = withAuth(async (request, { user, supabase }) => {
         if (reportIdForPayload && reportIdForPayload !== 'temp-report' && !reportIdForPayload.startsWith('temp-report-')) {
           console.log(`PDFMonkey: Updating report with payload for ${analysisType}:`, {
             reportId: reportIdForPayload,
-            payloadKeys: Object.keys(templatePayload)
+            payloadKeys: Object.keys(templatePayloadWithImages)
           })
           
           const { error: updateError } = await supabase
             .from('reports')
             .update({ 
-              payload: templatePayload,
+              payload: templatePayloadWithImages,
               updated_at: new Date().toISOString()
             })
             .eq('id', reportIdForPayload)
