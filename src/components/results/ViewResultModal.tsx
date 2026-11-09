@@ -134,7 +134,8 @@ import {
   Shield,
   Loader2,
   CheckCheck,
-  Search
+  Search,
+  ImageIcon,
 } from 'lucide-react'
 import {
   Dialog,
@@ -160,6 +161,8 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isValidating, setIsValidating] = useState(false)
+  const [attachedImageCount, setAttachedImageCount] = useState<number | null>(null)
+  const [imageCountError, setImageCountError] = useState<string | null>(null)
 
   const fetchResult = useCallback(async () => {
     if (!resultId) return
@@ -184,8 +187,38 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
   }, [resultId])
 
   useEffect(() => {
-    if (isOpen && resultId) {
-      fetchResult()
+    if (!isOpen || !resultId) {
+      setAttachedImageCount(null)
+      setImageCountError(null)
+      return
+    }
+
+    let cancelled = false
+    setAttachedImageCount(null)
+    setImageCountError(null)
+    fetchResult()
+
+    const loadAttachedImageCount = async () => {
+      try {
+        const response = await fetch(`/api/results/${resultId}/images`)
+        if (!response.ok) {
+          throw new Error('No se pudo saber cuántas imágenes hay adjuntas')
+        }
+        const data = await response.json()
+        if (cancelled) return
+        const images = Array.isArray(data.images) ? data.images : []
+        setAttachedImageCount(images.length)
+      } catch (loadError) {
+        if (cancelled) return
+        console.error('Error fetching result images:', loadError)
+        setAttachedImageCount(null)
+        setImageCountError('No se pudo saber cuántas imágenes hay adjuntas')
+      }
+    }
+
+    void loadAttachedImageCount()
+    return () => {
+      cancelled = true
     }
   }, [isOpen, resultId, fetchResult])
 
@@ -947,6 +980,26 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
                   </div>
                 </FormSection>
               )}
+
+              {attachedImageCount !== null && attachedImageCount > 0 ? (
+                <FormSection
+                  title="Imágenes"
+                  description="Archivos adjuntos a este resultado"
+                >
+                  <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800">
+                    <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span>
+                      {attachedImageCount === 1
+                        ? '1 imagen adjunta'
+                        : `${attachedImageCount} imágenes adjuntas`}
+                    </span>
+                  </div>
+                </FormSection>
+              ) : null}
+
+              {imageCountError ? (
+                <p className="text-sm text-amber-800">{imageCountError}</p>
+              ) : null}
 
               {result.findings && Object.keys(result.findings).length > 0 ? (
                 <FormSection
