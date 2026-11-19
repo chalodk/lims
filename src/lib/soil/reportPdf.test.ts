@@ -1,6 +1,11 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildSoilPdfMonkeyPayload, formatSoilReportTimestamp } from './reportPdf'
+import {
+  buildSoilPdfMonkeyPayload,
+  formatSoilReportTimestamp,
+  resolveSoilPdfTemplateId,
+  SOIL_PDF_TEMPLATE_FALLBACK_ID,
+} from './reportPdf'
 import type { SoilReportPayload } from './reportPayload'
 
 const createdAt = '2026-11-12T15:00:00.000Z'
@@ -98,5 +103,11 @@ describe('buildSoilPdfMonkeyPayload', () => {
 
     assert.equal(document.muestras[0].cliente, 'Sin cliente')
     assert.equal(document.fecha, 'fecha-no-valida')
+  })
+
+  it('uses the soil template when the environment variable is missing', () => {
+    assert.equal(resolveSoilPdfTemplateId(undefined), SOIL_PDF_TEMPLATE_FALLBACK_ID)
+    assert.equal(resolveSoilPdfTemplateId('   '), SOIL_PDF_TEMPLATE_FALLBACK_ID)
+    assert.equal(resolveSoilPdfTemplateId('  template-custom  '), 'template-custom')
   })
 })

@@ -28,6 +28,15 @@ export interface SoilPdfMonkeyPayload {
 
 const REPORT_TIME_ZONE = 'America/Santiago'
 
+/** Plantilla de suelo en PDFMonkey. La variable de entorno la reemplaza sin tocar el código. */
+export const SOIL_PDF_TEMPLATE_FALLBACK_ID = '5B8439FB-FA56-4DEF-9701-076475C0BF71'
+
+export function resolveSoilPdfTemplateId(envValue: string | undefined): string {
+  const configuredTemplateId = envValue?.trim()
+  if (configuredTemplateId) return configuredTemplateId
+  return SOIL_PDF_TEMPLATE_FALLBACK_ID
+}
+
 export function formatSoilReportTimestamp(value: string): string {
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return value

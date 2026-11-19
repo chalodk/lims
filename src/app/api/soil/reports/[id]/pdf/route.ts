@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth/api-auth'
 import { requireSoilLab } from '@/lib/services/soilService'
-import { buildSoilPdfMonkeyPayload } from '@/lib/soil/reportPdf'
+import { buildSoilPdfMonkeyPayload, resolveSoilPdfTemplateId } from '@/lib/soil/reportPdf'
 import type { SoilReportPayload } from '@/lib/soil/reportPayload'
 
 export const maxDuration = 60
@@ -84,10 +84,7 @@ export const POST = withAuth(async (_request: NextRequest, { user, supabase, par
     const access = await requireSoilLab(supabase, user.id)
     if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status })
 
-    const templateId = process.env.PDFMONKEY_TEMPLATE_SUELO
-    if (!templateId) {
-      return NextResponse.json({ error: 'Falta la plantilla de suelo' }, { status: 503 })
-    }
+    const templateId = resolveSoilPdfTemplateId(process.env.PDFMONKEY_TEMPLATE_SUELO)
 
     const { id: reportId } = await (params as Promise<{ id: string }>)
     const { data, error } = await supabase
