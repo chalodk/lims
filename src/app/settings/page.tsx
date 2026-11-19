@@ -16,13 +16,11 @@ import {
   Shield,
   UserPlus,
   Link2,
-  FileText,
 } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils/formatters'
 import EditProfileModal from '@/components/settings/EditProfileModal'
 import CreateUserModal from '@/components/settings/CreateUserModal'
 import LinkUserClientsModal from '@/components/settings/LinkUserClientsModal'
-import CompanyTemplatesModal from '@/components/settings/CompanyTemplatesModal'
 import PlanUsageCard from '@/components/billing/PlanUsageCard'
 import { useCompanyBillingUsage } from '@/hooks/useCompanyBillingUsage'
 import { Button } from '@/components/ui/button'
@@ -90,7 +88,6 @@ export default function SettingsPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [linkingUser, setLinkingUser] = useState<UserProfile | null>(null)
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false)
-  const [isCompanyTemplatesOpen, setIsCompanyTemplatesOpen] = useState(false)
   const initialLoadRef = useRef(true)
 
   const fetchUsers = useCallback(async (options?: { silent?: boolean }) => {
@@ -425,30 +422,6 @@ export default function SettingsPage() {
           )}
         </Card>
 
-        {userRole === 'admin' ? (
-          <Card>
-            <CardHeader className="border-b border-gray-100">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <FileText className="h-4 w-4 text-green-700" />
-                Modelos informes - PDF
-              </CardTitle>
-              <CardDescription>
-                Personaliza los modelos de informe por tipo de análisis para tu empresa.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-4">
-              <Button
-                type="button"
-                onClick={() => setIsCompanyTemplatesOpen(true)}
-                className="gap-2"
-              >
-                <FileText className="h-4 w-4" />
-                Configurar templates
-              </Button>
-            </CardContent>
-          </Card>
-        ) : null}
-
         <EditProfileModal
           isOpen={isEditModalOpen}
           onClose={() => {
@@ -473,12 +446,6 @@ export default function SettingsPage() {
           }}
           user={linkingUser}
           onSuccess={handleEditSuccess}
-        />
-
-        <CompanyTemplatesModal
-          isOpen={isCompanyTemplatesOpen}
-          onClose={() => setIsCompanyTemplatesOpen(false)}
-          onSuccess={() => {}}
         />
       </div>
     </DashboardLayout>
