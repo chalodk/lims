@@ -471,8 +471,8 @@ export async function POST(request: NextRequest) {
       
       finalClientId = client_id
       finalCompanyId = clientData.company_id
-    } else if (selectedRoleName && selectedRoleName !== 'admin') {
-      // Para otros roles (excepto admin), usar company_id del usuario que crea
+    } else if (selectedRoleName) {
+      // Admin, validador y común quedan en el laboratorio de quien los crea.
       if (!currentUser.company_id) {
         return NextResponse.json({ 
           error: 'El usuario actual no tiene company_id asignado' 
@@ -481,7 +481,6 @@ export async function POST(request: NextRequest) {
       finalCompanyId = currentUser.company_id
       finalClientId = null
     }
-    // Si es admin, no se asigna company_id ni client_id (ambos null)
 
     // Determinar la contraseña según el rol
     // Para validador, comun o admin: companies.name + "!#2026#!"
@@ -582,7 +581,6 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (createProfileError) {
-      // Si falla la creación del perfil, eliminar el usuario de auth
       console.error('Error al crear perfil:', createProfileError)
       await supabaseAdmin.auth.admin.deleteUser(authUser.user.id)
       return NextResponse.json({
