@@ -11,6 +11,7 @@ import {
   loadRegisteredSamplesForImport,
   requireSoilLab,
 } from '@/lib/services/soilService'
+import { isSoilSampledBy, readIsoDate } from '@/lib/soil/sampleIntake'
 
 const SOIL_IMPORTS_BUCKET = 'soil-imports'
 const MAX_WORKBOOK_BYTES = 25 * 1024 * 1024
@@ -84,7 +85,10 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
       return NextResponse.json({ error: 'La planilla no tiene resultados para guardar' }, { status: 422 })
     }
 
-    const receivedAt = readReceivedAt(formData?.get('received_at'))
+    const receivedAt = readIsoDate(formData?.get('received_at'))
+    const sampledAt = readIsoDate(formData?.get('sampled_at'))
+    const sampledByValue = formData?.get('sampled_by')
+    const sampledBy = isSoilSampledBy(sampledByValue) ? sampledByValue : null
     let resultsToSave = preview.results
     if (preview.newSampleCodes.length > 0) {
       const clientId = formData?.get('client_id')
@@ -96,6 +100,15 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
       }
       if (!receivedAt) {
         return NextResponse.json({ error: 'La fecha de recepción no es válida' }, { status: 400 })
+      }
+      if (!sampledAt) {
+        return NextResponse.json({ error: 'La fecha de toma de muestra no es válida' }, { status: 400 })
+      }
+      if (!sampledBy) {
+        return NextResponse.json(
+          { error: 'Indica si muestreó el cliente o el laboratorio' },
+          { status: 400 }
+        )
       }
       const { data: client } = await supabase
         .from('clients')
@@ -113,6 +126,8 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
           companyId: access.companyId,
           clientId,
           receivedAt,
+          sampledAt,
+          sampledBy,
           createdBy: user.id,
           codes: preview.newSampleCodes,
         })
@@ -175,11 +190,6 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
     )
   }
 })
-
-function readReceivedAt(value: FormDataEntryValue | null | undefined): string | null {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
-  return value
-}
 
 function summarizeBySample(results: { sampleId: string | null; sampleCode: string; subsampleNumber: number }[]) {
   const summaryBySampleId = new Map<

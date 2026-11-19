@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { fieldClassName } from '@/components/ui/form-field-styles'
+import { SOIL_SAMPLED_BY_LABELS, todayIsoDate, type SoilSampledBy } from '@/lib/soil/sampleIntake'
 import {
   Table,
   TableBody,
@@ -67,12 +68,6 @@ interface ClientOption {
   name: string
 }
 
-function todayIsoDate(): string {
-  const now = new Date()
-  const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-  return localDate.toISOString().slice(0, 10)
-}
-
 function formatIssueLocation(issue: ImportIssue): string {
   return issue.rowNumber ? `${issue.sheetName}, fila ${issue.rowNumber}` : issue.sheetName
 }
@@ -82,6 +77,9 @@ export default function SoilImportPage() {
   const [preview, setPreview] = useState<ImportPreviewResponse | null>(null)
   const [clients, setClients] = useState<ClientOption[]>([])
   const [clientId, setClientId] = useState('')
+  const [receivedAt, setReceivedAt] = useState(todayIsoDate)
+  const [sampledAt, setSampledAt] = useState(todayIsoDate)
+  const [sampledBy, setSampledBy] = useState<SoilSampledBy>('client')
   const [isPreviewing, setIsPreviewing] = useState(false)
   const [isCommitting, setIsCommitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -106,7 +104,9 @@ export default function SoilImportPage() {
     const formData = new FormData()
     formData.append('file', selectedFile)
     formData.append('mode', mode)
-    formData.append('received_at', todayIsoDate())
+    formData.append('received_at', receivedAt)
+    formData.append('sampled_at', sampledAt)
+    formData.append('sampled_by', sampledBy)
     if (clientId) formData.append('client_id', clientId)
     const response = await fetch('/api/soil/imports', { method: 'POST', body: formData })
     const data = await response.json()
@@ -228,22 +228,59 @@ export default function SoilImportPage() {
                   asigna solo a ellas; las que ya estaban registradas no cambian.
                 </p>
                 <p className="break-words text-muted-foreground">{preview.newSampleCodes.join(', ')}</p>
-                <div className="max-w-sm space-y-1.5">
-                  <Label htmlFor="import-client">Cliente de las muestras nuevas</Label>
-                  <select
-                    id="import-client"
-                    value={clientId}
-                    onChange={(event) => setClientId(event.target.value)}
-                    className={fieldClassName}
-                    required
-                  >
-                    <option value="">Selecciona un cliente</option>
-                    {clients.map((client) => (
-                      <option key={client.id} value={client.id}>
-                        {client.name}
-                      </option>
-                    ))}
-                  </select>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="import-client">Cliente de las muestras nuevas</Label>
+                    <select
+                      id="import-client"
+                      value={clientId}
+                      onChange={(event) => setClientId(event.target.value)}
+                      className={fieldClassName}
+                      required
+                    >
+                      <option value="">Selecciona un cliente</option>
+                      {clients.map((client) => (
+                        <option key={client.id} value={client.id}>
+                          {client.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="import-sampled-by">Muestreado por</Label>
+                    <select
+                      id="import-sampled-by"
+                      value={sampledBy}
+                      onChange={(event) => setSampledBy(event.target.value as SoilSampledBy)}
+                      className={fieldClassName}
+                      required
+                    >
+                      <option value="client">{SOIL_SAMPLED_BY_LABELS.client}</option>
+                      <option value="lab">{SOIL_SAMPLED_BY_LABELS.lab}</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="import-received">Fecha de recepción</Label>
+                    <input
+                      id="import-received"
+                      type="date"
+                      value={receivedAt}
+                      onChange={(event) => setReceivedAt(event.target.value)}
+                      className={fieldClassName}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="import-sampled">Toma de muestra</Label>
+                    <input
+                      id="import-sampled"
+                      type="date"
+                      value={sampledAt}
+                      onChange={(event) => setSampledAt(event.target.value)}
+                      className={fieldClassName}
+                      required
+                    />
+                  </div>
                 </div>
               </Card>
             ) : null}
@@ -333,7 +370,7 @@ export default function SoilImportPage() {
                 disabled={
                   preview.resultCount === 0 ||
                   isCommitting ||
-                  (preview.newSampleCodes.length > 0 && !clientId)
+                  (preview.newSampleCodes.length > 0 && (!clientId || !receivedAt || !sampledAt || !sampledBy))
                 }
                 className="gap-1"
               >

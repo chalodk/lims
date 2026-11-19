@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/table'
 import { formatSoilResultValue } from '@/lib/soil/formatResult'
 import { SOIL_SAMPLE_STATUS_LABELS, type SoilSampleStatus } from '../soilLabels'
+import { soilSampledByLabel } from '@/lib/soil/sampleIntake'
 
 interface SoilSampleDetail {
   sample: {
@@ -24,6 +25,8 @@ interface SoilSampleDetail {
     code: string
     status: SoilSampleStatus
     receivedAt: string
+    sampledAt: string
+    sampledBy: string
     notes: string | null
     clientName: string | null
   }
@@ -98,6 +101,8 @@ export default function SoilSampleDetailPage() {
             <Card className="grid gap-3 p-4 text-sm sm:grid-cols-3">
               <DetailField label="Cliente" value={detail.sample.clientName} />
               <DetailField label="Recepción" value={detail.sample.receivedAt} />
+              <DetailField label="Toma de muestra" value={detail.sample.sampledAt} />
+              <DetailField label="Muestreado por" value={soilSampledByLabel(detail.sample.sampledBy)} />
               {detail.sample.notes ? (
                 <div className="sm:col-span-3">
                   <DetailField label="Observaciones" value={detail.sample.notes} />

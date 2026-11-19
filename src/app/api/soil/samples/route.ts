@@ -1,23 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
 import { withAuth } from '@/lib/auth/api-auth'
 import { requireSoilLab } from '@/lib/services/soilService'
-
-const createSoilSampleSchema = z.object({
-  client_id: z.string().uuid(),
-  code: z
-    .string()
-    .trim()
-    .regex(/^\d+$/, 'El código de muestra debe ser numérico, igual que la columna A del Excel'),
-  received_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  notes: z.string().trim().max(2000).optional(),
-})
+import { createSoilSampleSchema } from '@/lib/soil/sampleIntake'
 
 type SoilSampleListRow = {
   id: string
   code: string
   status: string
   received_at: string
+  sampled_at: string
+  sampled_by: string
   created_at: string
   clients: { name: string } | { name: string }[] | null
   soil_subsamples: { number: number; soil_results: { id: string }[] | null }[] | null
@@ -36,7 +28,7 @@ export const GET = withAuth(async (_request: NextRequest, { user, supabase }) =>
     const { data, error } = await supabase
       .from('soil_samples')
       .select(
-        'id, code, status, received_at, created_at, clients(name), soil_subsamples(number, soil_results(id))'
+        'id, code, status, received_at, sampled_at, sampled_by, created_at, clients(name), soil_subsamples(number, soil_results(id))'
       )
       .eq('company_id', access.companyId)
       .order('received_at', { ascending: false })
@@ -55,6 +47,8 @@ export const GET = withAuth(async (_request: NextRequest, { user, supabase }) =>
         code: row.code,
         status: row.status,
         receivedAt: row.received_at,
+        sampledAt: row.sampled_at,
+        sampledBy: row.sampled_by,
         clientName: firstOf(row.clients)?.name ?? null,
         subsampleCount: subsamples.length,
         resultCount,
@@ -74,7 +68,7 @@ export const GET = withAuth(async (_request: NextRequest, { user, supabase }) =>
   }
 })
 
-/** POST /api/soil/samples — registra cliente, número, comentario y fecha de recepción. */
+/** POST /api/soil/samples — registra cliente, número, comentario, recepción y toma de muestra. */
 export const POST = withAuth(async (request: NextRequest, { user, supabase }) => {
   try {
     const access = await requireSoilLab(supabase, user.id)
@@ -106,6 +100,8 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
         client_id: sampleInput.client_id,
         code: sampleInput.code,
         received_at: sampleInput.received_at,
+        sampled_at: sampleInput.sampled_at,
+        sampled_by: sampleInput.sampled_by,
         notes: sampleInput.notes || null,
         created_by: user.id,
       })

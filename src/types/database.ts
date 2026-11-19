@@ -1088,6 +1088,18 @@ export interface Database {
         }
         Returns: Json
       }
+      csx_company_operational_counts: {
+        Args: {
+          p_company_id: string
+        }
+        Returns: Json
+      }
+      csx_purge_company_operational_data: {
+        Args: {
+          p_company_id: string
+        }
+        Returns: Json
+      }
     }
 
     Enums: {

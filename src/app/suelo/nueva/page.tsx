@@ -9,16 +9,11 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { fieldClassName, textareaClassName } from '@/components/ui/form-field-styles'
+import { SOIL_SAMPLED_BY_LABELS, todayIsoDate, type SoilSampledBy } from '@/lib/soil/sampleIntake'
 
 interface ClientOption {
   id: string
   name: string
-}
-
-function todayIsoDate(): string {
-  const now = new Date()
-  const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-  return localDate.toISOString().slice(0, 10)
 }
 
 export default function NewSoilSamplePage() {
@@ -31,6 +26,8 @@ export default function NewSoilSamplePage() {
   const [clientId, setClientId] = useState('')
   const [sampleCode, setSampleCode] = useState('')
   const [receivedAt, setReceivedAt] = useState(todayIsoDate)
+  const [sampledAt, setSampledAt] = useState(todayIsoDate)
+  const [sampledBy, setSampledBy] = useState<SoilSampledBy>('client')
   const [notes, setNotes] = useState('')
 
   useEffect(() => {
@@ -61,6 +58,8 @@ export default function NewSoilSamplePage() {
           client_id: clientId,
           code: sampleCode.trim(),
           received_at: receivedAt,
+          sampled_at: sampledAt,
+          sampled_by: sampledBy,
           notes: notes.trim() || undefined,
         }),
       })
@@ -73,7 +72,7 @@ export default function NewSoilSamplePage() {
     }
   }
 
-  const canSubmit = Boolean(clientId && sampleCode.trim() && receivedAt) && !isSaving
+  const canSubmit = Boolean(clientId && sampleCode.trim() && receivedAt && sampledAt && sampledBy) && !isSaving
 
   return (
     <DashboardLayout>
@@ -139,6 +138,30 @@ export default function NewSoilSamplePage() {
                   className={fieldClassName}
                   required
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="soil-sampled">Toma de muestra</Label>
+                <input
+                  id="soil-sampled"
+                  type="date"
+                  value={sampledAt}
+                  onChange={(event) => setSampledAt(event.target.value)}
+                  className={fieldClassName}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="soil-sampled-by">Muestreado por</Label>
+                <select
+                  id="soil-sampled-by"
+                  value={sampledBy}
+                  onChange={(event) => setSampledBy(event.target.value as SoilSampledBy)}
+                  className={fieldClassName}
+                  required
+                >
+                  <option value="client">{SOIL_SAMPLED_BY_LABELS.client}</option>
+                  <option value="lab">{SOIL_SAMPLED_BY_LABELS.lab}</option>
+                </select>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="soil-notes">Comentario</Label>

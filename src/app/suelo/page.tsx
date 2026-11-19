@@ -16,12 +16,15 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { SOIL_SAMPLE_STATUS_LABELS, type SoilSampleStatus } from './soilLabels'
+import { soilSampledByLabel } from '@/lib/soil/sampleIntake'
 
 interface SoilSampleListItem {
   id: string
   code: string
   status: SoilSampleStatus
   receivedAt: string
+  sampledAt: string
+  sampledBy: string
   clientName: string | null
   subsampleCount: number
   resultCount: number
@@ -118,6 +121,8 @@ export default function SoilSamplesPage() {
                     <TableHead>Código</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Recepción</TableHead>
+                    <TableHead>Toma de muestra</TableHead>
+                    <TableHead>Muestreado por</TableHead>
                     <TableHead className="text-right">Submuestras</TableHead>
                     <TableHead className="text-right">Resultados</TableHead>
                     <TableHead>Estado</TableHead>
@@ -133,6 +138,8 @@ export default function SoilSamplesPage() {
                       </TableCell>
                       <TableCell>{sample.clientName ?? '—'}</TableCell>
                       <TableCell>{sample.receivedAt}</TableCell>
+                      <TableCell>{sample.sampledAt}</TableCell>
+                      <TableCell>{soilSampledByLabel(sample.sampledBy)}</TableCell>
                       <TableCell className="text-right">{sample.subsampleCount}</TableCell>
                       <TableCell className="text-right">{sample.resultCount}</TableCell>
                       <TableCell>
@@ -144,7 +151,7 @@ export default function SoilSamplesPage() {
                   ))}
                   {visibleSamples.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                      <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                         {samples.length === 0 ? 'Aún no hay muestras de suelo' : 'Sin coincidencias'}
                       </TableCell>
                     </TableRow>

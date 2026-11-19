@@ -15,6 +15,8 @@ type SoilSampleDetailRow = {
   code: string
   status: string
   received_at: string
+  sampled_at: string
+  sampled_by: string
   notes: string | null
   clients: { name: string } | { name: string }[] | null
   soil_subsamples:
@@ -52,7 +54,7 @@ export const GET = withAuth(
       const { data, error } = await supabase
         .from('soil_samples')
         .select(
-          'id, code, status, received_at, notes, clients(name), soil_subsamples(id, number, soil_results(analysis_id, value_numeric, value_qualifier, value_text, raw_value, unit, basis, soil_analyses(id, report_title, unit, method_label, sort_order)))'
+          'id, code, status, received_at, sampled_at, sampled_by, notes, clients(name), soil_subsamples(id, number, soil_results(analysis_id, value_numeric, value_qualifier, value_text, raw_value, unit, basis, soil_analyses(id, report_title, unit, method_label, sort_order)))'
         )
         .eq('id', sampleId)
         .eq('company_id', access.companyId)
@@ -98,6 +100,8 @@ export const GET = withAuth(
           code: sample.code,
           status: sample.status,
           receivedAt: sample.received_at,
+          sampledAt: sample.sampled_at,
+          sampledBy: sample.sampled_by,
           notes: sample.notes,
           clientName: firstOf(sample.clients)?.name ?? null,
         },

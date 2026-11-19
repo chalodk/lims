@@ -7,6 +7,7 @@ import type {
 } from '@/lib/soil/importPreview'
 import type { ReportPayloadAnalysis, ReportPayloadSampleInput } from '@/lib/soil/reportPayload'
 import { soilAnalysisReportSet } from '@/lib/soil/sheetLayouts'
+import type { SoilSampledBy } from '@/lib/soil/sampleIntake'
 
 type RoleJoin = { name: string } | { name: string }[] | null
 
@@ -149,7 +150,7 @@ export async function loadSoilMatrices(
 
 /**
  * Crea las muestras que la planilla trae y que todavía no existen.
- * El cliente y la fecha de recepción se aplican solo a estas.
+ * El cliente, la recepción y la toma de muestra se aplican solo a estas.
  */
 export async function createImportedSoilSamples(
   supabase: SupabaseServerClient,
@@ -157,6 +158,8 @@ export async function createImportedSoilSamples(
     companyId: string
     clientId: string
     receivedAt: string
+    sampledAt: string
+    sampledBy: SoilSampledBy
     createdBy: string
     codes: string[]
   }
@@ -170,6 +173,8 @@ export async function createImportedSoilSamples(
         client_id: input.clientId,
         code,
         received_at: input.receivedAt,
+        sampled_at: input.sampledAt,
+        sampled_by: input.sampledBy,
         created_by: input.createdBy,
       }))
     )

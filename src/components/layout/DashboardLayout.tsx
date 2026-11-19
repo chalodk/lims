@@ -28,6 +28,7 @@ import {
   Layers,
   FileSpreadsheet,
   Building2,
+  Eraser,
 } from 'lucide-react'
 import SidebarBrand from '@/components/branding/SidebarBrand'
 import { useAppBranding } from '@/contexts/AppBrandingContext'
@@ -61,6 +62,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/suelo/informes/nuevo': 'Crear informe de suelo',
   '/estadisticas': 'Estadísticas',
   '/admin/companies': 'Compañías',
+  '/admin/limpieza': 'Limpieza',
   '/admin/uso': 'Uso',
   '/admin/branding': 'Logos',
   '/settings': 'Configuración',
@@ -99,6 +101,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       { name: 'Estadísticas', href: '/estadisticas', icon: BarChart3, roles: ['admin', 'validador'] },
       { name: 'Configuración', href: '/settings', icon: Settings, roles: ['admin'] },
       { name: 'Compañías', href: '/admin/companies', icon: Building2, roles: ['csx'] },
+      { name: 'Limpieza', href: '/admin/limpieza', icon: Eraser, roles: ['csx'] },
       { name: 'Tipos de Análisis', href: '/admin/analysis-types', icon: Microscope, roles: ['csx'] },
       { name: 'Templates PDF', href: '/admin/company-templates', icon: FileText, roles: ['csx'] },
       { name: 'Metodologias', href: '/admin/methodology-options', icon: FlaskConical, roles: ['csx'] },
