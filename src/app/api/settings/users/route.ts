@@ -173,81 +173,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Obtener usuarios no autorizados de auth.users que no tienen registro en public.users
-    interface UnauthorizedUser {
-      id: string
-      name: string
-      email: string
-      role_id: null
-      roles: null
-      created_at: string
-      isUnauthorized: true
-    }
-    let unauthorizedUsers: UnauthorizedUser[] = []
-    try {
-      const supabaseAdmin = createAdminClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        {
-          auth: {
-            autoRefreshToken: false,
-            persistSession: false
-          }
-        }
-      )
-
-      // Obtener todos los usuarios de auth.users
-      const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers()
-
-      if (!authError && authUsers) {
-        // Obtener IDs de usuarios que ya están en public.users
-        interface UserWithId {
-          id: string
-          [key: string]: unknown
-        }
-        const existingPublicUserIds = new Set((usersData || []).map((u: UserWithId) => u.id))
-
-        // Filtrar usuarios que no están en public.users
-        interface AuthUserInfo {
-          id: string
-          email?: string
-          user_metadata?: { name?: string; company_id?: string }
-          created_at?: string
-        }
-        unauthorizedUsers = (authUsers.users || [])
-          .filter((authUser: AuthUserInfo) => {
-            if (existingPublicUserIds.has(authUser.id)) return false
-            if (companyId && authUser.user_metadata?.company_id && authUser.user_metadata.company_id !== companyId) return false
-            return true
-          })
-          .map((authUser: AuthUserInfo) => ({
-            id: authUser.id,
-            name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Sin nombre',
-            email: authUser.email || 'Sin email',
-            role_id: null,
-            roles: null,
-            created_at: authUser.created_at || new Date().toISOString(),
-            isUnauthorized: true // Flag para identificar usuarios no autorizados
-          }))
-      }
-    } catch (error) {
-      console.error('Error al obtener usuarios no autorizados:', error)
-      // Continuar sin usuarios no autorizados si hay error
-    }
-
-    console.log(`Usuarios obtenidos de BD: ${usersData?.length || 0}`)
-    console.log(`Usuarios no autorizados: ${unauthorizedUsers.length}`)
-    if (usersData && usersData.length > 0) {
-      interface UserWithRoleId {
-        role_id: number | null | undefined
-        [key: string]: unknown
-      }
-      const usersWithRole = usersData.filter((u: UserWithRoleId) => u.role_id !== null && u.role_id !== undefined)
-      const usersWithoutRole = usersData.filter((u: UserWithRoleId) => u.role_id === null || u.role_id === undefined)
-      console.log(`Usuarios con rol: ${usersWithRole.length}, Usuarios sin rol: ${usersWithoutRole.length}`)
-    }
-
-    // Formatear usuarios - incluir todos, incluso los que no tienen rol
+    // Formatear usuarios del laboratorio, incluso los que no tienen rol
     interface UserData {
       id: string
       name?: string
@@ -294,54 +220,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Formatear usuarios no autorizados
-    const unauthorizedFormatted = unauthorizedUsers.map((user: UnauthorizedUser) => ({
-      id: user.id,
-      name: user.name || 'Sin nombre',
-      email: user.email || 'Sin email',
-      role: 'Sin autorizar',
-      role_id: null,
-      created_at: user.created_at || new Date().toISOString(),
-      isUnauthorized: true
-    }))
-
-    // Aplicar filtro de búsqueda también a usuarios no autorizados
-    interface FormattedUser {
-      id: string
-      name: string
-      email: string
-      role: string
-      created_at: string
-      isUnauthorized?: boolean
-    }
-    let filteredUnauthorized = unauthorizedFormatted
-    if (searchQuery) {
-      const normalizedQuery = searchQuery.toLowerCase().trim()
-      filteredUnauthorized = unauthorizedFormatted.filter((user: FormattedUser) => {
-        const nameMatch = user.name?.toLowerCase().includes(normalizedQuery)
-        const emailMatch = user.email?.toLowerCase().includes(normalizedQuery)
-        const sinAutorizarMatch = ['sin autorizar', 'sin autoriz', 'no autorizado', 'pendiente', 'unauthorized']
-          .some(term => normalizedQuery.includes(term))
-        return nameMatch || emailMatch || sinAutorizarMatch
-      })
-    }
-
-    // Combinar usuarios de public.users y usuarios no autorizados (filtrados)
-    const allUsers = [...publicUsers, ...filteredUnauthorized]
-    
-    // Ordenar por fecha de creación (más recientes primero)
-    allUsers.sort((a, b) => {
-      const dateA = new Date(a.created_at).getTime()
-      const dateB = new Date(b.created_at).getTime()
-      return dateB - dateA
-    })
-    
-    console.log(`Total de usuarios obtenidos: ${allUsers.length}`)
-    console.log(`Usuarios autorizados: ${publicUsers.length}`)
-    console.log(`Usuarios no autorizados: ${filteredUnauthorized.length}`)
-    console.log(`Usuarios sin rol: ${allUsers.filter(u => u.role === 'Sin rol').length}`)
-
-    return NextResponse.json({ users: allUsers })
+    return NextResponse.json({ users: publicUsers })
   } catch (error) {
     return NextResponse.json({ 
       error: 'Error interno del servidor',
