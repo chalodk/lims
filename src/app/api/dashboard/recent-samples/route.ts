@@ -1,5 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth/api-auth'
+import { createServiceRoleClient } from '@/lib/supabase/admin'
+import {
+  loadDashboardActor,
+  pestDashboardReader,
+  resolvePestDashboardCompany,
+} from '@/lib/services/dashboardCompany'
 
 // Minimal types to reflect the Supabase response shape used below
 interface TestCatalogItem { id: string; name: string; area?: string }
@@ -13,21 +19,22 @@ interface SampleItem {
 
 export const GET = withAuth(async (request, { user, supabase }) => {
   try {
-    // Get user's company_id from users table
-    const { data: userData } = await supabase
-      .from('users')
-      .select('company_id')
-      .eq('id', user.id)
-      .single()
+    const actor = await loadDashboardActor(supabase, user.id)
+    if (!actor) {
+      return NextResponse.json({ error: 'Error al obtener información del usuario' }, { status: 500 })
+    }
 
-    const companyId = userData?.company_id
-
-    // Get query parameters
     const url = new URL(request.url)
+    const scope = resolvePestDashboardCompany(actor, url.searchParams.get('companyId'))
+    if (!scope.ok) {
+      return NextResponse.json({ error: scope.error }, { status: scope.status })
+    }
+
+    const reader = pestDashboardReader(actor.roleName) === 'service' ? createServiceRoleClient() : supabase
+    const companyId = scope.companyId
     const limit = parseInt(url.searchParams.get('limit') || '10')
 
-    // Query for recent samples
-    let query = supabase
+    let query = reader
       .from('samples')
       .select(`
         id,

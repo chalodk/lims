@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useCompanyFeatures } from '@/hooks/useCompanyFeatures'
+import { useSessionVertical } from '@/hooks/useSessionVertical'
+import { isRouteAllowedForVertical } from '@/config/verticals'
 import {
   Home,
   TestTube,
@@ -23,6 +25,9 @@ import {
   SlidersHorizontal,
   Activity,
   ImageIcon,
+  Layers,
+  FileSpreadsheet,
+  Building2,
 } from 'lucide-react'
 import SidebarBrand from '@/components/branding/SidebarBrand'
 import { useAppBranding } from '@/contexts/AppBrandingContext'
@@ -49,7 +54,13 @@ const PAGE_TITLES: Record<string, string> = {
   '/results': 'Resultados',
   '/clients': 'Clientes',
   '/reports': 'Informes',
+  '/suelo': 'Muestras de suelo',
+  '/suelo/nueva': 'Nueva muestra de suelo',
+  '/suelo/importar': 'Importar resultados',
+  '/suelo/informes': 'Informes de suelo',
+  '/suelo/informes/nuevo': 'Crear informe de suelo',
   '/estadisticas': 'Estadísticas',
+  '/admin/companies': 'Compañías',
   '/admin/uso': 'Uso',
   '/admin/branding': 'Logos',
   '/settings': 'Configuración',
@@ -62,7 +73,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const brandingId = useAppBranding()
   const companyLogo = useCompanySidebarLogo(isAuthenticated, brandingId, isLoading)
   const { flags, isLoading: featuresLoading } = useCompanyFeatures(isAuthenticated)
+  const { vertical: sessionVertical, isLoading: verticalLoading } = useSessionVertical(isAuthenticated)
   const pathname = usePathname()
+  const isCsx = userRole === 'csx'
 
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || !authUser)) {
@@ -78,10 +91,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       { name: 'Dashboard', href: '/dashboard', icon: Home, roles: ['admin', 'validador', 'comun', 'csx'] },
       { name: 'Muestras', href: '/samples', icon: TestTube, roles: ['admin', 'validador', 'comun'] },
       { name: 'Resultados', href: '/results', icon: FlaskConical, roles: ['admin', 'validador', 'comun'] },
+      { name: 'Muestras de suelo', href: '/suelo', icon: TestTube, roles: ['admin', 'validador', 'comun'] },
+      { name: 'Importar resultados', href: '/suelo/importar', icon: FileSpreadsheet, roles: ['admin', 'validador', 'comun'] },
+      { name: 'Informes de suelo', href: '/suelo/informes', icon: FileText, roles: ['admin', 'validador', 'comun'] },
       { name: 'Clientes', href: '/clients', icon: Users, roles: ['admin', 'validador', 'comun'] },
       { name: 'Informes', href: '/reports', icon: FileText, roles: ['admin', 'validador', 'comun', 'consumidor', 'csx'] },
       { name: 'Estadísticas', href: '/estadisticas', icon: BarChart3, roles: ['admin', 'validador'] },
       { name: 'Configuración', href: '/settings', icon: Settings, roles: ['admin'] },
+      { name: 'Compañías', href: '/admin/companies', icon: Building2, roles: ['csx'] },
       { name: 'Tipos de Análisis', href: '/admin/analysis-types', icon: Microscope, roles: ['csx'] },
       { name: 'Templates PDF', href: '/admin/company-templates', icon: FileText, roles: ['csx'] },
       { name: 'Metodologias', href: '/admin/methodology-options', icon: FlaskConical, roles: ['csx'] },
@@ -89,6 +106,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       { name: 'Billing', href: '/admin/billing', icon: CreditCard, roles: ['csx'] },
       { name: 'Uso', href: '/admin/uso', icon: Activity, roles: ['csx'] },
       { name: 'Features', href: '/admin/features', icon: SlidersHorizontal, roles: ['csx'] },
+      { name: 'Verticales', href: '/admin/verticals', icon: Layers, roles: ['csx'] },
       { name: 'Logos', href: '/admin/branding', icon: ImageIcon, roles: ['csx'] },
     ],
     []
@@ -96,6 +114,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const filteredNavigation = navigation.filter((item) => {
     if (!item.roles.includes(userRole || 'consumidor')) return false
+    if (!isCsx && !isRouteAllowedForVertical(item.href, sessionVertical)) return false
     if (
       userRole === 'consumidor' &&
       item.href === '/reports' &&
@@ -112,6 +131,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     'LIMS'
 
   const isConsumer = userRole === 'consumidor'
+  const isRouteBlockedByVertical =
+    !isCsx && !isRouteAllowedForVertical(pathname, sessionVertical)
   const sidebarWidthClass = desktopCollapsed ? 'lg:w-[4.5rem]' : 'lg:w-64'
 
   if (isLoading || !isAuthenticated || !authUser) {
@@ -256,7 +277,28 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </header>
 
         <main className="flex-1 overflow-x-hidden overflow-y-auto">
-          {children}
+          {!isRouteBlockedByVertical ? (
+            <>
+              {!isCsx && !verticalLoading && sessionVertical.status === 'none' ? (
+                <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 sm:px-6">
+                  Tu laboratorio todavía no tiene una vertical asignada. Pide a soporte que la configure.
+                </div>
+              ) : null}
+              {children}
+            </>
+          ) : verticalLoading ? (
+            <div className="flex min-h-[50vh] items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="mx-auto max-w-xl p-6">
+              <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+                {sessionVertical.status === 'none'
+                  ? 'Tu laboratorio todavía no tiene una vertical asignada. Pide a soporte que la configure para habilitar el registro de muestras.'
+                  : 'Esta sección no corresponde a la vertical de tu laboratorio.'}
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>

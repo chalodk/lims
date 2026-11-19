@@ -119,6 +119,21 @@ export const POST = withAuth(async (request, { user, supabase }) => {
       )
     }
 
+    const { data: hasPlagasVertical, error: verticalError } = await supabase.rpc(
+      'user_has_active_vertical',
+      { p_vertical_key: 'plagas_patogenos' }
+    )
+    if (verticalError) {
+      console.error('Error checking company vertical:', verticalError)
+      return NextResponse.json({ error: 'Error al verificar la vertical' }, { status: 500 })
+    }
+    if (!hasPlagasVertical) {
+      return NextResponse.json(
+        { error: 'Tu laboratorio no tiene habilitada la vertical de plagas y patógenos' },
+        { status: 403 }
+      )
+    }
+
     // Calculate due date based on SLA
     const receivedAt = new Date(received_date)
     const dueDate = new Date(receivedAt)
