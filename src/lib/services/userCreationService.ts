@@ -1,6 +1,9 @@
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { sendUserCredentialsToWebhook, type UserCredentialsOrigen } from './userCredentialsWebhook'
+import { validateEmail } from '@/lib/validation/validateEmail'
+
+export { validateEmail }
 
 /**
  * Tipos para el servicio de creación de usuarios
@@ -28,18 +31,6 @@ export interface CreateUserResult {
   webhookSent?: boolean
   webhookError?: string
   webhookSkippedReason?: 'NO_ORIGEN'
-}
-
-/**
- * Valida el formato de un email
- */
-export function validateEmail(email: string): boolean {
-  if (!email || !email.trim()) {
-    return false
-  }
-  
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(email.trim())
 }
 
 /**

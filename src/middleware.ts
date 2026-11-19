@@ -1,13 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { log, logError } from '@/lib/utils/logger'
+import { isPublicPage, redirectsAuthenticatedUserToApp } from '@/lib/auth/publicRoutes'
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   
-  // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/signup']
-  const isPublicRoute = publicRoutes.includes(pathname)
+  const isPublicRoute = isPublicPage(pathname)
   
   // Public API routes (auth callbacks, etc.)
   const publicApiRoutes = ['/api/auth/callback']
@@ -97,7 +96,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // If user is authenticated and trying to access auth pages
-    if (user && isPublicRoute) {
+    if (user && redirectsAuthenticatedUserToApp(pathname)) {
       console.log('🔄 Authenticated user accessing auth page, checking role for redirect')
       
       // Obtener el rol del usuario para redirigir correctamente

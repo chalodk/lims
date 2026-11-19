@@ -305,6 +305,7 @@ export interface Database {
           trial_ends_at: string | null
           feature_flags: Record<string, boolean>
           logo_url: string | null
+          created_by: string | null
         }
         Insert: {
           id?: string
@@ -318,6 +319,7 @@ export interface Database {
           trial_ends_at?: string | null
           feature_flags?: Record<string, boolean>
           logo_url?: string | null
+          created_by?: string | null
         }
         Update: Partial<Database['public']['Tables']['companies']['Insert']>
       }
@@ -1058,6 +1060,31 @@ export interface Database {
           p_this_start: string
           p_this_end: string
           p_company_id?: string | null
+        }
+        Returns: Json
+      }
+      create_company: {
+        Args: {
+          p_name: string
+        }
+        Returns: Json
+      }
+      csx_email_is_registered: {
+        Args: {
+          p_email: string
+        }
+        Returns: boolean
+      }
+      csx_company_first_admins: {
+        Args: Record<string, never>
+        Returns: Json
+      }
+      create_company_first_admin: {
+        Args: {
+          p_user_id: string
+          p_company_id: string
+          p_name: string
+          p_email: string
         }
         Returns: Json
       }
