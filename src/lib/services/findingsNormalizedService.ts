@@ -30,6 +30,7 @@ type FindingsJson = {
     result?: string
     quantity?: string | number
     is_sag_zero_tolerance?: boolean
+    noPathogenDevelopment?: boolean
     microorganisms?: Array<{
       name?: string
       is_sag_zero_tolerance?: boolean
@@ -124,6 +125,8 @@ export function extractFindingsNormalizedRows(params: {
 
   if (Array.isArray(parsed.tests)) {
     parsed.tests.forEach((test, sourceIndex) => {
+      if (test.noPathogenDevelopment === true) return
+
       if (Array.isArray(test.microorganisms) && test.microorganisms.length > 0) {
         let isolationIndex = rows.length
         test.microorganisms.forEach((microorganism) => {

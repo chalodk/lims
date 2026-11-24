@@ -1,4 +1,8 @@
-import { parseFindingsRecord, readSintomatologia } from '@/lib/results/phytopathologyFindings'
+import {
+  NO_PATHOGEN_DEVELOPMENT_LABEL,
+  parseFindingsRecord,
+  readSintomatologia,
+} from '@/lib/results/phytopathologyFindings'
 import { joinVisibleRichHtml } from '@/lib/reports/richTextForPdf'
 
 export interface IsolationResultadoInput {
@@ -54,7 +58,10 @@ export function mapIsolationResultados(
       const sampleNumber = typeof row.sampleNumber === 'string' ? row.sampleNumber.trim() : ''
       const identification = typeof row.identification === 'string' ? row.identification.trim() : ''
       const tissue = typeof row.tissue === 'string' ? row.tissue.trim() : ''
-      const microorganisms = readMicroorganismNames(row.microorganisms)
+      const noPathogenDevelopment = row.noPathogenDevelopment === true
+      const microorganisms = noPathogenDevelopment
+        ? [NO_PATHOGEN_DEVELOPMENT_LABEL]
+        : readMicroorganismNames(row.microorganisms)
 
       if (!sampleNumber && !identification && !tissue && microorganisms.length === 0) return
 

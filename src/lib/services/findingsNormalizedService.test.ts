@@ -60,4 +60,33 @@ describe('extractFindingsNormalizedRows isolation', () => {
     assert.equal(rows[0]?.source_index, 1)
     assert.equal(rows[0]?.pathogen_name, 'Penicillium sp.')
   })
+
+  it('skips a tissue without pathogen development and keeps the neighboring tissue', () => {
+    const rows = extractFindingsNormalizedRows({
+      resultId: 'result-1',
+      sampleId: 'sample-1',
+      findings: {
+        type: 'fitopatologia',
+        tableFormat: 'tissue_isolation',
+        tests: [
+          {
+            sampleNumber: '2686',
+            tissue: 'Corona',
+            noPathogenDevelopment: true,
+            microorganisms: [{ name: 'Fusarium sp.', is_sag_zero_tolerance: true }],
+          },
+          {
+            sampleNumber: '2686',
+            tissue: 'Injerto',
+            microorganisms: [{ name: 'Verticillium sp.', is_sag_zero_tolerance: false }],
+          },
+        ],
+      },
+    })
+
+    assert.deepEqual(
+      rows.map((row) => row.pathogen_name),
+      ['Verticillium sp.']
+    )
+  })
 })

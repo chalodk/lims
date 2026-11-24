@@ -5,6 +5,7 @@ import { ResultWithRelations } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
 import { getColumnLabel } from '@/lib/results/columnLabels'
 import {
+  NO_PATHOGEN_DEVELOPMENT_LABEL,
   parseIsolationTests,
   readPhytopathologyTableFormat,
   readSintomatologia,
@@ -625,7 +626,9 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
                     {test.tissue || 'No especificado'}
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-900 align-top">
-                    {test.microorganisms.filter((microorganism) => microorganism.name).length > 0 ? (
+                    {test.noPathogenDevelopment ? (
+                      NO_PATHOGEN_DEVELOPMENT_LABEL
+                    ) : test.microorganisms.filter((microorganism) => microorganism.name).length > 0 ? (
                       <div className="space-y-1 italic">
                         {test.microorganisms.filter((microorganism) => microorganism.name).map((microorganism, microorganismIndex) => (
                           <div key={microorganismIndex}>{microorganism.name}</div>
@@ -636,7 +639,7 @@ export default function ViewResultModal({ isOpen, onClose, resultId, onValidated
                     )}
                   </td>
                   <td className="px-4 py-4 text-sm align-top">
-                    {test.microorganisms.some((microorganism) => microorganism.is_sag_zero_tolerance) ? (
+                    {!test.noPathogenDevelopment && test.microorganisms.some((microorganism) => microorganism.is_sag_zero_tolerance) ? (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
                         Sí
                       </span>

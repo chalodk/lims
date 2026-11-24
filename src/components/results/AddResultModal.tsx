@@ -1335,6 +1335,29 @@ export default function AddResultModal({
     }))
   }
 
+  const setIsolationNoPathogenDevelopment = (testIndex: number, noPathogenDevelopment: boolean) => {
+    setIsolationData(prev => ({
+      ...prev,
+      tests: prev.tests.map((test, index) => {
+        if (index !== testIndex) return test
+        if (!noPathogenDevelopment) {
+          return {
+            ...test,
+            noPathogenDevelopment: false,
+            microorganisms: test.microorganisms.length > 0
+              ? test.microorganisms
+              : [emptyIsolationMicroorganism()],
+          }
+        }
+        return {
+          ...test,
+          noPathogenDevelopment: true,
+          microorganisms: [emptyIsolationMicroorganism()],
+        }
+      }),
+    }))
+  }
+
   const updatePhytopathologyTest = (
     index: number,
     field: 'identification' | 'microorganism' | 'is_sag_zero_tolerance' | string,
@@ -1693,13 +1716,24 @@ export default function AddResultModal({
                         </td>
                         <td className="px-4 py-4 align-top">
                           <div className="space-y-2">
+                            <label className="flex items-center gap-2 text-sm text-gray-700">
+                              <input
+                                type="checkbox"
+                                checked={test.noPathogenDevelopment === true}
+                                onChange={(e) => setIsolationNoPathogenDevelopment(index, e.target.checked)}
+                                disabled={isValidated}
+                                className="h-4 w-4 text-green-700 focus:ring-green-500 border-gray-300 rounded disabled:opacity-50"
+                                aria-label="Sin desarrollo de patógenos"
+                              />
+                              Sin desarrollo de patógenos
+                            </label>
                             {test.microorganisms.map((microorganism, microorganismIndex) => (
                               <div key={microorganismIndex} className="flex items-center gap-2">
                                 <select
                                   value={microorganism.name}
                                   onChange={(e) => updateIsolationMicroorganism(index, microorganismIndex, 'name', e.target.value)}
-                                  className="min-w-0 flex-1 text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                                  disabled={loadingMethodsAndAnalytes || isValidated}
+                                  className="min-w-0 flex-1 text-sm border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+                                  disabled={loadingMethodsAndAnalytes || isValidated || test.noPathogenDevelopment}
                                   aria-label={`Microorganismo ${microorganismIndex + 1}`}
                                 >
                                   <option value="">Seleccionar microorganismo</option>
@@ -1713,7 +1747,7 @@ export default function AddResultModal({
                                   type="checkbox"
                                   checked={microorganism.is_sag_zero_tolerance === true}
                                   onChange={(e) => updateIsolationMicroorganism(index, microorganismIndex, 'is_sag_zero_tolerance', e.target.checked)}
-                                  disabled={isValidated}
+                                  disabled={isValidated || test.noPathogenDevelopment}
                                   className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded disabled:opacity-50"
                                   title="Marcar si el patógeno tiene tolerancia cero SAG"
                                   aria-label="Tolerancia cero SAG"
@@ -1722,7 +1756,7 @@ export default function AddResultModal({
                                   <button
                                     type="button"
                                     onClick={() => removeIsolationMicroorganism(index, microorganismIndex)}
-                                    disabled={isValidated}
+                                    disabled={isValidated || test.noPathogenDevelopment}
                                     className="text-red-600 hover:text-red-900 text-sm disabled:opacity-50"
                                     aria-label="Quitar microorganismo"
                                   >
@@ -1734,7 +1768,7 @@ export default function AddResultModal({
                             <button
                               type="button"
                               onClick={() => addIsolationMicroorganism(index)}
-                              disabled={isValidated}
+                              disabled={isValidated || test.noPathogenDevelopment}
                               className="text-xs font-medium text-green-700 hover:text-green-900 disabled:opacity-50"
                             >
                               Agregar microorganismo

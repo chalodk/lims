@@ -5,6 +5,8 @@ export const PHYTOPATHOLOGY_ISOLATION_ANALYSIS_TYPE = 'phytopathology_isolation'
 export const MIXED_PHYTOPATHOLOGY_FORMAT_MESSAGE =
   'No se puede generar un informe que mezcle recuento por dilución y aislamiento por tejido. Generá un informe por cada formato.'
 
+export const NO_PATHOGEN_DEVELOPMENT_LABEL = 'Sin desarrollo de patógenos'
+
 export type PhytopathologyTableFormat =
   | typeof COLONY_COUNT_TABLE_FORMAT
   | typeof TISSUE_ISOLATION_TABLE_FORMAT
@@ -20,6 +22,7 @@ export interface IsolationTestRow {
   sampleNumber: string
   identification: string
   tissue: string
+  noPathogenDevelopment: boolean
   microorganisms: IsolationMicroorganism[]
 }
 
@@ -90,6 +93,7 @@ export function emptyIsolationTest(sampleNumber = ''): IsolationTestRow {
     sampleNumber,
     identification: '',
     tissue: '',
+    noPathogenDevelopment: false,
     microorganisms: [emptyIsolationMicroorganism()],
   }
 }
@@ -119,31 +123,41 @@ export function parseIsolationTests(findings: unknown): IsolationTestRow[] {
   return tests.map((test) => {
     if (!test || typeof test !== 'object') return emptyIsolationTest()
     const row = test as Record<string, unknown>
+    const noPathogenDevelopment = row.noPathogenDevelopment === true
     return {
       sampleNumber: typeof row.sampleNumber === 'string' ? row.sampleNumber : '',
       identification: typeof row.identification === 'string' ? row.identification : '',
       tissue: typeof row.tissue === 'string' ? row.tissue : '',
-      microorganisms: readIsolationMicroorganisms(row.microorganisms),
+      noPathogenDevelopment,
+      microorganisms: noPathogenDevelopment
+        ? [emptyIsolationMicroorganism()]
+        : readIsolationMicroorganisms(row.microorganisms),
     }
   })
 }
 
 function cleanIsolationTests(tests: IsolationTestRow[]): IsolationTestRow[] {
   return tests
-    .map((test) => ({
-      ...test,
-      sampleNumber: test.sampleNumber.trim(),
-      identification: test.identification.trim(),
-      tissue: test.tissue.trim(),
-      microorganisms: test.microorganisms
-        .map((microorganism) => ({
-          name: microorganism.name.trim(),
-          is_sag_zero_tolerance: microorganism.is_sag_zero_tolerance === true,
-        }))
-        .filter((microorganism) => microorganism.name !== ''),
-    }))
+    .map((test) => {
+      const noPathogenDevelopment = test.noPathogenDevelopment === true
+      return {
+        sampleNumber: test.sampleNumber.trim(),
+        identification: test.identification.trim(),
+        tissue: test.tissue.trim(),
+        noPathogenDevelopment,
+        microorganisms: noPathogenDevelopment
+          ? []
+          : test.microorganisms
+              .map((microorganism) => ({
+                name: microorganism.name.trim(),
+                is_sag_zero_tolerance: microorganism.is_sag_zero_tolerance === true,
+              }))
+              .filter((microorganism) => microorganism.name !== ''),
+      }
+    })
     .filter(
       (test) =>
+        test.noPathogenDevelopment ||
         test.sampleNumber !== '' ||
         test.identification !== '' ||
         test.tissue !== '' ||

@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import { NO_PATHOGEN_DEVELOPMENT_LABEL } from '../results/phytopathologyFindings'
 import {
   buildIsolationReportPayload,
   joinSintomatologia,
@@ -32,6 +33,38 @@ describe('mapIsolationResultados', () => {
     assert.equal(rows[0]?.numeroMuestra, '2686')
     assert.equal(rows[0]?.tejidoAnalizado, 'Corona\nInjerto')
     assert.deepEqual(rows[0]?.microorganismosAislados, ['Verticillium sp.', 'Fusarium sp.'])
+  })
+
+  it('replaces microorganisms on a tissue without pathogen development and keeps the next tissue', () => {
+    const rows = mapIsolationResultados([
+      {
+        findings: {
+          type: 'fitopatologia',
+          tableFormat: 'tissue_isolation',
+          tests: [
+            {
+              sampleNumber: '2686',
+              identification: 'Parra',
+              tissue: 'Corona',
+              noPathogenDevelopment: true,
+              microorganisms: [{ name: 'Fusarium sp.', is_sag_zero_tolerance: true }],
+            },
+            {
+              sampleNumber: '2686',
+              identification: 'Parra',
+              tissue: 'Injerto',
+              noPathogenDevelopment: false,
+              microorganisms: [{ name: 'Verticillium sp.', is_sag_zero_tolerance: false }],
+            },
+          ],
+        },
+      },
+    ])
+
+    assert.equal(rows.length, 2)
+    assert.deepEqual(rows[0]?.microorganismosAislados, [NO_PATHOGEN_DEVELOPMENT_LABEL])
+    assert.equal(rows[0]?.tejidoAnalizado, 'Corona')
+    assert.deepEqual(rows[1]?.microorganismosAislados, ['Verticillium sp.'])
   })
 
   it('falls back when a result has no isolation rows', () => {
