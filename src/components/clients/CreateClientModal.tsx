@@ -26,6 +26,7 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
   const [formData, setFormData] = useState({
     name: '',
     rut: '',
+    contact_name: '',
     contact_email: '',
     phone: '',
     address: '',
@@ -56,6 +57,7 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
         body: JSON.stringify({
           name: formData.name,
           rut: formData.rut,
+          contact_name: formData.contact_name || null,
           contact_email: formData.contact_email || null,
           phone: formData.phone || null,
           address: formData.address || null,
@@ -80,6 +82,7 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
       setFormData({
         name: '',
         rut: '',
+        contact_name: '',
         contact_email: '',
         phone: '',
         address: '',
@@ -130,17 +133,17 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
             <FormSection
               step={1}
               title="Identidad"
-              description="Nombre legal y RUT del cliente"
+              description="Razón social y RUT del cliente"
             >
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Nombre" required className="sm:col-span-2">
+                <Field label="Razón Social" required className="sm:col-span-2">
                   <Input
                     type="text"
                     required
                     value={formData.name}
                     onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
                     className={fieldClassName}
-                    placeholder="Nombre del cliente"
+                    placeholder="Razón social"
                   />
                 </Field>
 
@@ -168,6 +171,18 @@ export default function CreateClientModal({ isOpen, onClose, onSuccess }: Create
               description="Datos para comunicación y acceso al portal"
             >
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="Nombre de Contacto" className="sm:col-span-2">
+                  <Input
+                    type="text"
+                    value={formData.contact_name}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, contact_name: e.target.value }))
+                    }
+                    className={fieldClassName}
+                    placeholder="Persona de contacto"
+                  />
+                </Field>
+
                 <Field label="Email de contacto">
                   <Input
                     type="email"

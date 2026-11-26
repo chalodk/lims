@@ -21,6 +21,7 @@ import {
 } from '@/lib/reports/phytopathologyIsolation'
 import { analystNarrativeHtml, joinVisibleRichHtml } from '@/lib/reports/richTextForPdf'
 import { listResultImagePublicUrls } from '@/lib/reports/reportImageStorage'
+import { shouldRejectPhytosanitaryPdf } from '@/lib/soil/soilReportRecord'
 
 interface ReportData {
   id: string
@@ -1094,6 +1095,21 @@ export const POST = withAuth(async (request, { user, supabase }) => {
 
     const body = await request.json()
     const { result_id, result_ids, report_id } = body || {}
+
+    if (typeof report_id === 'string' && report_id.length > 0) {
+      const { data: analysisRow } = await supabase
+        .from('reports')
+        .select('analysis_type')
+        .eq('id', report_id)
+        .eq('company_id', userCompanyId)
+        .maybeSingle()
+      if (shouldRejectPhytosanitaryPdf(analysisRow?.analysis_type)) {
+        return NextResponse.json(
+          { error: 'Este informe de suelo no usa la plantilla de fitosanidad' },
+          { status: 400 }
+        )
+      }
+    }
 
     // Accept either result_id, result_ids (new), or report_id for backward compatibility
     const targetIds = result_ids || (result_id ? [result_id] : [])

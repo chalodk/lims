@@ -33,6 +33,7 @@ export default function EditClientModal({
   const [formData, setFormData] = useState({
     name: '',
     rut: '',
+    contact_name: '',
     contact_email: '',
     phone: '',
     address: '',
@@ -45,6 +46,7 @@ export default function EditClientModal({
       setFormData({
         name: client.name || '',
         rut: client.rut || '',
+        contact_name: client.contact_name || '',
         contact_email: client.contact_email || '',
         phone: client.phone || '',
         address: client.address || '',
@@ -75,6 +77,7 @@ export default function EditClientModal({
         body: JSON.stringify({
           name: formData.name.trim(),
           rut: formData.rut.trim() || null,
+          contact_name: formData.contact_name.trim() || null,
           contact_email: formData.contact_email.trim() || null,
           phone: formData.phone.trim() || null,
           address: formData.address.trim() || null,
@@ -138,17 +141,17 @@ export default function EditClientModal({
             <FormSection
               step={1}
               title="Identidad"
-              description="Nombre legal y RUT del cliente"
+              description="Razón social y RUT del cliente"
             >
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Nombre" required className="sm:col-span-2">
+                <Field label="Razón Social" required className="sm:col-span-2">
                   <Input
                     type="text"
                     required
                     value={formData.name}
                     onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
                     className={fieldClassName}
-                    placeholder="Nombre del cliente"
+                    placeholder="Razón social"
                   />
                 </Field>
 
@@ -170,6 +173,18 @@ export default function EditClientModal({
               description="Datos para comunicación y acceso al portal"
             >
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="Nombre de Contacto" className="sm:col-span-2">
+                  <Input
+                    type="text"
+                    value={formData.contact_name}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, contact_name: e.target.value }))
+                    }
+                    className={fieldClassName}
+                    placeholder="Persona de contacto"
+                  />
+                </Field>
+
                 <Field label="Email de contacto">
                   <Input
                     type="email"

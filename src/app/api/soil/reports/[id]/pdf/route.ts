@@ -1,133 +1,97 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth/api-auth'
-import { requireSoilLab } from '@/lib/services/soilService'
-import { buildSoilPdfMonkeyPayload, resolveSoilPdfTemplateId } from '@/lib/soil/reportPdf'
+import { renderSoilReportPdf } from '@/lib/soil/renderSoilPdf'
 import type { SoilReportPayload } from '@/lib/soil/reportPayload'
+import { SOIL_REPORT_ANALYSIS_TYPE, storedSoilPdfUrls } from '@/lib/soil/soilReportRecord'
+import { requireSoilLab } from '@/lib/services/soilService'
 
 export const maxDuration = 60
-
-const PDFMONKEY_DOCUMENTS_URL = 'https://api.pdfmonkey.io/api/v1/documents'
-const PDF_READY_ATTEMPTS = 20
-const PDF_POLL_INTERVAL_MS = 1500
 
 type StoredSoilReport = {
   id: string
   created_at: string
   payload: SoilReportPayload
+  source: 'reports' | 'soil_reports'
 }
 
-type PdfMonkeyDocument = {
-  id: string
-  status: string
-  downloadUrl: string | null
-  failureCause: string | null
-}
-
-/** Misma cuenta que los PDF de plagas. La variable permite reemplazarla sin tocar el código. */
-function pdfMonkeyApiKey(): string {
-  return process.env.PDFMONKEY_API_KEY || '7mCRJHas8oqUQxsQX-in'
-}
-
-function readPdfMonkeyDocument(body: unknown): PdfMonkeyDocument | null {
-  if (!body || typeof body !== 'object') return null
-  const record = body as Record<string, unknown>
-  const document = (
-    record.document && typeof record.document === 'object' ? record.document : record
-  ) as Record<string, unknown>
-  if (typeof document.id !== 'string') return null
-  return {
-    id: document.id,
-    status: typeof document.status === 'string' ? document.status : '',
-    downloadUrl: typeof document.download_url === 'string' ? document.download_url : null,
-    failureCause: typeof document.failure_cause === 'string' ? document.failure_cause : null,
-  }
-}
-
-async function pdfMonkeyRequest(path: string, init?: RequestInit): Promise<PdfMonkeyDocument> {
-  const response = await fetch(path, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${pdfMonkeyApiKey()}`,
-      ...init?.headers,
-    },
-  })
-  const body = await response.json().catch(() => null)
-  if (!response.ok) {
-    throw new Error('PDFMonkey rechazó el documento')
-  }
-  const document = readPdfMonkeyDocument(body)
-  if (!document) throw new Error('PDFMonkey no devolvió el documento')
-  return document
-}
-
-function wait(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds))
-}
-
-async function waitForSoilPdf(documentId: string): Promise<PdfMonkeyDocument> {
-  let latest: PdfMonkeyDocument | null = null
-  for (let attempt = 0; attempt < PDF_READY_ATTEMPTS; attempt += 1) {
-    latest = await pdfMonkeyRequest(`${PDFMONKEY_DOCUMENTS_URL}/${documentId}`)
-    if (latest.status === 'success' && latest.downloadUrl) return latest
-    if (latest.status === 'failure') {
-      throw new Error(latest.failureCause || 'PDFMonkey no pudo generar el PDF')
-    }
-    await wait(PDF_POLL_INTERVAL_MS)
-  }
-  throw new Error('El PDF todavía no está listo')
-}
-
-/** POST /api/soil/reports/:id/pdf — pide el PDF a la plantilla de suelo y devuelve el enlace. */
+/** POST /api/soil/reports/:id/pdf — plantilla de suelo. Si la fila está en reports, guarda las URL. */
 export const POST = withAuth(async (_request: NextRequest, { user, supabase, params }) => {
   try {
     const access = await requireSoilLab(supabase, user.id)
     if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status })
 
-    const templateId = resolveSoilPdfTemplateId(process.env.PDFMONKEY_TEMPLATE_SUELO)
-
     const { id: reportId } = await (params as Promise<{ id: string }>)
-    const { data, error } = await supabase
-      .from('soil_reports')
+    const { data: storedRow, error: storedError } = await supabase
+      .from('reports')
       .select('id, created_at, payload')
       .eq('id', reportId)
       .eq('company_id', access.companyId)
+      .eq('analysis_type', SOIL_REPORT_ANALYSIS_TYPE)
       .maybeSingle()
-    if (error) throw new Error(error.message)
-    if (!data) return NextResponse.json({ error: 'Informe no encontrado' }, { status: 404 })
+    if (storedError) throw new Error(storedError.message)
+
+    let report: StoredSoilReport | null = null
+    if (storedRow?.payload) {
+      report = {
+        id: storedRow.id,
+        created_at: storedRow.created_at,
+        payload: storedRow.payload as unknown as SoilReportPayload,
+        source: 'reports',
+      }
+    } else {
+      const { data: legacyRow, error: legacyError } = await supabase
+        .from('soil_reports')
+        .select('id, created_at, payload')
+        .eq('id', reportId)
+        .eq('company_id', access.companyId)
+        .maybeSingle()
+      if (legacyError) throw new Error(legacyError.message)
+      if (legacyRow?.payload) {
+        report = {
+          id: legacyRow.id,
+          created_at: legacyRow.created_at,
+          payload: legacyRow.payload as unknown as SoilReportPayload,
+          source: 'soil_reports',
+        }
+      }
+    }
+    if (!report) return NextResponse.json({ error: 'Informe no encontrado' }, { status: 404 })
 
     const { data: company, error: companyError } = await supabase
       .from('companies')
-      .select('name')
+      .select('name, logo_url')
       .eq('id', access.companyId)
       .maybeSingle()
     if (companyError) throw new Error(companyError.message)
 
-    const report = data as unknown as StoredSoilReport
-    const templatePayload = buildSoilPdfMonkeyPayload({
+    const generatedUrl = await renderSoilReportPdf({
+      reportId: report.id,
       payload: report.payload,
       laboratoryName: company?.name || 'Laboratorio',
+      logoUrl: company?.logo_url,
       createdAt: report.created_at,
     })
-    const filename = `Informe_${templatePayload.matriz || 'suelo'}.pdf`
+    const storedUrls = storedSoilPdfUrls(generatedUrl)
+    if (!storedUrls) {
+      return NextResponse.json({ error: 'El PDF no tiene un enlace seguro' }, { status: 502 })
+    }
 
-    const created = await pdfMonkeyRequest(PDFMONKEY_DOCUMENTS_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        document: {
-          document_template_id: templateId,
-          status: 'pending',
-          payload: templatePayload,
-          meta: {
-            report_id: report.id,
-            _filename: filename,
-          },
-        },
-      }),
+    if (report.source === 'reports') {
+      const { error: updateError } = await supabase
+        .from('reports')
+        .update({
+          rendered_pdf_url: storedUrls.renderedPdfUrl,
+          download_url: storedUrls.downloadUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', report.id)
+      if (updateError) throw new Error(updateError.message)
+    }
+
+    return NextResponse.json({
+      downloadUrl: storedUrls.downloadUrl,
+      renderedPdfUrl: storedUrls.renderedPdfUrl,
     })
-    const ready = created.status === 'success' && created.downloadUrl ? created : await waitForSoilPdf(created.id)
-
-    return NextResponse.json({ downloadUrl: ready.downloadUrl })
   } catch (error) {
     console.error('Error en POST /api/soil/reports/[id]/pdf:', error)
     return NextResponse.json(

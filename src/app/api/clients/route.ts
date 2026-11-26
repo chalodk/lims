@@ -57,7 +57,7 @@ export const POST = withAuth(async (request, { user, supabase }) => {
 
     // Obtener datos del body
     const body = await request.json()
-    const { name, rut, contact_email, phone, address, client_type, observation } = body
+    const { name, rut, contact_name, contact_email, phone, address, client_type, observation } = body
 
     // Validaciones
     if (!name || !name.trim()) {
@@ -74,6 +74,7 @@ export const POST = withAuth(async (request, { user, supabase }) => {
       .insert({
         name: name.trim(),
         rut: rut.trim(),
+        contact_name: typeof contact_name === 'string' ? contact_name.trim() || null : null,
         contact_email: contact_email?.trim() || null,
         phone: phone?.trim() || null,
         address: address?.trim() || null,

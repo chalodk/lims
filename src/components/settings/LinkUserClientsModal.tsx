@@ -322,7 +322,7 @@ export default function LinkUserClientsModal({
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Buscar cliente por nombre, RUT o email..."
+                placeholder="Buscar cliente por razón social, RUT o email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9"

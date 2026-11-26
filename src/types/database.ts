@@ -270,6 +270,7 @@ export interface Database {
           company_id: string | null
           name: string
           rut: string | null
+          contact_name: string | null
           contact_email: string | null
           phone: string | null
           address: string | null
@@ -282,6 +283,7 @@ export interface Database {
           company_id?: string | null
           name: string
           rut?: string | null
+          contact_name?: string | null
           contact_email?: string | null
           phone?: string | null
           address?: string | null

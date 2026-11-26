@@ -1,5 +1,5 @@
 import type { SupabaseServerClient } from '@/lib/auth/api-auth'
-import { resolveSoilLabAccess, type SoilAccessResult } from '@/lib/soil/soilAccess'
+import { resolveSoilLabAccess, resolveSoilReportAccess, type SoilAccessResult } from '@/lib/soil/soilAccess'
 import type {
   PlannedSoilResult,
   RegisteredSoilSample,
@@ -11,11 +11,8 @@ import type { SoilSampledBy } from '@/lib/soil/sampleIntake'
 
 type RoleJoin = { name: string } | { name: string }[] | null
 
-export async function requireSoilLab(
-  supabase: SupabaseServerClient,
-  userId: string
-): Promise<SoilAccessResult> {
-  return resolveSoilLabAccess({
+function soilAccessDependencies(supabase: SupabaseServerClient, userId: string) {
+  return {
     loadUserProfile: async () => {
       const { data, error } = await supabase
         .from('users')
@@ -34,7 +31,42 @@ export async function requireSoilLab(
       if (error) throw new Error(error.message)
       return data === true
     },
-  })
+  }
+}
+
+export async function requireSoilLab(
+  supabase: SupabaseServerClient,
+  userId: string
+): Promise<SoilAccessResult> {
+  return resolveSoilLabAccess(soilAccessDependencies(supabase, userId))
+}
+
+/** Laboratorio o cliente final, para leer informes de suelo. */
+export async function requireSoilReportAccess(
+  supabase: SupabaseServerClient,
+  userId: string
+): Promise<SoilAccessResult> {
+  return resolveSoilReportAccess(soilAccessDependencies(supabase, userId))
+}
+
+/** Clientes del portal: user_clients y, si queda, users.client_id. */
+export async function loadLinkedClientIds(
+  supabase: SupabaseServerClient,
+  userId: string
+): Promise<string[]> {
+  const [linksResult, profileResult] = await Promise.all([
+    supabase.from('user_clients').select('client_id').eq('user_id', userId),
+    supabase.from('users').select('client_id').eq('id', userId).maybeSingle(),
+  ])
+  if (linksResult.error) throw new Error(linksResult.error.message)
+  if (profileResult.error) throw new Error(profileResult.error.message)
+
+  const clientIds = new Set<string>()
+  for (const link of linksResult.data || []) {
+    if (link.client_id) clientIds.add(link.client_id)
+  }
+  if (profileResult.data?.client_id) clientIds.add(profileResult.data.client_id)
+  return [...clientIds]
 }
 
 type SoilAnalysisRow = {
@@ -278,12 +310,22 @@ type ReportResultRow = {
   unit: string | null
 }
 
+type ReportSourceClient = {
+  name: string
+  rut: string | null
+  contact_name: string | null
+  contact_email: string | null
+}
+
 type ReportSourceRow = {
   id: string
   code: string
   status: string
   received_at: string
-  clients: { name: string } | { name: string }[] | null
+  sampled_by: string | null
+  condition: string | null
+  client_id: string
+  clients: ReportSourceClient | ReportSourceClient[] | null
   soil_subsamples: { number: number; soil_results: ReportResultRow[] | null }[] | null
 }
 
@@ -310,12 +352,12 @@ function firstJoined<T>(value: T | T[] | null): T | null {
 export async function loadSoilReportSources(
   supabase: SupabaseServerClient,
   companyId: string
-): Promise<{ samples: (ReportPayloadSampleInput & { status: string })[]; analyses: ReportPayloadAnalysis[] }> {
+): Promise<{ samples: (ReportPayloadSampleInput & { status: string; clientId: string })[]; analyses: ReportPayloadAnalysis[] }> {
   const [samplesResponse, analysesResponse] = await Promise.all([
     supabase
       .from('soil_samples')
       .select(
-        'id, code, status, received_at, clients(name), soil_subsamples(number, soil_results(analysis_id, value_numeric, value_qualifier, value_text, unit))'
+        'id, code, status, received_at, sampled_by, condition, client_id, clients(name, rut, contact_name, contact_email), soil_subsamples(number, soil_results(analysis_id, value_numeric, value_qualifier, value_text, unit))'
       )
       .eq('company_id', companyId)
       .order('received_at', { ascending: false })
@@ -359,12 +401,19 @@ export async function loadSoilReportSources(
           ]
         }),
       }))
+    const client = firstJoined(row.clients)
     return {
       id: row.id,
       code: row.code,
       status: row.status,
-      clientName: firstJoined(row.clients)?.name ?? null,
+      clientId: row.client_id,
+      clientName: client?.name ?? null,
+      billingRut: client?.rut ?? null,
+      contactName: client?.contact_name ?? null,
+      contactEmail: client?.contact_email ?? null,
       receivedAt: row.received_at,
+      sampledBy: row.sampled_by,
+      condition: row.condition,
       subsamples,
     }
   })

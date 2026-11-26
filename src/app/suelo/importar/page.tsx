@@ -158,7 +158,7 @@ export default function SoilImportPage() {
       <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
         <Link href="/suelo" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" />
-          Muestras de suelo
+          Muestras
         </Link>
         <div className="flex items-start gap-3">
           <div className="rounded-lg bg-green-100 p-2">

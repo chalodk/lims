@@ -143,6 +143,7 @@ export default function ReportsPage() {
             )
           )
         `)
+        .or('analysis_type.is.null,analysis_type.neq.suelo')
         .order('created_at', { ascending: false })
 
       // Si el usuario es consumidor, filtrar por el cliente seleccionado

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { resolveSoilLabAccess } from './soilAccess'
+import { resolveSoilLabAccess, resolveSoilReportAccess } from './soilAccess'
 
 function dependencies(
   profile: { companyId: string | null; roleName: string | null } | null,
@@ -41,5 +41,12 @@ describe('resolveSoilLabAccess', () => {
   it('returns 500 when the profile cannot be loaded', async () => {
     const access = await resolveSoilLabAccess(dependencies(null))
     assert.equal(access.ok ? null : access.status, 500)
+  })
+})
+
+describe('resolveSoilReportAccess', () => {
+  it('allows a consumer of a soil company to read reports', async () => {
+    const access = await resolveSoilReportAccess(dependencies({ companyId: 'company-1', roleName: 'consumidor' }))
+    assert.deepEqual(access, { ok: true, companyId: 'company-1', roleName: 'consumidor' })
   })
 })

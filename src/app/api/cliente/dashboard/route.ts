@@ -103,6 +103,7 @@ export const GET = withAuth(async (request, { user, supabase }) => {
         .select('id')
         .eq('client_id', clientId)
         .eq('completed', true)
+        .or('analysis_type.is.null,analysis_type.neq.suelo')
         .gte('created_at', fromIso)
         .lte('created_at', toIso),
     ])

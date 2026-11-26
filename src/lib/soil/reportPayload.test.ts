@@ -64,6 +64,30 @@ describe('buildSoilReportPayload', () => {
     assert.equal(payload.samples[0].subsamples[1].results[0].analysisId, 'n')
   })
 
+  it('freezes the single client and the sample fields the report prints', () => {
+    const sample = sampleWithResults()
+    sample.billingRut = '76.123.456-7'
+    sample.contactName = 'Ana Soto'
+    sample.contactEmail = 'ana@fundo.cl'
+    sample.sampledBy = 'lab'
+    sample.condition = 'apta'
+    const payload = buildSoilReportPayload({
+      matrixId: SUELO,
+      matrixName: 'Suelo',
+      analyses: [nitrogen, aluminum],
+      samples: [sample],
+    })
+
+    assert.deepEqual(payload.client, {
+      name: 'Fundo Norte',
+      billingRut: '76.123.456-7',
+      contactName: 'Ana Soto',
+      contactEmail: 'ana@fundo.cl',
+    })
+    assert.equal(payload.samples[0].sampledBy, 'lab')
+    assert.equal(payload.samples[0].condition, 'apta')
+  })
+
   it('omits a sample that has no result for the selected matrix', () => {
     const payload = buildSoilReportPayload({
       matrixId: FOLIAR,

@@ -70,7 +70,7 @@ export default function SoilSamplesPage() {
               <TestTube className="h-6 w-6 text-green-700" />
             </div>
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-foreground">Muestras de suelo</h1>
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">Muestras</h1>
               <p className="text-sm text-muted-foreground">
                 Cliente, número y comentario. Los resultados llegan con la planilla.
               </p>

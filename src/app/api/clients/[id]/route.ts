@@ -28,7 +28,7 @@ export const PUT = withAuth(async (request, { user, supabase }) => {
     }
 
     const body = await request.json()
-    const { name, rut, contact_email, phone, address, client_type, observation } = body
+    const { name, rut, contact_name, contact_email, phone, address, client_type, observation } = body
 
     if (!name || !name.trim()) {
       return NextResponse.json({ error: 'El nombre del cliente es requerido' }, { status: 400 })
@@ -55,6 +55,7 @@ export const PUT = withAuth(async (request, { user, supabase }) => {
       .update({
         name: name.trim(),
         rut: rut?.trim() || null,
+        contact_name: typeof contact_name === 'string' ? contact_name.trim() || null : null,
         contact_email: newEmail,
         phone: phone?.trim() || null,
         address: address?.trim() || null,

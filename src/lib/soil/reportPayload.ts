@@ -24,7 +24,12 @@ export interface ReportPayloadSampleInput {
   id: string
   code: string
   clientName: string | null
+  billingRut?: string | null
+  contactName?: string | null
+  contactEmail?: string | null
   receivedAt: string
+  sampledBy?: string | null
+  condition?: string | null
   subsamples: { number: number; results: ReportPayloadResultInput[] }[]
 }
 
@@ -38,14 +43,25 @@ export interface SoilReportResult {
   displayValue: string
 }
 
+/** Datos del único cliente del informe, congelados al generarlo. */
+export interface SoilReportClient {
+  name: string | null
+  billingRut: string | null
+  contactName: string | null
+  contactEmail: string | null
+}
+
 export interface SoilReportPayload {
   matrixId: string
   matrixName: string
+  client?: SoilReportClient
   samples: {
     id: string
     code: string
     clientName: string | null
     receivedAt: string
+    sampledBy?: string | null
+    condition?: string | null
     subsamples: { number: number; results: SoilReportResult[] }[]
   }[]
 }
@@ -124,10 +140,24 @@ export function buildSoilReportPayload(input: {
         code: sample.code,
         clientName: sample.clientName,
         receivedAt: sample.receivedAt,
+        sampledBy: sample.sampledBy ?? null,
+        condition: sample.condition ?? null,
         subsamples,
       },
     ]
   })
 
-  return { matrixId: input.matrixId, matrixName: input.matrixName, samples }
+  const clientSample = samples.find((sample) => sample.clientName) ?? samples[0]
+  const clientSource = input.samples.find((sample) => sample.id === clientSample?.id)
+  return {
+    matrixId: input.matrixId,
+    matrixName: input.matrixName,
+    client: {
+      name: clientSource?.clientName ?? null,
+      billingRut: clientSource?.billingRut ?? null,
+      contactName: clientSource?.contactName ?? null,
+      contactEmail: clientSource?.contactEmail ?? null,
+    },
+    samples,
+  }
 }

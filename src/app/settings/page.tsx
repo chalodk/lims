@@ -45,6 +45,7 @@ interface UserProfile {
   role_id?: number | null
   client_id?: string | null
   client_name?: string | null
+  linked_clients?: { id: string; name: string; rut: string | null }[]
   created_at: string
   isUnauthorized?: boolean
 }
@@ -253,7 +254,7 @@ export default function SettingsPage() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleSearch()
                 }}
-                placeholder="Buscar por nombre, email o rol..."
+                placeholder="Buscar por nombre, email, rol, razón social o RUT..."
                 className="pl-9 pr-9"
               />
               {searchQuery ? (
@@ -353,7 +354,16 @@ export default function SettingsPage() {
                         >
                           {roleLabel(user.role)}
                         </Badge>
-                        {user.client_name ? (
+                        {user.linked_clients && user.linked_clients.length > 0 ? (
+                          <span className="mt-1 block space-y-0.5 text-xs text-muted-foreground">
+                            {user.linked_clients.map((linkedClient) => (
+                              <span key={linkedClient.id} className="block">
+                                {linkedClient.name}
+                                {linkedClient.rut ? ` · ${linkedClient.rut}` : ''}
+                              </span>
+                            ))}
+                          </span>
+                        ) : user.client_name ? (
                           <span className="mt-1 block text-xs text-muted-foreground">
                             {user.client_name}
                           </span>

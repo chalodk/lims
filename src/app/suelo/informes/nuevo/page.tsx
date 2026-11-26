@@ -43,6 +43,7 @@ export default function NewSoilReportPage() {
   const [selectedSampleIds, setSelectedSampleIds] = useState<Set<string>>(new Set())
   const [searchText, setSearchText] = useState('')
   const [payload, setPayload] = useState<SoilReportPayload | null>(null)
+  const [isDetailVisible, setIsDetailVisible] = useState(false)
   const [isLoadingMatrices, setIsLoadingMatrices] = useState(true)
   const [isLoadingSamples, setIsLoadingSamples] = useState(false)
   const [isBuildingPayload, setIsBuildingPayload] = useState(false)
@@ -76,6 +77,7 @@ export default function NewSoilReportPage() {
       setError(null)
       setSelectedSampleIds(new Set())
       setPayload(null)
+      setIsDetailVisible(false)
       try {
         const response = await fetch(`/api/soil/reports/candidates?matrix_id=${selectedMatrixId}`)
         const data = await response.json()
@@ -102,6 +104,7 @@ export default function NewSoilReportPage() {
 
   const toggleSample = (sampleId: string) => {
     setPayload(null)
+    setIsDetailVisible(false)
     setSelectedSampleIds((previous) => {
       const next = new Set(previous)
       if (next.has(sampleId)) next.delete(sampleId)
@@ -112,6 +115,7 @@ export default function NewSoilReportPage() {
 
   const toggleVisibleSamples = () => {
     setPayload(null)
+    setIsDetailVisible(false)
     setSelectedSampleIds((previous) => {
       const next = new Set(previous)
       const allVisibleSelected = visibleSamples.every((sample) => next.has(sample.id))
@@ -136,6 +140,7 @@ export default function NewSoilReportPage() {
         throw new Error(`Estas muestras no tienen resultados de esta matriz: ${data.omittedSampleCodes.join(', ')}`)
       }
       setPayload(data.payload)
+      setIsDetailVisible(false)
     } catch (buildError) {
       setError(buildError instanceof Error ? buildError.message : 'No se pudo armar el informe')
     } finally {
@@ -166,7 +171,7 @@ export default function NewSoilReportPage() {
       <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
         <Link href="/suelo/informes" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" />
-          Informes de suelo
+          Informes
         </Link>
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Crear informe</h1>
@@ -279,14 +284,22 @@ export default function NewSoilReportPage() {
         ) : null}
 
         {payload ? (
-          <>
-            <SoilReportPayloadView payload={payload} />
-            <div className="flex justify-end">
+          <div className="space-y-4">
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                aria-expanded={isDetailVisible}
+                onClick={() => setIsDetailVisible((isVisible) => !isVisible)}
+              >
+                Revisar detalle
+              </Button>
               <Button type="button" onClick={() => void createReport()} disabled={isSaving}>
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Crear informe'}
               </Button>
             </div>
-          </>
+            {isDetailVisible ? <SoilReportPayloadView payload={payload} /> : null}
+          </div>
         ) : null}
       </div>
     </DashboardLayout>

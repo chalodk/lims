@@ -105,9 +105,31 @@ export async function GET(request: NextRequest) {
       // Construir la consulta OR
       const conditions: string[] = []
       
-      // Siempre buscar en nombre y email
+      // Siempre buscar en nombre y email del usuario
       conditions.push(`name.ilike.%${searchQuery}%`)
       conditions.push(`email.ilike.%${searchQuery}%`)
+
+      // También por razón social o RUT de los clientes ya vinculados
+      if (companyId) {
+        const { data: matchingClients } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('company_id', companyId)
+          .or(`name.ilike.%${searchQuery}%,rut.ilike.%${searchQuery}%`)
+
+        const matchingClientIds = (matchingClients || []).map((client) => client.id)
+        if (matchingClientIds.length > 0) {
+          const { data: matchingLinks } = await supabase
+            .from('user_clients')
+            .select('user_id')
+            .in('client_id', matchingClientIds)
+
+          const matchingUserIds = [...new Set((matchingLinks || []).map((link) => link.user_id))]
+          if (matchingUserIds.length > 0) {
+            conditions.push(`id.in.(${matchingUserIds.join(',')})`)
+          }
+        }
+      }
       
       // Si hay roles que coinciden, agregar búsqueda por role_id
       if (matchingRoleIds.length > 0) {
@@ -139,7 +161,7 @@ export async function GET(request: NextRequest) {
 
     // Obtener vínculos user_clients para todos los usuarios en lote
     const publicUserIds = (usersData || []).map((u: { id: string }) => u.id)
-    const userClientsMap: Record<string, { client_id: string; client_name: string }[]> = {}
+    const userClientsMap: Record<string, { client_id: string; client_name: string; client_rut: string | null }[]> = {}
     if (publicUserIds.length > 0) {
       const { data: allLinks } = await supabase
         .from('user_clients')
@@ -147,17 +169,16 @@ export async function GET(request: NextRequest) {
         .in('user_id', publicUserIds)
 
       if (allLinks && allLinks.length > 0) {
-        // Resolver nombres de clientes en consulta separada
         const allClientIds = [...new Set(allLinks.map(l => l.client_id))]
         const { data: clientsData } = await supabase
           .from('clients')
-          .select('id, name')
+          .select('id, name, rut')
           .in('id', allClientIds)
 
-        const clientNames: Record<string, string> = {}
+        const clientIdentity: Record<string, { name: string; rut: string | null }> = {}
         if (clientsData) {
-          for (const c of clientsData) {
-            clientNames[c.id] = c.name
+          for (const client of clientsData) {
+            clientIdentity[client.id] = { name: client.name, rut: client.rut }
           }
         }
 
@@ -165,9 +186,11 @@ export async function GET(request: NextRequest) {
           if (!userClientsMap[link.user_id]) {
             userClientsMap[link.user_id] = []
           }
+          const identity = clientIdentity[link.client_id]
           userClientsMap[link.user_id].push({
             client_id: link.client_id,
-            client_name: clientNames[link.client_id] || ''
+            client_name: identity?.name || '',
+            client_rut: identity?.rut ?? null,
           })
         }
       }
@@ -198,14 +221,17 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Resolver clientes desde user_clients
       const linkedClients = userClientsMap[user.id] || []
       const firstClient = linkedClients[0]
       const clientName = linkedClients.length === 0
         ? null
-        : linkedClients.length === 1
-          ? firstClient.client_name
-          : `${firstClient.client_name} +${linkedClients.length - 1}`
+        : linkedClients
+            .map((linkedClient) =>
+              linkedClient.client_rut
+                ? `${linkedClient.client_name} · ${linkedClient.client_rut}`
+                : linkedClient.client_name
+            )
+            .join(', ')
 
       return {
         id: user.id,
@@ -215,6 +241,11 @@ export async function GET(request: NextRequest) {
         role_id: roleId,
         client_id: firstClient?.client_id || null,
         client_name: clientName,
+        linked_clients: linkedClients.map((linkedClient) => ({
+          id: linkedClient.client_id,
+          name: linkedClient.client_name,
+          rut: linkedClient.client_rut,
+        })),
         created_at: user.created_at || new Date().toISOString(),
         isUnauthorized: false
       }

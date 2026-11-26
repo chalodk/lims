@@ -79,10 +79,10 @@ export default function NewSoilSamplePage() {
       <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
         <Link href="/suelo" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" />
-          Muestras de suelo
+          Muestras
         </Link>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Nueva muestra de suelo</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Nueva muestra</h1>
           <p className="text-sm text-muted-foreground">
             La matriz y los resultados se asignan al cargar la planilla.
           </p>

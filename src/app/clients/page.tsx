@@ -125,6 +125,7 @@ export default function ClientsPage() {
       return (
         client.name.toLowerCase().includes(normalizedSearch) ||
         client.rut?.toLowerCase().includes(normalizedSearch) ||
+        client.contact_name?.toLowerCase().includes(normalizedSearch) ||
         client.contact_email?.toLowerCase().includes(normalizedSearch) ||
         client.phone?.toLowerCase().includes(normalizedSearch)
       )
@@ -342,7 +343,7 @@ export default function ClientsPage() {
                           onClick={() => toggleSort('name')}
                           className="inline-flex items-center gap-1.5 font-medium hover:text-foreground"
                         >
-                          Nombre
+                          Razón Social
                           <ArrowUpDown className="h-3.5 w-3.5" />
                         </button>
                       </TableHead>
@@ -406,8 +407,11 @@ export default function ClientsPage() {
                         <TableCell className="hidden lg:table-cell">
                           <div className="min-w-0 space-y-0.5">
                             <p className="truncate text-sm text-foreground">
-                              {client.contact_email || '—'}
+                              {client.contact_name || client.contact_email || '—'}
                             </p>
+                            {client.contact_name && client.contact_email ? (
+                              <p className="truncate text-xs text-muted-foreground">{client.contact_email}</p>
+                            ) : null}
                             <p className="truncate text-xs text-muted-foreground">
                               {client.phone || 'Sin teléfono'}
                             </p>
